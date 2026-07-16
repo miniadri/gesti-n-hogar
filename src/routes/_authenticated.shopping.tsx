@@ -46,6 +46,7 @@ import {
   listStores,
   ensureDefaultLists,
   listShoppingItems,
+  listRecentItems,
   createStore,
   createShoppingItem,
   toggleShoppingItem,
