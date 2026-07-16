@@ -52,6 +52,8 @@ import {
   toggleShoppingItem,
   deleteShoppingItem,
 } from "@/lib/shopping.functions";
+import { createInventoryItem } from "@/lib/inventory.functions";
+import { INVENTORY_LOCATIONS, suggestLocation } from "@/lib/inventory-locations";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
