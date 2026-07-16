@@ -21,6 +21,26 @@ const CreateChildInput = z.object({
   display_name: z.string().trim().min(1).max(60),
 });
 
+const UpdateHouseholdInput = z.object({
+  name: z.string().trim().min(1).max(80),
+});
+
+export const updateHousehold = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => UpdateHouseholdInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const { data: hh, error } = await context.supabase
+      .from("households")
+      .update({ name: data.name })
+      .eq("id", householdId)
+      .select()
+      .single();
+    if (error) throw error;
+    return hh;
+  });
+
 export const createChildMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => CreateChildInput.parse(input))

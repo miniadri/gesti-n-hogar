@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Users, Copy, Plus, UserPlus } from "lucide-react";
+import { Users, Copy, Plus, UserPlus, Pencil, Check, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { getHousehold, createInvite, joinHousehold, createChildMember } from "@/lib/household.functions";
+import { getHousehold, createInvite, joinHousehold, createChildMember, updateHousehold } from "@/lib/household.functions";
 import { toast } from "sonner";
 
 const householdQueryOptions = queryOptions({
@@ -42,12 +42,39 @@ function FamilySettingsPage() {
   const [role, setRole] = useState("member");
   const [childName, setChildName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [householdName, setHouseholdName] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const doCreateInvite = useServerFn(createInvite);
   const doJoin = useServerFn(joinHousehold);
   const doCreateChild = useServerFn(createChildMember);
+  const doUpdateHousehold = useServerFn(updateHousehold);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["household"] });
+
+  const startEditName = () => {
+    setHouseholdName(data.name);
+    setEditingName(true);
+  };
+  const saveName = async () => {
+    const name = householdName.trim();
+    if (!name || name === data.name) {
+      setEditingName(false);
+      return;
+    }
+    setSavingName(true);
+    try {
+      await doUpdateHousehold({ data: { name } });
+      toast.success("Nombre del hogar actualizado");
+      refresh();
+      setEditingName(false);
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo actualizar");
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,10 +130,38 @@ function FamilySettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{data.name}</CardTitle>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={householdName}
+                onChange={(e) => setHouseholdName(e.target.value)}
+                autoFocus
+                maxLength={80}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); saveName(); }
+                  if (e.key === "Escape") setEditingName(false);
+                }}
+              />
+              <Button size="icon" variant="ghost" onClick={saveName} disabled={savingName} aria-label="Guardar">
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => setEditingName(false)} disabled={savingName} aria-label="Cancelar">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle>{data.name}</CardTitle>
+              <Button size="icon" variant="ghost" onClick={startEditName} aria-label="Renombrar hogar">
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
-          {data.household_members.map((member: any) => (
+          {[...data.household_members]
+            .sort((a: any, b: any) => Number(a.is_child) - Number(b.is_child))
+            .map((member: any) => (
             <div key={member.id} className="flex items-center justify-between rounded-lg border p-3">
               <div className="flex items-center gap-3">
                 <div className="grid h-10 w-10 place-items-center rounded-full bg-secondary">
@@ -120,12 +175,15 @@ function FamilySettingsPage() {
                 </div>
               </div>
               <Badge variant="secondary">
-                {data.user_roles.find((r: any) => r.user_id === member.user_id)?.role || "member"}
+                {member.is_child
+                  ? "infantil"
+                  : data.user_roles.find((r: any) => r.user_id === member.user_id)?.role || "member"}
               </Badge>
             </div>
           ))}
         </CardContent>
       </Card>
+
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
