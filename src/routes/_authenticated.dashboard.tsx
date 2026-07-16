@@ -52,6 +52,11 @@ const dashboardQueryOptions = queryOptions({
   },
 });
 
+const prepAheadQO = queryOptions({
+  queryKey: ["prep-ahead-tomorrow"],
+  queryFn: () => getPrepAheadForTomorrow(),
+});
+
 export const Route = createFileRoute("/_authenticated/dashboard")({
   loader: ({ context }) => context.queryClient.ensureQueryData(dashboardQueryOptions),
   head: () => ({
