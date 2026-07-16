@@ -58,7 +58,11 @@ const prepAheadQO = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(dashboardQueryOptions),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(dashboardQueryOptions),
+      context.queryClient.ensureQueryData(prepAheadQO),
+    ]),
   head: () => ({
     meta: [{ title: "Dashboard - HomeSync" }],
   }),
@@ -67,6 +71,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const { data } = useSuspenseQuery(dashboardQueryOptions);
+  const { data: prepAhead } = useSuspenseQuery(prepAheadQO);
 
   const totalExpenses = data.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const urgentTasks = data.tasks.filter((t) => t.priority === "high");
@@ -77,6 +82,31 @@ function DashboardPage() {
         <h2 className="text-2xl font-bold tracking-tight">Buenos días</h2>
         <p className="text-muted-foreground">Resumen de tu hogar hoy</p>
       </section>
+
+      {prepAhead.length > 0 && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Adelanta para mañana
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/recipes/planner">Ver planner</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {prepAhead.map((s: any) => (
+              <div key={s.id} className="rounded-lg border border-border bg-card p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {s.recipes?.title}
+                </p>
+                <p className="mt-1 text-sm">{s.text}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
