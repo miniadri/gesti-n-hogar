@@ -154,6 +154,7 @@ function DesktopSidebar() {
         </nav>
         <div className="border-t border-border pt-4">
           <NavItem item={{ to: "/settings/family", label: "Familia", icon: Users }} />
+          <NavItem item={{ to: "/settings/appliances", label: "Electrodomésticos", icon: ChefHat }} />
           <NavItem item={{ to: "/settings/localization", label: "Ajustes", icon: Settings }} />
           <SignOutButton />
         </div>
