@@ -18,6 +18,8 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const PENDING_INVITE_KEY = "homesync_pending_invite_code";
+
 function AuthPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
