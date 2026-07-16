@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
-import { Plus, Wallet, TrendingUp, Users, AlertTriangle, Eye, EyeOff, Trash2, Settings2 } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
+import { Plus, Wallet, TrendingUp, Users, AlertTriangle, Eye, EyeOff, Trash2, Settings2, Repeat, Camera, Upload, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,10 @@ import {
   upsertMyContribution,
   updateCriticalThreshold,
 } from "@/lib/finances.functions";
+import { scanTicket } from "@/lib/ocr.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
 
 const financesQueryOptions = queryOptions({
   queryKey: ["finances"],
@@ -209,7 +212,15 @@ function FinancesPage() {
           {data.expenses.slice(0, 10).map((expense) => (
             <div key={expense.id} className="flex items-center justify-between rounded-lg border p-3">
               <div>
-                <p className="font-medium">{expense.description || "Gasto"}</p>
+                <p className="font-medium flex items-center gap-2">
+                  {expense.description || "Gasto"}
+                  {expense.is_subscription && (
+                    <Badge variant="outline" className="gap-1">
+                      <Repeat className="h-3 w-3" />
+                      {expense.recurrence || "recurrente"}
+                    </Badge>
+                  )}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(expense.date).toLocaleDateString("es-ES")} ·{" "}
                   {data.categories.find((c) => c.id === expense.category_id)?.name || "Sin categoría"}
@@ -218,6 +229,7 @@ function FinancesPage() {
               <span className="font-bold text-destructive">-€{Number(expense.amount).toFixed(2)}</span>
             </div>
           ))}
+
         </CardContent>
       </Card>
 
@@ -249,11 +261,51 @@ function SummaryCard({ title, value, icon: Icon }: { title: string; value: strin
 function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
   const doCreate = useServerFn(createExpense);
   const doCreateCategory = useServerFn(createCategory);
+  const doScan = useServerFn(scanTicket);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [newCategory, setNewCategory] = useState("");
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrence, setRecurrence] = useState("monthly");
   const [submitting, setSubmitting] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+
+  const handleScan = async (file: File) => {
+    setScanning(true);
+    try {
+      const householdId = (await supabase.rpc("current_household")).data;
+      if (!householdId) throw new Error("No household");
+      const path = `${householdId}/${Date.now()}_${file.name}`;
+      const { data: upload, error: uploadError } = await supabase.storage
+        .from("receipts")
+        .upload(path, file);
+      if (uploadError) throw uploadError;
+      const { data: signed, error: signedError } = await supabase.storage
+        .from("receipts")
+        .createSignedUrl(upload.path, 3600);
+      if (signedError) throw signedError;
+
+      const userId = (await supabase.auth.getUser()).data.user!.id;
+      const { data: receipt, error: receiptError } = await supabase
+        .from("receipts")
+        .insert({ household_id: householdId, image_url: signed.signedUrl, created_by: userId })
+        .select()
+        .single();
+      if (receiptError) throw receiptError;
+
+      const scanResult = await doScan({ data: { imageUrl: signed.signedUrl, receiptId: receipt.id } });
+      if (scanResult.receipt.total) setAmount(String(scanResult.receipt.total));
+      if (scanResult.receipt.store) setDescription(scanResult.receipt.store);
+      toast.success("Ticket escaneado, revisa los datos");
+    } catch (err: any) {
+      toast.error(err.message || "Error al escanear ticket");
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,12 +322,16 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
           amount: Number(amount),
           description: description || undefined,
           category_id: finalCategoryId || undefined,
+          is_subscription: isRecurring,
+          recurrence: isRecurring ? recurrence : undefined,
         },
       });
       toast.success("Gasto añadido");
       setAmount("");
       setDescription("");
       setNewCategory("");
+      setIsRecurring(false);
+      setRecurrence("monthly");
       onAdded();
       onOpenChange(false);
     } catch (err: any) {
@@ -287,10 +343,41 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo gasto</DialogTitle>
         </DialogHeader>
+
+        <div className="space-y-2">
+          <Label>Añadir desde ticket</Label>
+          <div className="flex gap-2">
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              ref={cameraRef}
+              onChange={(e) => e.target.files?.[0] && handleScan(e.target.files[0])}
+            />
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              ref={uploadRef}
+              onChange={(e) => e.target.files?.[0] && handleScan(e.target.files[0])}
+            />
+            <Button type="button" variant="outline" onClick={() => cameraRef.current?.click()} disabled={scanning} className="flex-1">
+              {scanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+              Cámara
+            </Button>
+            <Button type="button" variant="outline" onClick={() => uploadRef.current?.click()} disabled={scanning} className="flex-1">
+              {scanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Subir ticket
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Se rellenarán automáticamente el importe y la descripción.</p>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -321,6 +408,36 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
             <Label>Descripción</Label>
             <Input value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
+
+          <div className="rounded-lg border p-3 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Repeat className="h-4 w-4" />
+              <span className="text-sm font-medium">Gasto periódico (internet, luz, streaming...)</span>
+            </label>
+            {isRecurring && (
+              <div className="space-y-2">
+                <Label>Frecuencia</Label>
+                <select
+                  value={recurrence}
+                  onChange={(e) => setRecurrence(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2"
+                >
+                  <option value="weekly">Semanal</option>
+                  <option value="monthly">Mensual</option>
+                  <option value="bimonthly">Bimensual</option>
+                  <option value="quarterly">Trimestral</option>
+                  <option value="yearly">Anual</option>
+                </select>
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button type="submit" disabled={submitting || !amount} className="w-full">
               {submitting ? "Añadiendo..." : "Añadir gasto"}
@@ -331,6 +448,7 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
     </Dialog>
   );
 }
+
 
 function AddBudgetDialog({ open, onOpenChange, data, onAdded }: any) {
   const doCreateBudget = useServerFn(createBudget);
