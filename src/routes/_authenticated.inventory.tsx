@@ -66,11 +66,47 @@ function InventoryPage() {
   const [expiry, setExpiry] = useState("");
   const [location, setLocation] = useState<InventoryLocation>("Armario");
   const [submitting, setSubmitting] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [moving, setMoving] = useState(false);
 
   const doCreate = useServerFn(createInventoryItem);
   const doDelete = useServerFn(deleteInventoryItem);
+  const doUpdate = useServerFn(updateInventoryItem);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["inventory"] });
+
+  const toggleSelected = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+  };
+
+  const moveSelectedTo = async (target: InventoryLocation) => {
+    if (selected.size === 0) return;
+    setMoving(true);
+    try {
+      const ids = Array.from(selected);
+      await Promise.all(
+        ids.map((id) => doUpdate({ data: { id, location: target } })),
+      );
+      toast.success(`${ids.length} producto(s) movidos a ${target}`);
+      exitSelectMode();
+      refresh();
+    } catch {
+      toast.error("No se pudieron mover algunos productos");
+    } finally {
+      setMoving(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
