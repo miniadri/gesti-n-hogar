@@ -212,7 +212,15 @@ function FinancesPage() {
           {data.expenses.slice(0, 10).map((expense) => (
             <div key={expense.id} className="flex items-center justify-between rounded-lg border p-3">
               <div>
-                <p className="font-medium">{expense.description || "Gasto"}</p>
+                <p className="font-medium flex items-center gap-2">
+                  {expense.description || "Gasto"}
+                  {expense.is_subscription && (
+                    <Badge variant="outline" className="gap-1">
+                      <Repeat className="h-3 w-3" />
+                      {expense.recurrence || "recurrente"}
+                    </Badge>
+                  )}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(expense.date).toLocaleDateString("es-ES")} ·{" "}
                   {data.categories.find((c) => c.id === expense.category_id)?.name || "Sin categoría"}
@@ -221,6 +229,7 @@ function FinancesPage() {
               <span className="font-bold text-destructive">-€{Number(expense.amount).toFixed(2)}</span>
             </div>
           ))}
+
         </CardContent>
       </Card>
 
