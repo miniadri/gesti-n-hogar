@@ -290,16 +290,51 @@ function ShoppingItemCard({
 }) {
   const doToggle = useServerFn(toggleShoppingItem);
   const doDelete = useServerFn(deleteShoppingItem);
+  const doCreateInv = useServerFn(createInventoryItem);
   const [checked, setChecked] = useState(item.checked);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [location, setLocation] = useState<string>(suggestLocation(item.category));
+  const [savingInv, setSavingInv] = useState(false);
+
+  const confirmCheck = async (opts: { addToInventory: boolean }) => {
+    setSavingInv(true);
+    try {
+      if (opts.addToInventory) {
+        await doCreateInv({
+          data: {
+            name: item.name,
+            category: item.category || undefined,
+            quantity: Number(item.quantity) || 1,
+            unit: item.unit || undefined,
+            location,
+          },
+        });
+      }
+      await doToggle({ data: { id: item.id, checked: true } });
+      setChecked(true);
+      setLocationOpen(false);
+      onChange();
+      if (opts.addToInventory) toast.success("Añadido al inventario");
+    } catch {
+      toast.error("No se pudo completar la acción");
+    } finally {
+      setSavingInv(false);
+    }
+  };
 
   const handleToggle = async () => {
-    const next = !checked;
-    setChecked(next);
+    if (!checked) {
+      setLocation(suggestLocation(item.category));
+      setLocationOpen(true);
+      return;
+    }
+    // uncheck: just toggle back
+    setChecked(false);
     try {
-      await doToggle({ data: { id: item.id, checked: next } });
+      await doToggle({ data: { id: item.id, checked: false } });
       onChange();
     } catch {
-      setChecked(!next);
+      setChecked(true);
       toast.error("No se pudo actualizar el producto");
     }
   };
@@ -318,44 +353,88 @@ function ShoppingItemCard({
   const price = item.manual_price ?? item.ocr_price;
 
   return (
-    <Card
-      className={cn(
-        "relative overflow-hidden transition-all",
-        checked && "opacity-60 grayscale",
-      )}
-    >
-      <CardContent className="p-3">
-        <div className="flex items-start justify-between gap-2">
-          <button
-            onClick={handleToggle}
-            className={cn(
-              "grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-colors",
-              checked
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-muted-foreground/30",
-            )}
-          >
-            {checked && <Check className="h-3.5 w-3.5" />}
-          </button>
-          <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="mt-3 flex flex-col items-center text-center">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-secondary-foreground">
-            <Icon className="h-6 w-6" />
+    <>
+      <Card
+        className={cn(
+          "relative overflow-hidden transition-all",
+          checked && "opacity-60 grayscale",
+        )}
+      >
+        <CardContent className="p-3">
+          <div className="flex items-start justify-between gap-2">
+            <button
+              onClick={handleToggle}
+              className={cn(
+                "grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-colors",
+                checked
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-muted-foreground/30",
+              )}
+            >
+              {checked && <Check className="h-3.5 w-3.5" />}
+            </button>
+            <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
-          <p className="mt-2 line-clamp-2 text-sm font-semibold leading-tight">{item.name}</p>
-          <p className="text-xs text-muted-foreground">
-            {item.quantity} {item.unit || "ud."}
-          </p>
-          {price !== null && price !== undefined && (
-            <p className="mt-1 text-sm font-bold text-primary">€{Number(price).toFixed(2)}</p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+
+          <div className="mt-3 flex flex-col items-center text-center">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-secondary-foreground">
+              <Icon className="h-6 w-6" />
+            </div>
+            <p className="mt-2 line-clamp-2 text-sm font-semibold leading-tight">{item.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {item.quantity} {item.unit || "ud."}
+            </p>
+            {price !== null && price !== undefined && (
+              <p className="mt-1 text-sm font-bold text-primary">€{Number(price).toFixed(2)}</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={locationOpen} onOpenChange={setLocationOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Guardar en el inventario</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              ¿Dónde vas a guardar <span className="font-medium text-foreground">{item.name}</span>?
+            </p>
+            <Select value={location} onValueChange={setLocation}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INVENTORY_LOCATIONS.map((loc) => (
+                  <SelectItem key={loc} value={loc}>
+                    {loc}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              onClick={() => confirmCheck({ addToInventory: true })}
+              disabled={savingInv}
+              className="w-full"
+            >
+              Añadir al inventario
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => confirmCheck({ addToInventory: false })}
+              disabled={savingInv}
+              className="w-full"
+            >
+              Sólo tachar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
