@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Plus, Check, Trash2, Calendar, Shuffle, Repeat, ListChecks, Image as ImageIcon, X } from "lucide-react";
+import { Plus, Check, Trash2, Calendar, Repeat, ListChecks, Image as ImageIcon, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
