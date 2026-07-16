@@ -53,11 +53,24 @@ function FamilySettingsPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const invite = await doCreateInvite({ data: { role: role as any } });
-      toast.success(`Código creado: ${invite.code}`);
-      navigator.clipboard.writeText(invite.code);
-      refresh();
-      setInviteOpen(false);
+      if (role === "child") {
+        if (!childName.trim()) {
+          toast.error("Introduce un nombre para el perfil infantil");
+          setSubmitting(false);
+          return;
+        }
+        await doCreateChild({ data: { display_name: childName.trim() } });
+        toast.success(`Perfil infantil "${childName.trim()}" añadido`);
+        setChildName("");
+        refresh();
+        setInviteOpen(false);
+      } else {
+        const invite = await doCreateInvite({ data: { role: role as any } });
+        toast.success(`Código creado: ${invite.code}`);
+        navigator.clipboard.writeText(invite.code);
+        refresh();
+        setInviteOpen(false);
+      }
     } catch (err: any) {
       toast.error(err.message || "Error al crear invitación");
     } finally {
