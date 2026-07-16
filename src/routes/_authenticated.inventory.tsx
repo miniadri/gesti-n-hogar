@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive } from "lucide-react";
+import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listInventory, createInventoryItem, deleteInventoryItem } from "@/lib/inventory.functions";
+import { listInventory, createInventoryItem, deleteInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
 import { INVENTORY_LOCATIONS, suggestLocation, type InventoryLocation } from "@/lib/inventory-locations";
 import { toast } from "sonner";
 
@@ -66,11 +66,47 @@ function InventoryPage() {
   const [expiry, setExpiry] = useState("");
   const [location, setLocation] = useState<InventoryLocation>("Armario");
   const [submitting, setSubmitting] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [moving, setMoving] = useState(false);
 
   const doCreate = useServerFn(createInventoryItem);
   const doDelete = useServerFn(deleteInventoryItem);
+  const doUpdate = useServerFn(updateInventoryItem);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["inventory"] });
+
+  const toggleSelected = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+  };
+
+  const moveSelectedTo = async (target: InventoryLocation) => {
+    if (selected.size === 0) return;
+    setMoving(true);
+    try {
+      const ids = Array.from(selected);
+      await Promise.all(
+        ids.map((id) => doUpdate({ data: { id, location: target } })),
+      );
+      toast.success(`${ids.length} producto(s) movidos a ${target}`);
+      exitSelectMode();
+      refresh();
+    } catch {
+      toast.error("No se pudieron mover algunos productos");
+    } finally {
+      setMoving(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,16 +156,72 @@ function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Inventario</h2>
           <p className="text-muted-foreground">Tu nevera virtual y despensa</p>
         </div>
-        <Button onClick={openDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Añadir producto
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant={selectMode ? "secondary" : "outline"} onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}>
+            {selectMode ? (
+              <>
+                <X className="mr-2 h-4 w-4" />
+                Cancelar
+              </>
+            ) : (
+              <>
+                <CheckSquare className="mr-2 h-4 w-4" />
+                Seleccionar
+              </>
+            )}
+          </Button>
+          <Button onClick={openDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Añadir producto
+          </Button>
+        </div>
       </div>
+
+      {selectMode && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="flex items-center gap-2 text-sm">
+              <ArrowLeftRight className="h-4 w-4 text-primary" />
+              <span className="font-medium">{selected.size} seleccionado(s)</span>
+              <span className="text-muted-foreground">— mover a:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selected.size === 0 || moving}
+                onClick={() => moveSelectedTo("Frigorífico")}
+              >
+                <Refrigerator className="mr-2 h-4 w-4" />
+                Frigorífico
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selected.size === 0 || moving}
+                onClick={() => moveSelectedTo("Congelador")}
+              >
+                <Snowflake className="mr-2 h-4 w-4" />
+                Congelador
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selected.size === 0 || moving}
+                onClick={() => moveSelectedTo("Armario")}
+              >
+                <Archive className="mr-2 h-4 w-4" />
+                Armario
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {lowStock.length > 0 && (
         <Card className="border-destructive/30 bg-destructive/5">
@@ -162,42 +254,64 @@ function InventoryPage() {
                 </p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {items.map((item) => (
-                    <Card key={item.id}>
-                      <CardContent className="flex items-start justify-between p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary">
-                            <Package className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.category} · {item.quantity} {item.unit || "ud."}
-                            </p>
-                            {item.expiry_date && (
-                              <p className="text-xs text-muted-foreground">
-                                Caduca: {new Date(item.expiry_date).toLocaleDateString("es-ES")}
-                              </p>
+                  {items.map((item) => {
+                    const isSelected = selected.has(item.id);
+                    return (
+                      <Card
+                        key={item.id}
+                        onClick={selectMode ? () => toggleSelected(item.id) : undefined}
+                        className={
+                          selectMode
+                            ? `cursor-pointer transition-colors ${isSelected ? "border-primary ring-2 ring-primary/40 bg-primary/5" : "hover:bg-muted/40"}`
+                            : undefined
+                        }
+                      >
+                        <CardContent className="flex items-start justify-between p-4">
+                          <div className="flex items-start gap-3">
+                            {selectMode && (
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelected(item.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-1 h-4 w-4 accent-primary"
+                              />
                             )}
+                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary">
+                              <Package className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{item.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {item.category} · {item.quantity} {item.unit || "ud."}
+                              </p>
+                              {item.expiry_date && (
+                                <p className="text-xs text-muted-foreground">
+                                  Caduca: {new Date(item.expiry_date).toLocaleDateString("es-ES")}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          {Number(item.quantity) <= Number(item.min_stock) && (
-                            <Badge variant="destructive">Bajo</Badge>
+                          {!selectMode && (
+                            <div className="flex flex-col items-end gap-2">
+                              {Number(item.quantity) <= Number(item.min_stock) && (
+                                <Badge variant="destructive">Bajo</Badge>
+                              )}
+                              <button
+                                onClick={async () => {
+                                  await doDelete({ data: { id: item.id } });
+                                  refresh();
+                                }}
+                                className="text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           )}
-                          <button
-                            onClick={async () => {
-                              await doDelete({ data: { id: item.id } });
-                              refresh();
-                            }}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </section>
