@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Plus, Wallet, TrendingUp, Users } from "lucide-react";
+import { Plus, Wallet, TrendingUp, Users, AlertTriangle, Eye, EyeOff, Trash2, Settings2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,15 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listFinances, createExpense, createCategory, createBudget, createSalary } from "@/lib/finances.functions";
+import {
+  listFinances,
+  createExpense,
+  createCategory,
+  deleteCategory,
+  createBudget,
+  upsertMyContribution,
+  updateCriticalThreshold,
+} from "@/lib/finances.functions";
 import { toast } from "sonner";
 
 const financesQueryOptions = queryOptions({
@@ -39,11 +47,22 @@ function FinancesPage() {
   const { data } = useSuspenseQuery(financesQueryOptions);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [contribOpen, setContribOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [thresholdOpen, setThresholdOpen] = useState(false);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["finances"] });
 
   const totalExpenses = data.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const totalBudget = data.budgets.reduce((sum, b) => sum + Number(b.amount), 0);
+  const totalContributions = data.contributions.reduce(
+    (sum, c) => sum + Number(c.contribution_amount || 0),
+    0,
+  );
+  const availableAfterExpenses = totalContributions - totalExpenses;
+  const spentPercent = totalContributions > 0 ? (totalExpenses / totalContributions) * 100 : 0;
+  const threshold = data.household.critical_threshold_percent;
+  const isCritical = spentPercent >= threshold;
 
   const expensesByCategory = useMemo(() => {
     const map = new Map<string, number>();
@@ -58,21 +77,23 @@ function FinancesPage() {
     }));
   }, [data.expenses, data.categories]);
 
-  const salaryTotal = data.salaries.reduce((sum, s) => sum + Number(s.amount), 0);
-  const memberContributions = data.members.map((member) => {
-    const salary = data.salaries.find((s) => s.member_id === member.id)?.amount || 0;
-    const share = salaryTotal > 0 ? (Number(salary) / salaryTotal) * totalExpenses : 0;
-    return { member, salary, share };
-  });
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Finanzas</h2>
-          <p className="text-muted-foreground">Gastos, presupuestos y aportaciones</p>
+          <p className="text-muted-foreground">Aportes del hogar, gastos y presupuesto</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
+            <Settings2 className="mr-2 h-4 w-4" /> Categorías
+          </Button>
+          <Button variant="outline" onClick={() => setThresholdOpen(true)}>
+            Umbral {threshold}%
+          </Button>
+          <Button variant="outline" onClick={() => setContribOpen(true)}>
+            Mi aporte
+          </Button>
           <Button variant="outline" onClick={() => setBudgetOpen(true)}>
             Presupuesto
           </Button>
@@ -83,14 +104,82 @@ function FinancesPage() {
         </div>
       </div>
 
+      {isCritical && totalContributions > 0 && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardContent className="flex items-center gap-3 p-4">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <div className="flex-1">
+              <p className="font-semibold text-destructive">Gasto crítico alcanzado</p>
+              <p className="text-sm text-muted-foreground">
+                Se ha gastado el {spentPercent.toFixed(1)}% de los aportes (umbral {threshold}%). Revisad
+                cómo actuar antes de superarlo.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard title="Aportes totales" value={`€${totalContributions.toFixed(2)}`} icon={Users} />
         <SummaryCard title="Gastos mes" value={`€${totalExpenses.toFixed(2)}`} icon={Wallet} />
-        <SummaryCard title="Presupuesto" value={`€${totalBudget.toFixed(2)}`} icon={TrendingUp} />
-        <SummaryCard title="Restante" value={`€${Math.max(0, totalBudget - totalExpenses).toFixed(2)}`} icon={Wallet} />
-        <SummaryCard title="Miembros" value={data.members.length} icon={Users} />
+        <SummaryCard
+          title="Disponible"
+          value={`€${availableAfterExpenses.toFixed(2)}`}
+          icon={TrendingUp}
+        />
+        <SummaryCard title="Presupuesto" value={`€${totalBudget.toFixed(2)}`} icon={Wallet} />
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Consumo de aportes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Gastado</span>
+            <span className="font-medium">
+              €{totalExpenses.toFixed(2)} / €{totalContributions.toFixed(2)} ({spentPercent.toFixed(1)}%)
+            </span>
+          </div>
+          <Progress value={Math.min(100, spentPercent)} />
+          <p className="text-xs text-muted-foreground">
+            Alerta configurada al {threshold}% del total de aportes.
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Aportes por miembro</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {data.contributions.length === 0 && (
+              <p className="text-sm text-muted-foreground">No hay adultos con aporte definido.</p>
+            )}
+            {data.contributions.map((c) => {
+              const isMe = c.member_id === data.myMemberId;
+              return (
+                <div key={c.member_id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="font-medium flex items-center gap-2">
+                      {c.display_name}
+                      {isMe && <Badge variant="outline">Tú</Badge>}
+                    </p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      {c.contribution_type === "percentage"
+                        ? `${Number(c.contribution_value)}% de sus ingresos`
+                        : "Cantidad fija"}
+                      {isMe ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                    </p>
+                  </div>
+                  <Badge variant="secondary">€{Number(c.contribution_amount).toFixed(2)}</Badge>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Gastos por categoría</CardTitle>
@@ -106,26 +195,6 @@ function FinancesPage() {
                   <span className="font-medium">€{cat.amount.toFixed(2)}</span>
                 </div>
                 <Progress value={totalExpenses > 0 ? (cat.amount / totalExpenses) * 100 : 0} />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Aportaciones proporcionales</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {memberContributions.length === 0 && (
-              <p className="text-sm text-muted-foreground">No hay miembros con salario registrado.</p>
-            )}
-            {memberContributions.map(({ member, salary, share }) => (
-              <div key={member.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <p className="font-medium">{member.display_name}</p>
-                  <p className="text-xs text-muted-foreground">Salario: €{Number(salary).toFixed(2)}</p>
-                </div>
-                <Badge variant="secondary">€{share.toFixed(2)}</Badge>
               </div>
             ))}
           </CardContent>
@@ -154,6 +223,9 @@ function FinancesPage() {
 
       <AddExpenseDialog open={expenseOpen} onOpenChange={setExpenseOpen} data={data} onAdded={refresh} />
       <AddBudgetDialog open={budgetOpen} onOpenChange={setBudgetOpen} data={data} onAdded={refresh} />
+      <MyContributionDialog open={contribOpen} onOpenChange={setContribOpen} data={data} onSaved={refresh} />
+      <CategoriesDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} data={data} onChanged={refresh} />
+      <ThresholdDialog open={thresholdOpen} onOpenChange={setThresholdOpen} data={data} onSaved={refresh} />
     </div>
   );
 }
@@ -176,9 +248,11 @@ function SummaryCard({ title, value, icon: Icon }: { title: string; value: strin
 
 function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
   const doCreate = useServerFn(createExpense);
+  const doCreateCategory = useServerFn(createCategory);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [newCategory, setNewCategory] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -186,16 +260,22 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
     if (!amount) return;
     setSubmitting(true);
     try {
+      let finalCategoryId = categoryId;
+      if (!finalCategoryId && newCategory.trim()) {
+        const cat = await doCreateCategory({ data: { name: newCategory.trim() } });
+        finalCategoryId = cat.id;
+      }
       await doCreate({
         data: {
           amount: Number(amount),
           description: description || undefined,
-          category_id: categoryId || undefined,
+          category_id: finalCategoryId || undefined,
         },
       });
       toast.success("Gasto añadido");
       setAmount("");
       setDescription("");
+      setNewCategory("");
       onAdded();
       onOpenChange(false);
     } catch (err: any) {
@@ -232,6 +312,10 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
                 ))}
               </select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>O nueva categoría</Label>
+            <Input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="Ej. Supermercado" />
           </div>
           <div className="space-y-2">
             <Label>Descripción</Label>
@@ -317,6 +401,233 @@ function AddBudgetDialog({ open, onOpenChange, data, onAdded }: any) {
           <DialogFooter>
             <Button type="submit" disabled={submitting || !amount} className="w-full">
               {submitting ? "Añadiendo..." : "Añadir presupuesto"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MyContributionDialog({ open, onOpenChange, data, onSaved }: any) {
+  const doSave = useServerFn(upsertMyContribution);
+  const [income, setIncome] = useState<string>(
+    data.mySalary?.amount != null ? String(data.mySalary.amount) : "",
+  );
+  const [type, setType] = useState<"percentage" | "fixed">(
+    (data.mySalary?.contribution_type as any) || "percentage",
+  );
+  const [value, setValue] = useState<string>(
+    data.mySalary?.contribution_value != null ? String(data.mySalary.contribution_value) : "",
+  );
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await doSave({
+        data: {
+          amount: income === "" ? null : Number(income),
+          contribution_type: type,
+          contribution_value: value === "" ? 0 : Number(value),
+          currency: "EUR",
+        },
+      });
+      toast.success("Aporte actualizado");
+      onSaved();
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message || "Error al guardar");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!data.myMemberId) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mi aporte</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">No estás vinculado como miembro de este hogar.</p>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Mi aporte al hogar</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Mis ingresos mensuales (opcional, privado)</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={income}
+              onChange={(e) => setIncome(e.target.value)}
+              placeholder="Sólo tú puedes ver este valor"
+            />
+            <p className="text-xs text-muted-foreground">
+              El resto del hogar sólo verá tu cantidad de aporte, nunca tus ingresos.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Tipo de aporte</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={type === "percentage" ? "default" : "outline"}
+                onClick={() => setType("percentage")}
+                className="flex-1"
+              >
+                % de ingresos
+              </Button>
+              <Button
+                type="button"
+                variant={type === "fixed" ? "default" : "outline"}
+                onClick={() => setType("fixed")}
+                className="flex-1"
+              >
+                Cantidad fija
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>{type === "percentage" ? "Porcentaje (%)" : "Cantidad fija (€)"}</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={submitting} className="w-full">
+              {submitting ? "Guardando..." : "Guardar aporte"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CategoriesDialog({ open, onOpenChange, data, onChanged }: any) {
+  const doCreate = useServerFn(createCategory);
+  const doDelete = useServerFn(deleteCategory);
+  const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSubmitting(true);
+    try {
+      await doCreate({ data: { name: name.trim() } });
+      setName("");
+      onChanged();
+    } catch (err: any) {
+      toast.error(err.message || "Error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await doDelete({ data: { id } });
+      onChanged();
+    } catch (err: any) {
+      toast.error(err.message || "Error");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Categorías de gasto</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleAdd} className="flex gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nueva categoría" />
+          <Button type="submit" disabled={submitting || !name.trim()}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </form>
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {data.categories.length === 0 && (
+            <p className="text-sm text-muted-foreground">Aún no hay categorías.</p>
+          )}
+          {data.categories.map((c: any) => (
+            <div key={c.id} className="flex items-center justify-between rounded-lg border p-2">
+              <span className="text-sm">{c.name}</span>
+              <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ThresholdDialog({ open, onOpenChange, data, onSaved }: any) {
+  const doSave = useServerFn(updateCriticalThreshold);
+  const [value, setValue] = useState<string>(String(data.household.critical_threshold_percent));
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const n = Number(value);
+    if (!n || n < 1 || n > 100) {
+      toast.error("Introduce un valor entre 1 y 100");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await doSave({ data: { critical_threshold_percent: n } });
+      toast.success("Umbral actualizado");
+      onSaved();
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message || "Error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Umbral de gasto crítico</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Porcentaje (%)</Label>
+            <Input
+              type="number"
+              min="1"
+              max="100"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Se mostrará una alerta cuando el gasto alcance este porcentaje del total de aportes.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={submitting} className="w-full">
+              {submitting ? "Guardando..." : "Guardar"}
             </Button>
           </DialogFooter>
         </form>
