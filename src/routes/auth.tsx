@@ -183,6 +183,24 @@ function AuthPage() {
                     </button>
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-code">
+                    Código de hogar <span className="text-muted-foreground">(opcional)</span>
+                  </Label>
+                  <Input
+                    id="invite-code"
+                    type="text"
+                    placeholder="Ej: ABCDEFGH"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                    maxLength={32}
+                    autoCapitalize="characters"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Si un familiar te ha compartido un código, introdúcelo para unirte a su hogar.
+                    Si no, se creará uno nuevo para ti y podrás añadirlo más tarde en Ajustes → Familia.
+                  </p>
+                </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Creando cuenta..." : "Crear cuenta"}
                 </Button>
