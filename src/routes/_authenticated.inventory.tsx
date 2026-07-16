@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive } from "lucide-react";
+import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
