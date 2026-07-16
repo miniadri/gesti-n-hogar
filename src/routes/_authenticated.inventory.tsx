@@ -62,6 +62,7 @@ function InventoryPage() {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Otros");
   const [quantity, setQuantity] = useState("1");
+  const [unit, setUnit] = useState("");
   const [minStock, setMinStock] = useState("0");
   const [expiry, setExpiry] = useState("");
   const [location, setLocation] = useState<InventoryLocation>("Armario");
@@ -69,6 +70,11 @@ function InventoryPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [moving, setMoving] = useState(false);
+
+  const parseDecimal = (v: string) => {
+    const n = Number(v.replace(",", "."));
+    return Number.isFinite(n) ? n : NaN;
+  };
 
   const doCreate = useServerFn(createInventoryItem);
   const doDelete = useServerFn(deleteInventoryItem);
