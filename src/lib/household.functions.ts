@@ -17,6 +17,31 @@ const UpdateProfileInput = z.object({
   preferred_currency: z.enum(["EUR", "USD", "GBP"]).optional(),
 });
 
+const CreateChildInput = z.object({
+  display_name: z.string().trim().min(1).max(60),
+});
+
+export const createChildMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => CreateChildInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data: member, error } = await context.supabase
+      .from("household_members")
+      .insert({
+        household_id: householdId,
+        display_name: data.display_name,
+        is_child: true,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return member;
+  });
+
+
 export const getHousehold = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
