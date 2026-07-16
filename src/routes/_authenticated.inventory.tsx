@@ -123,8 +123,9 @@ function InventoryPage() {
         data: {
           name: name.trim(),
           category,
-          quantity: Number(quantity) || 1,
-          min_stock: Number(minStock) || 0,
+          quantity: (() => { const n = parseDecimal(quantity); return Number.isFinite(n) && n >= 0 ? n : 1; })(),
+          unit: unit.trim() || undefined,
+          min_stock: (() => { const n = parseDecimal(minStock); return Number.isFinite(n) && n >= 0 ? n : 0; })(),
           location,
           expiry_date: expiry || undefined,
         },
@@ -132,6 +133,7 @@ function InventoryPage() {
       toast.success("Producto añadido al inventario");
       setName("");
       setQuantity("1");
+      setUnit("");
       setMinStock("0");
       setExpiry("");
       setLocation("Armario");
