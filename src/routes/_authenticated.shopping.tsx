@@ -122,8 +122,8 @@ function ShoppingPage() {
       store,
       items: data.items.filter((item) => item.shopping_list?.store_id === store.id),
     }))
-    // "Sin tienda" always visible on top; other stores only if they have items.
-    .filter(({ store, items }) => isNoStore(store) || items.length > 0)
+    // Only show stores that actually have pending items; keep "Sin tienda" pinned on top.
+    .filter(({ items }) => items.length > 0)
     .sort((a, b) => {
       if (isNoStore(a.store)) return -1;
       if (isNoStore(b.store)) return 1;
@@ -137,50 +137,46 @@ function ShoppingPage() {
           <h2 className="text-2xl font-bold tracking-tight">Lista de compra</h2>
           <p className="text-muted-foreground">Organizada por tienda, estilo Bring!</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Añadir
+          </Button>
           <Button variant="outline" asChild>
             <Link to="/shopping/scan-ticket">
               <ScanLine className="mr-2 h-4 w-4" />
               Escanear ticket
             </Link>
           </Button>
-          <Button onClick={() => setAddOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Añadir
+          <Button variant="outline" onClick={() => setStoreOpen(true)}>
+            <Store className="mr-2 h-4 w-4" />
+            Gestionar tiendas
           </Button>
         </div>
       </div>
 
-      {grouped.map(({ store, items }) => (
-        <section key={store.id} className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Store className="h-4 w-4 text-muted-foreground" />
-            <h3 className="font-semibold">{store.name}</h3>
-            <Badge variant="secondary" className="ml-auto">
-              {items.length} pendientes
-            </Badge>
-          </div>
-
-          {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No hay productos en esta lista. Añade uno para empezar.
-            </p>
-          ) : (
+      {grouped.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          Tu lista de compra está vacía. Pulsa <strong>Añadir</strong> para empezar.
+        </div>
+      ) : (
+        grouped.map(({ store, items }) => (
+          <section key={store.id} className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Store className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-semibold">{store.name}</h3>
+              <Badge variant="secondary" className="ml-auto">
+                {items.length} pendientes
+              </Badge>
+            </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {items.map((item) => (
                 <ShoppingItemCard key={item.id} item={item} onChange={refresh} />
               ))}
             </div>
-          )}
-        </section>
-      ))}
-
-      <div className="flex justify-center pt-4">
-        <Button variant="outline" onClick={() => setStoreOpen(true)}>
-          <Store className="mr-2 h-4 w-4" />
-          Gestionar tiendas
-        </Button>
-      </div>
+          </section>
+        ))
+      )}
 
       <AddItemDialog open={addOpen} onOpenChange={setAddOpen} stores={data.stores} onAdded={refresh} />
       <ManageStoresDialog open={storeOpen} onOpenChange={setStoreOpen} stores={data.stores} onChange={refresh} />
