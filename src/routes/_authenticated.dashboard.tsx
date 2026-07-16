@@ -16,6 +16,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
+const MONTHLY_BUDGET = 1000;
+
 const dashboardQueryOptions = queryOptions({
   queryKey: ["dashboard"],
   queryFn: async () => {
@@ -61,6 +63,7 @@ function DashboardPage() {
   const { data } = useSuspenseQuery(dashboardQueryOptions);
 
   const totalExpenses = data.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const urgentTasks = data.tasks.filter((t) => t.priority === "high");
 
   return (
     <div className="space-y-6">
@@ -69,46 +72,53 @@ function DashboardPage() {
         <p className="text-muted-foreground">Resumen de tu hogar hoy</p>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard
-          title="Tareas pendientes"
-          value={data.tasks.length}
-          icon={ListTodo}
-          href="/tasks"
-          color="text-chart-1"
-        />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           title="Por comprar"
           value={data.shopping.length}
           icon={ShoppingCart}
           href="/shopping"
-          color="text-chart-2"
+          color="text-chart-1"
         />
         <SummaryCard
           title="Próximos eventos"
           value={data.events.length}
           icon={Calendar}
           href="/calendar"
-          color="text-chart-3"
+          color="text-chart-2"
         />
-        <SummaryCard
-          title="Gastos mes"
-          value={`€${totalExpenses.toFixed(2)}`}
-          icon={Wallet}
-          href="/finances"
-          color="text-chart-4"
-        />
+        <Link to="/finances">
+          <Card className="transition-colors hover:bg-accent/50">
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-secondary">
+                <Wallet className="h-5 w-5 text-chart-3" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-muted-foreground">Gastos y presupuesto</p>
+                <p className="text-2xl font-bold">€{totalExpenses.toFixed(2)}</p>
+                <Progress value={Math.min((totalExpenses / MONTHLY_BUDGET) * 100, 100)} className="mt-2 h-1.5" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Tareas urgentes</CardTitle>
+            <CardTitle className="text-lg font-semibold">Tareas</CardTitle>
             <Button variant="ghost" size="sm" asChild>
               <Link to="/tasks">Ver todas</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div className="flex items-center gap-2">
+              <ListTodo className="h-4 w-4 text-chart-4" />
+              <span className="text-sm text-muted-foreground">
+                {data.tasks.length} pendientes
+                {urgentTasks.length > 0 && ` · ${urgentTasks.length} urgentes`}
+              </span>
+            </div>
             {data.tasks.length === 0 && (
               <p className="text-sm text-muted-foreground">No hay tareas pendientes.</p>
             )}
@@ -130,38 +140,6 @@ function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Lista de compra</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/shopping">Ver todo</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {data.shopping.length === 0 && (
-              <p className="text-sm text-muted-foreground">La lista de compra está vacía.</p>
-            )}
-            {data.shopping.slice(0, 4).map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between rounded-lg border border-border p-3"
-              >
-                <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.quantity} {item.unit || "ud."}
-                  </p>
-                </div>
-                <span className="text-sm font-medium text-primary">
-                  {item.manual_price || item.ocr_price ? `€${(item.manual_price || item.ocr_price)}` : ""}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Inventario bajo</CardTitle>
           </CardHeader>
@@ -182,16 +160,6 @@ function DashboardPage() {
             <Button className="mt-4 w-full" variant="outline" asChild>
               <Link to="/recipes">Ver recetas</Link>
             </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Presupuesto</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Control de gastos del mes.</p>
-            <Progress value={Math.min((totalExpenses / 1000) * 100, 100)} className="mt-4" />
           </CardContent>
         </Card>
       </div>
