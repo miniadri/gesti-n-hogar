@@ -122,6 +122,23 @@ export const listShoppingItems = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+export const listRecentItems = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data, error } = await context.supabase
+      .from("shopping_list_items")
+      .select("id, name, category, unit, quantity, updated_at, shopping_list:shopping_list_id(id, store_id, household_id, store:store_id(name))")
+      .eq("shopping_list.household_id", householdId)
+      .eq("checked", true)
+      .order("updated_at", { ascending: false })
+      .limit(60);
+    if (error) throw error;
+    return data ?? [];
+  });
+
 export const createShoppingItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => ShoppingItemInput.parse(input))

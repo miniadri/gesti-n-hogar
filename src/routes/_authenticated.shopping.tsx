@@ -46,6 +46,7 @@ import {
   listStores,
   ensureDefaultLists,
   listShoppingItems,
+  listRecentItems,
   createStore,
   createShoppingItem,
   toggleShoppingItem,
@@ -94,8 +95,12 @@ const shoppingQueryOptions = queryOptions({
   queryKey: ["shopping"],
   queryFn: async () => {
     await ensureDefaultLists();
-    const [stores, items] = await Promise.all([listStores(), listShoppingItems()]);
-    return { stores, items };
+    const [stores, items, recent] = await Promise.all([
+      listStores(),
+      listShoppingItems(),
+      listRecentItems(),
+    ]);
+    return { stores, items, recent };
   },
 });
 
@@ -178,9 +183,99 @@ function ShoppingPage() {
         ))
       )}
 
+      <RecentItemsSection
+        recent={data.recent}
+        activeNames={new Set(data.items.map((i: any) => i.name.toLowerCase()))}
+        onAdded={refresh}
+      />
+
       <AddItemDialog open={addOpen} onOpenChange={setAddOpen} stores={data.stores} onAdded={refresh} />
       <ManageStoresDialog open={storeOpen} onOpenChange={setStoreOpen} stores={data.stores} onChange={refresh} />
     </div>
+  );
+}
+
+function RecentItemsSection({
+  recent,
+  activeNames,
+  onAdded,
+}: {
+  recent: any[];
+  activeNames: Set<string>;
+  onAdded: () => void;
+}) {
+  const doCreate = useServerFn(createShoppingItem);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  // Dedupe: keep the most recent per name (case-insensitive), skip items already on the active list.
+  const seen = new Set<string>();
+  const unique: any[] = [];
+  for (const it of recent) {
+    const key = it.name.trim().toLowerCase();
+    if (seen.has(key) || activeNames.has(key)) continue;
+    seen.add(key);
+    unique.push(it);
+    if (unique.length >= 24) break;
+  }
+
+  if (unique.length === 0) return null;
+
+  const handleReadd = async (it: any) => {
+    const listId = it.shopping_list?.id;
+    if (!listId) return;
+    setBusy(it.id);
+    try {
+      await doCreate({
+        data: {
+          shopping_list_id: listId,
+          name: it.name,
+          category: it.category ?? undefined,
+          quantity: 1,
+          unit: it.unit ?? undefined,
+        },
+      });
+      onAdded();
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo añadir el producto");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="space-y-3 border-t pt-6">
+      <div className="flex items-center gap-2">
+        <Package className="h-4 w-4 text-muted-foreground" />
+        <h3 className="font-semibold">Comprado recientemente</h3>
+        <span className="ml-auto text-xs text-muted-foreground">
+          Toca para añadirlo de nuevo
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+        {unique.map((it) => {
+          const Icon = categoryIcons[it.category || "default"] || Package;
+          return (
+            <button
+              key={it.id}
+              onClick={() => handleReadd(it)}
+              disabled={busy === it.id}
+              className={cn(
+                "group flex flex-col items-center gap-1 rounded-xl border bg-card p-2 text-center transition-all",
+                "hover:border-primary hover:bg-accent disabled:opacity-50",
+              )}
+              title={it.shopping_list?.store?.name ?? ""}
+            >
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-secondary text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground">
+                <Icon className="h-5 w-5" />
+              </div>
+              <span className="line-clamp-2 text-[11px] font-medium leading-tight">
+                {it.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
