@@ -160,7 +160,7 @@ function RecipesPage() {
             <div className="space-y-2">
               <Label>Filtros dietéticos</Label>
               <div className="flex flex-wrap gap-2">
-                {dietaryOptions.map((tag: string) => (
+                {dietaryOptions.map((tag: any) => (
                   <button
                     key={tag}
                     type="button"
