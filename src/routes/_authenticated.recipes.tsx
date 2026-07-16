@@ -127,7 +127,7 @@ function RecipesPage() {
               </div>
               {recipe.dietary_tags && recipe.dietary_tags.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1">
-                  {recipe.dietary_tags.map((tag) => (
+                  {recipe.dietary_tags.map((tag: any) => (
                     <Badge key={tag} variant="outline" className="text-xs">
                       {tag}
                     </Badge>
