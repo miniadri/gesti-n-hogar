@@ -136,6 +136,7 @@ function RecipesPage() {
                 </div>
               )}
             </CardContent>
+            </Link>
           </Card>
         ))}
       </div>
