@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      appliances: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          is_default: boolean
+          name: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          is_default?: boolean
+          name: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appliances_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budgets: {
         Row: {
           amount: number
@@ -468,28 +506,49 @@ export type Database = {
         Row: {
           breakfast_recipe_id: string | null
           day_of_week: number
+          dinner_locked: boolean
+          dinner_manual: string | null
           dinner_recipe_id: string | null
+          dinner_skipped: boolean
           id: string
+          lunch_locked: boolean
+          lunch_manual: string | null
           lunch_recipe_id: string | null
+          lunch_skipped: boolean
           meal_plan_id: string
+          servings: number
           snack_recipe_id: string | null
         }
         Insert: {
           breakfast_recipe_id?: string | null
           day_of_week: number
+          dinner_locked?: boolean
+          dinner_manual?: string | null
           dinner_recipe_id?: string | null
+          dinner_skipped?: boolean
           id?: string
+          lunch_locked?: boolean
+          lunch_manual?: string | null
           lunch_recipe_id?: string | null
+          lunch_skipped?: boolean
           meal_plan_id: string
+          servings?: number
           snack_recipe_id?: string | null
         }
         Update: {
           breakfast_recipe_id?: string | null
           day_of_week?: number
+          dinner_locked?: boolean
+          dinner_manual?: string | null
           dinner_recipe_id?: string | null
+          dinner_skipped?: boolean
           id?: string
+          lunch_locked?: boolean
+          lunch_manual?: string | null
           lunch_recipe_id?: string | null
+          lunch_skipped?: boolean
           meal_plan_id?: string
+          servings?: number
           snack_recipe_id?: string | null
         }
         Relationships: [
@@ -793,17 +852,97 @@ export type Database = {
           },
         ]
       }
+      recipe_step_appliance_times: {
+        Row: {
+          appliance_type: string
+          created_at: string
+          id: string
+          minutes: number
+          step_id: string
+        }
+        Insert: {
+          appliance_type: string
+          created_at?: string
+          id?: string
+          minutes: number
+          step_id: string
+        }
+        Update: {
+          appliance_type?: string
+          created_at?: string
+          id?: string
+          minutes?: number
+          step_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_step_appliance_times_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_steps: {
+        Row: {
+          base_minutes: number | null
+          created_at: string
+          id: string
+          is_prep_ahead: boolean
+          recipe_id: string
+          step_order: number
+          technique: string | null
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          base_minutes?: number | null
+          created_at?: string
+          id?: string
+          is_prep_ahead?: boolean
+          recipe_id: string
+          step_order: number
+          technique?: string | null
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          base_minutes?: number | null
+          created_at?: string
+          id?: string
+          is_prep_ahead?: boolean
+          recipe_id?: string
+          step_order?: number
+          technique?: string | null
+          text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_steps_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipes: {
         Row: {
           cook_time: number | null
           created_at: string
           description: string | null
           dietary_tags: string[] | null
+          difficulty: string | null
+          has_main_veg: boolean
           household_id: string
           id: string
           image_url: string | null
           instructions: string | null
+          meal_type: string
           prep_time: number | null
+          protein_group: string | null
           servings: number | null
           source: string
           title: string
@@ -814,11 +953,15 @@ export type Database = {
           created_at?: string
           description?: string | null
           dietary_tags?: string[] | null
+          difficulty?: string | null
+          has_main_veg?: boolean
           household_id: string
           id?: string
           image_url?: string | null
           instructions?: string | null
+          meal_type?: string
           prep_time?: number | null
+          protein_group?: string | null
           servings?: number | null
           source?: string
           title: string
@@ -829,11 +972,15 @@ export type Database = {
           created_at?: string
           description?: string | null
           dietary_tags?: string[] | null
+          difficulty?: string | null
+          has_main_veg?: boolean
           household_id?: string
           id?: string
           image_url?: string | null
           instructions?: string | null
+          meal_type?: string
           prep_time?: number | null
+          protein_group?: string | null
           servings?: number | null
           source?: string
           title?: string
