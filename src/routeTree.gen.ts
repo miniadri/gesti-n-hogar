@@ -21,6 +21,9 @@ import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDevicesRouteImport } from './routes/_authenticated.devices'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated.calendar'
+import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated.settings.notifications'
+import { Route as AuthenticatedSettingsLocalizationRouteImport } from './routes/_authenticated.settings.localization'
+import { Route as AuthenticatedSettingsFamilyRouteImport } from './routes/_authenticated.settings.family'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -81,6 +84,24 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSettingsNotificationsRoute =
+  AuthenticatedSettingsNotificationsRouteImport.update({
+    id: '/settings/notifications',
+    path: '/settings/notifications',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsLocalizationRoute =
+  AuthenticatedSettingsLocalizationRouteImport.update({
+    id: '/settings/localization',
+    path: '/settings/localization',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsFamilyRoute =
+  AuthenticatedSettingsFamilyRouteImport.update({
+    id: '/settings/family',
+    path: '/settings/family',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -94,6 +115,9 @@ export interface FileRoutesByFullPath {
   '/shopping': typeof AuthenticatedShoppingRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/settings/family': typeof AuthenticatedSettingsFamilyRoute
+  '/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
+  '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,6 +131,9 @@ export interface FileRoutesByTo {
   '/shopping': typeof AuthenticatedShoppingRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/settings/family': typeof AuthenticatedSettingsFamilyRoute
+  '/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
+  '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,6 +149,9 @@ export interface FileRoutesById {
   '/_authenticated/shopping': typeof AuthenticatedShoppingRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/_authenticated/settings/family': typeof AuthenticatedSettingsFamilyRoute
+  '/_authenticated/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
+  '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +167,9 @@ export interface FileRouteTypes {
     | '/shopping'
     | '/tasks'
     | '/auth/callback'
+    | '/settings/family'
+    | '/settings/localization'
+    | '/settings/notifications'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,6 +183,9 @@ export interface FileRouteTypes {
     | '/shopping'
     | '/tasks'
     | '/auth/callback'
+    | '/settings/family'
+    | '/settings/localization'
+    | '/settings/notifications'
   id:
     | '__root__'
     | '/'
@@ -164,6 +200,9 @@ export interface FileRouteTypes {
     | '/_authenticated/shopping'
     | '/_authenticated/tasks'
     | '/auth/callback'
+    | '/_authenticated/settings/family'
+    | '/_authenticated/settings/localization'
+    | '/_authenticated/settings/notifications'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -258,6 +297,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/notifications': {
+      id: '/_authenticated/settings/notifications'
+      path: '/settings/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/localization': {
+      id: '/_authenticated/settings/localization'
+      path: '/settings/localization'
+      fullPath: '/settings/localization'
+      preLoaderRoute: typeof AuthenticatedSettingsLocalizationRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/family': {
+      id: '/_authenticated/settings/family'
+      path: '/settings/family'
+      fullPath: '/settings/family'
+      preLoaderRoute: typeof AuthenticatedSettingsFamilyRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -270,6 +330,9 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRecipesRoute: typeof AuthenticatedRecipesRoute
   AuthenticatedShoppingRoute: typeof AuthenticatedShoppingRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
+  AuthenticatedSettingsFamilyRoute: typeof AuthenticatedSettingsFamilyRoute
+  AuthenticatedSettingsLocalizationRoute: typeof AuthenticatedSettingsLocalizationRoute
+  AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -281,6 +344,11 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRecipesRoute: AuthenticatedRecipesRoute,
   AuthenticatedShoppingRoute: AuthenticatedShoppingRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
+  AuthenticatedSettingsFamilyRoute: AuthenticatedSettingsFamilyRoute,
+  AuthenticatedSettingsLocalizationRoute:
+    AuthenticatedSettingsLocalizationRoute,
+  AuthenticatedSettingsNotificationsRoute:
+    AuthenticatedSettingsNotificationsRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
