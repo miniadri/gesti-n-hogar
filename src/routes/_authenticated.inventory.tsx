@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listInventory, createInventoryItem, deleteInventoryItem } from "@/lib/inventory.functions";
+import { listInventory, createInventoryItem, deleteInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
 import { INVENTORY_LOCATIONS, suggestLocation, type InventoryLocation } from "@/lib/inventory-locations";
 import { toast } from "sonner";
 
