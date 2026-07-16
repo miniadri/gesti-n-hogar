@@ -254,42 +254,64 @@ function InventoryPage() {
                 </p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {items.map((item) => (
-                    <Card key={item.id}>
-                      <CardContent className="flex items-start justify-between p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary">
-                            <Package className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.category} · {item.quantity} {item.unit || "ud."}
-                            </p>
-                            {item.expiry_date && (
-                              <p className="text-xs text-muted-foreground">
-                                Caduca: {new Date(item.expiry_date).toLocaleDateString("es-ES")}
-                              </p>
+                  {items.map((item) => {
+                    const isSelected = selected.has(item.id);
+                    return (
+                      <Card
+                        key={item.id}
+                        onClick={selectMode ? () => toggleSelected(item.id) : undefined}
+                        className={
+                          selectMode
+                            ? `cursor-pointer transition-colors ${isSelected ? "border-primary ring-2 ring-primary/40 bg-primary/5" : "hover:bg-muted/40"}`
+                            : undefined
+                        }
+                      >
+                        <CardContent className="flex items-start justify-between p-4">
+                          <div className="flex items-start gap-3">
+                            {selectMode && (
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelected(item.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-1 h-4 w-4 accent-primary"
+                              />
                             )}
+                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary">
+                              <Package className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{item.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {item.category} · {item.quantity} {item.unit || "ud."}
+                              </p>
+                              {item.expiry_date && (
+                                <p className="text-xs text-muted-foreground">
+                                  Caduca: {new Date(item.expiry_date).toLocaleDateString("es-ES")}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          {Number(item.quantity) <= Number(item.min_stock) && (
-                            <Badge variant="destructive">Bajo</Badge>
+                          {!selectMode && (
+                            <div className="flex flex-col items-end gap-2">
+                              {Number(item.quantity) <= Number(item.min_stock) && (
+                                <Badge variant="destructive">Bajo</Badge>
+                              )}
+                              <button
+                                onClick={async () => {
+                                  await doDelete({ data: { id: item.id } });
+                                  refresh();
+                                }}
+                                className="text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           )}
-                          <button
-                            onClick={async () => {
-                              await doDelete({ data: { id: item.id } });
-                              refresh();
-                            }}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </section>
