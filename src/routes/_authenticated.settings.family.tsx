@@ -42,12 +42,39 @@ function FamilySettingsPage() {
   const [role, setRole] = useState("member");
   const [childName, setChildName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [householdName, setHouseholdName] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const doCreateInvite = useServerFn(createInvite);
   const doJoin = useServerFn(joinHousehold);
   const doCreateChild = useServerFn(createChildMember);
+  const doUpdateHousehold = useServerFn(updateHousehold);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["household"] });
+
+  const startEditName = () => {
+    setHouseholdName(data.name);
+    setEditingName(true);
+  };
+  const saveName = async () => {
+    const name = householdName.trim();
+    if (!name || name === data.name) {
+      setEditingName(false);
+      return;
+    }
+    setSavingName(true);
+    try {
+      await doUpdateHousehold({ data: { name } });
+      toast.success("Nombre del hogar actualizado");
+      refresh();
+      setEditingName(false);
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo actualizar");
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
