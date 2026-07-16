@@ -31,6 +31,7 @@ function NotificationsSettingsPage() {
 
   const doSubscribe = useServerFn(subscribePush);
   const doUnsubscribe = useServerFn(unsubscribePush);
+  const getKey = useServerFn(getVapidPublicKey);
 
   const handleSubscribe = async () => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -39,10 +40,12 @@ function NotificationsSettingsPage() {
     }
     setLoading(true);
     try {
+      const { publicKey } = await getKey();
+      if (!publicKey) throw new Error("VAPID key no configurada");
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(process.env.VAPID_PUBLIC_KEY || ""),
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
       await doSubscribe({ data: sub.toJSON() as any });
       setSubscribed(true);
