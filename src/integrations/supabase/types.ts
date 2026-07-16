@@ -1148,6 +1148,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_household_member: {
+        Args: { _household_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "member" | "child"
