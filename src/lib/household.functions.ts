@@ -70,7 +70,7 @@ export const getHousehold = createServerFn({ method: "GET" })
 
     const { data, error } = await context.supabase
       .from("households")
-      .select("*, household_members(*, user:user_id(*)), user_roles(*)")
+      .select("*, household_members(*), user_roles(*)")
       .eq("id", householdId)
       .single();
     if (error) throw error;
