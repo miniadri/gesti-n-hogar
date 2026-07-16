@@ -7,7 +7,8 @@ const InviteInput = z.object({
 });
 
 const JoinInviteInput = z.object({
-  code: z.string().min(1),
+  code: z.string().trim().min(1).max(32),
+  replaceDefault: z.boolean().optional(),
 });
 
 const UpdateProfileInput = z.object({
