@@ -58,11 +58,17 @@ function AuthPage() {
     if (error) {
       toast.error(error.message);
     } else {
+      if (inviteCode.trim()) {
+        sessionStorage.setItem(PENDING_INVITE_KEY, inviteCode.trim().toUpperCase());
+      }
       toast.success("Revisa tu correo para confirmar la cuenta.");
     }
   };
 
   const handleGoogle = async () => {
+    if (inviteCode.trim()) {
+      sessionStorage.setItem(PENDING_INVITE_KEY, inviteCode.trim().toUpperCase());
+    }
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin,
     });
