@@ -161,7 +161,7 @@ function FamilySettingsPage() {
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Crear invitación</DialogTitle>
+            <DialogTitle>{role === "child" ? "Añadir perfil infantil" : "Crear invitación"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreateInvite} className="space-y-4">
             <div className="space-y-2">
@@ -175,15 +175,38 @@ function FamilySettingsPage() {
                 <option value="admin">Admin</option>
                 <option value="child">Infantil</option>
               </select>
+              {role === "child" && (
+                <p className="text-xs text-muted-foreground">
+                  El perfil infantil se añade directamente al hogar, sin código de invitación.
+                </p>
+              )}
             </div>
+            {role === "child" && (
+              <div className="space-y-2">
+                <Label>Nombre</Label>
+                <Input
+                  value={childName}
+                  onChange={(e) => setChildName(e.target.value)}
+                  placeholder="Ej. Lucía"
+                  autoFocus
+                />
+              </div>
+            )}
             <DialogFooter>
-              <Button type="submit" disabled={submitting} className="w-full">
-                {submitting ? "Creando..." : "Generar código"}
+              <Button
+                type="submit"
+                disabled={submitting || (role === "child" && !childName.trim())}
+                className="w-full"
+              >
+                {submitting
+                  ? role === "child" ? "Añadiendo..." : "Creando..."
+                  : role === "child" ? "Añadir al hogar" : "Generar código"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
 
       <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
         <DialogContent className="sm:max-w-md">
