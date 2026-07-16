@@ -40,10 +40,12 @@ function FamilySettingsPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [code, setCode] = useState("");
   const [role, setRole] = useState("member");
+  const [childName, setChildName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const doCreateInvite = useServerFn(createInvite);
   const doJoin = useServerFn(joinHousehold);
+  const doCreateChild = useServerFn(createChildMember);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["household"] });
 
