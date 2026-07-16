@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Package, AlertTriangle, Trash2 } from "lucide-react";
+import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
 import { listInventory, createInventoryItem, deleteInventoryItem } from "@/lib/inventory.functions";
+import { INVENTORY_LOCATIONS, suggestLocation, type InventoryLocation } from "@/lib/inventory-locations";
 import { toast } from "sonner";
 
 const inventoryQueryOptions = queryOptions({
@@ -35,6 +43,18 @@ export const Route = createFileRoute("/_authenticated/inventory")({
 
 const categories = ["Frutas", "Verduras", "Lácteos", "Carne", "Pescado", "Bebidas", "Congelados", "Limpieza", "Farmacia", "Otros"];
 
+const locationIcons: Record<InventoryLocation, React.ComponentType<{ className?: string }>> = {
+  Frigorífico: Refrigerator,
+  Congelador: Snowflake,
+  Armario: Archive,
+};
+
+function normalizeLocation(loc?: string | null): InventoryLocation {
+  if (!loc) return "Armario";
+  const found = INVENTORY_LOCATIONS.find((l) => l.toLowerCase() === loc.toLowerCase());
+  return found ?? "Armario";
+}
+
 function InventoryPage() {
   const queryClient = useQueryClient();
   const { data } = useSuspenseQuery(inventoryQueryOptions);
@@ -44,6 +64,7 @@ function InventoryPage() {
   const [quantity, setQuantity] = useState("1");
   const [minStock, setMinStock] = useState("0");
   const [expiry, setExpiry] = useState("");
+  const [location, setLocation] = useState<InventoryLocation>("Armario");
   const [submitting, setSubmitting] = useState(false);
 
   const doCreate = useServerFn(createInventoryItem);
@@ -62,6 +83,7 @@ function InventoryPage() {
           category,
           quantity: Number(quantity) || 1,
           min_stock: Number(minStock) || 0,
+          location,
           expiry_date: expiry || undefined,
         },
       });
@@ -70,6 +92,7 @@ function InventoryPage() {
       setQuantity("1");
       setMinStock("0");
       setExpiry("");
+      setLocation("Armario");
       refresh();
       setOpen(false);
     } catch (err: any) {
@@ -79,16 +102,30 @@ function InventoryPage() {
     }
   };
 
+  const openDialog = () => {
+    setLocation(suggestLocation(category));
+    setOpen(true);
+  };
+
   const lowStock = data.filter((item) => Number(item.quantity) <= Number(item.min_stock));
+
+  const grouped: Record<InventoryLocation, typeof data> = {
+    Frigorífico: [],
+    Congelador: [],
+    Armario: [],
+  };
+  for (const item of data) {
+    grouped[normalizeLocation(item.location)].push(item);
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Inventario</h2>
-          <p className="text-muted-foreground">Control de stock y caducidades</p>
+          <p className="text-muted-foreground">Tu nevera virtual y despensa</p>
         </div>
-        <Button onClick={() => setOpen(true)}>
+        <Button onClick={openDialog}>
           <Plus className="mr-2 h-4 w-4" />
           Añadir producto
         </Button>
@@ -108,43 +145,64 @@ function InventoryPage() {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {data.map((item) => (
-          <Card key={item.id}>
-            <CardContent className="flex items-start justify-between p-4">
-              <div className="flex items-start gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary">
-                  <Package className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.category} · {item.quantity} {item.unit || "ud."}
-                  </p>
-                  {item.expiry_date && (
-                    <p className="text-xs text-muted-foreground">
-                      Caduca: {new Date(item.expiry_date).toLocaleDateString("es-ES")}
-                    </p>
-                  )}
-                </div>
+      <div className="space-y-6">
+        {INVENTORY_LOCATIONS.map((loc) => {
+          const items = grouped[loc];
+          const LocIcon = locationIcons[loc];
+          return (
+            <section key={loc} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <LocIcon className="h-5 w-5 text-muted-foreground" />
+                <h3 className="text-lg font-semibold">{loc}</h3>
+                <span className="text-sm text-muted-foreground">({items.length})</span>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                {Number(item.quantity) <= Number(item.min_stock) && (
-                  <Badge variant="destructive">Bajo</Badge>
-                )}
-                <button
-                  onClick={async () => {
-                    await doDelete({ data: { id: item.id } });
-                    refresh();
-                  }}
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              {items.length === 0 ? (
+                <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                  Sin productos en {loc.toLowerCase()}
+                </p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {items.map((item) => (
+                    <Card key={item.id}>
+                      <CardContent className="flex items-start justify-between p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary">
+                            <Package className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.category} · {item.quantity} {item.unit || "ud."}
+                            </p>
+                            {item.expiry_date && (
+                              <p className="text-xs text-muted-foreground">
+                                Caduca: {new Date(item.expiry_date).toLocaleDateString("es-ES")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          {Number(item.quantity) <= Number(item.min_stock) && (
+                            <Badge variant="destructive">Bajo</Badge>
+                          )}
+                          <button
+                            onClick={async () => {
+                              await doDelete({ data: { id: item.id } });
+                              refresh();
+                            }}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -167,19 +225,39 @@ function InventoryPage() {
                 <Input type="number" min="0" step="0.1" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Categoría</Label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2"
-              >
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Categoría</Label>
+                <select
+                  value={category}
+                  onChange={(e) => {
+                    setCategory(e.target.value);
+                    setLocation(suggestLocation(e.target.value));
+                  }}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2"
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Ubicación</Label>
+                <Select value={location} onValueChange={(v) => setLocation(v as InventoryLocation)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INVENTORY_LOCATIONS.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {l}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Fecha de caducidad</Label>
