@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { getHousehold, createInvite, joinHousehold } from "@/lib/household.functions";
+import { getHousehold, createInvite, joinHousehold, createChildMember } from "@/lib/household.functions";
 import { toast } from "sonner";
 
 const householdQueryOptions = queryOptions({
@@ -40,10 +40,12 @@ function FamilySettingsPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [code, setCode] = useState("");
   const [role, setRole] = useState("member");
+  const [childName, setChildName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const doCreateInvite = useServerFn(createInvite);
   const doJoin = useServerFn(joinHousehold);
+  const doCreateChild = useServerFn(createChildMember);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["household"] });
 
@@ -51,11 +53,24 @@ function FamilySettingsPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const invite = await doCreateInvite({ data: { role: role as any } });
-      toast.success(`Código creado: ${invite.code}`);
-      navigator.clipboard.writeText(invite.code);
-      refresh();
-      setInviteOpen(false);
+      if (role === "child") {
+        if (!childName.trim()) {
+          toast.error("Introduce un nombre para el perfil infantil");
+          setSubmitting(false);
+          return;
+        }
+        await doCreateChild({ data: { display_name: childName.trim() } });
+        toast.success(`Perfil infantil "${childName.trim()}" añadido`);
+        setChildName("");
+        refresh();
+        setInviteOpen(false);
+      } else {
+        const invite = await doCreateInvite({ data: { role: role as any } });
+        toast.success(`Código creado: ${invite.code}`);
+        navigator.clipboard.writeText(invite.code);
+        refresh();
+        setInviteOpen(false);
+      }
     } catch (err: any) {
       toast.error(err.message || "Error al crear invitación");
     } finally {
@@ -146,7 +161,7 @@ function FamilySettingsPage() {
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Crear invitación</DialogTitle>
+            <DialogTitle>{role === "child" ? "Añadir perfil infantil" : "Crear invitación"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreateInvite} className="space-y-4">
             <div className="space-y-2">
@@ -160,15 +175,38 @@ function FamilySettingsPage() {
                 <option value="admin">Admin</option>
                 <option value="child">Infantil</option>
               </select>
+              {role === "child" && (
+                <p className="text-xs text-muted-foreground">
+                  El perfil infantil se añade directamente al hogar, sin código de invitación.
+                </p>
+              )}
             </div>
+            {role === "child" && (
+              <div className="space-y-2">
+                <Label>Nombre</Label>
+                <Input
+                  value={childName}
+                  onChange={(e) => setChildName(e.target.value)}
+                  placeholder="Ej. Lucía"
+                  autoFocus
+                />
+              </div>
+            )}
             <DialogFooter>
-              <Button type="submit" disabled={submitting} className="w-full">
-                {submitting ? "Creando..." : "Generar código"}
+              <Button
+                type="submit"
+                disabled={submitting || (role === "child" && !childName.trim())}
+                className="w-full"
+              >
+                {submitting
+                  ? role === "child" ? "Añadiendo..." : "Creando..."
+                  : role === "child" ? "Añadir al hogar" : "Generar código"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
 
       <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
         <DialogContent className="sm:max-w-md">
