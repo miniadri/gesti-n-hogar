@@ -337,16 +337,51 @@ function InventoryPage() {
               <Label>Nombre</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Cantidad</Label>
-                <Input type="number" min="0" step="0.1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="1, 0.25, 0,5..."
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Unidad</Label>
+                <Input
+                  type="text"
+                  placeholder="ud, kg, gr, blister, paquete..."
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  list="inventory-units"
+                />
+                <datalist id="inventory-units">
+                  <option value="ud" />
+                  <option value="kg" />
+                  <option value="gr" />
+                  <option value="L" />
+                  <option value="ml" />
+                  <option value="paquete" />
+                  <option value="blister" />
+                  <option value="caja" />
+                  <option value="botella" />
+                </datalist>
               </div>
               <div className="space-y-2">
                 <Label>Stock mínimo</Label>
-                <Input type="number" min="0" step="0.1" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={minStock}
+                  onChange={(e) => setMinStock(e.target.value)}
+                />
               </div>
             </div>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Puedes usar decimales para paquetes incompletos (p. ej. 0,25 = un cuarto de paquete) o indicar la unidad real (250 gr, 1 blister, 0,5 kg…).
+            </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Categoría</Label>
