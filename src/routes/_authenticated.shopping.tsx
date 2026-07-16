@@ -115,10 +115,20 @@ function ShoppingPage() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["shopping"] });
 
-  const grouped = data.stores.map((store) => ({
-    store,
-    items: data.items.filter((item) => item.shopping_list?.store_id === store.id),
-  }));
+  const isNoStore = (s: any) => /sin\s*tienda/i.test(s?.name ?? "");
+
+  const grouped = data.stores
+    .map((store) => ({
+      store,
+      items: data.items.filter((item) => item.shopping_list?.store_id === store.id),
+    }))
+    // "Sin tienda" always visible on top; other stores only if they have items.
+    .filter(({ store, items }) => isNoStore(store) || items.length > 0)
+    .sort((a, b) => {
+      if (isNoStore(a.store)) return -1;
+      if (isNoStore(b.store)) return 1;
+      return a.store.name.localeCompare(b.store.name);
+    });
 
   return (
     <div className="space-y-6">
@@ -152,7 +162,9 @@ function ShoppingPage() {
           </div>
 
           {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hay productos en esta lista.</p>
+            <p className="text-sm text-muted-foreground">
+              No hay productos en esta lista. Añade uno para empezar.
+            </p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {items.map((item) => (
