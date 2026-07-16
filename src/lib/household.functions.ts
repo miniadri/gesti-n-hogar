@@ -58,19 +58,48 @@ export const joinHousehold = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => JoinInviteInput.parse(input))
   .handler(async ({ data, context }) => {
+    const code = data.code.toUpperCase();
     const { data: invite, error: inviteError } = await context.supabase
       .from("household_invites")
       .select("*, household:household_id(*)")
-      .eq("code", data.code)
+      .eq("code", code)
       .gt("expires_at", new Date().toISOString())
       .single();
     if (inviteError || !invite) throw new Error("Código inválido o expirado");
+
+    // Already a member? no-op.
+    const { data: existing } = await context.supabase
+      .from("household_members")
+      .select("id")
+      .eq("household_id", invite.household_id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (existing) return { ok: true, household: invite.household, alreadyMember: true };
 
     const { data: profile } = await context.supabase
       .from("profiles")
       .select("full_name")
       .eq("id", context.userId)
       .single();
+
+    // If requested and the user only has their auto-created default household
+    // (sole member, no shared data yet), remove it so they don't end up in two.
+    if (data.replaceDefault) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: myHouseholds } = await supabaseAdmin
+        .from("household_members")
+        .select("household_id")
+        .eq("user_id", context.userId);
+      for (const row of myHouseholds ?? []) {
+        const { count } = await supabaseAdmin
+          .from("household_members")
+          .select("id", { count: "exact", head: true })
+          .eq("household_id", row.household_id);
+        if ((count ?? 0) === 1) {
+          await supabaseAdmin.from("households").delete().eq("id", row.household_id);
+        }
+      }
+    }
 
     await context.supabase.from("household_members").insert({
       household_id: invite.household_id,
