@@ -1,11 +1,15 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createServerFn } from "@tanstack/react-start";
+import { joinHousehold } from "@/lib/household.functions";
+
+const PENDING_INVITE_KEY = "homesync_pending_invite_code";
 
 const profileQueryOptions = queryOptions({
   queryKey: ["profile"],
@@ -46,6 +50,27 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const { data: profile } = useSuspenseQuery(profileQueryOptions);
+  const queryClient = useQueryClient();
+  const doJoin = useServerFn(joinHousehold);
+  const processed = useRef(false);
+
+  useEffect(() => {
+    if (processed.current) return;
+    const code = sessionStorage.getItem(PENDING_INVITE_KEY);
+    if (!code) return;
+    processed.current = true;
+    sessionStorage.removeItem(PENDING_INVITE_KEY);
+    doJoin({ data: { code, replaceDefault: true } })
+      .then((res: any) => {
+        if (res?.alreadyMember) return;
+        toast.success(`Te has unido a "${res?.household?.name ?? "el hogar"}"`);
+        queryClient.invalidateQueries({ queryKey: ["household"] });
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+      })
+      .catch((err: any) => {
+        toast.error(err?.message || "No se pudo aplicar el código de invitación");
+      });
+  }, [doJoin, queryClient]);
 
   return (
     <AppShell userName={profile?.full_name || undefined}>
