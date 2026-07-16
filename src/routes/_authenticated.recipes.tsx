@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_authenticated/recipes")({
   component: RecipesPage,
 });
 
-const dietaryOptions = ["Vegetariano", "Vegano", "Sin gluten", "Bajo en sal", "Alto en proteína"];
+const dietaryOptions: string[] = ["Vegetariano", "Vegano", "Sin gluten", "Bajo en sal", "Alto en proteína"];
 
 function RecipesPage() {
   const queryClient = useQueryClient();
