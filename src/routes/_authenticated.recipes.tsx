@@ -97,7 +97,8 @@ function RecipesPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {data.map((recipe: any) => (
-          <Card key={recipe.id} className="overflow-hidden">
+          <Card key={recipe.id} className="overflow-hidden transition-colors hover:bg-accent/40">
+            <Link to="/recipes/$recipeId" params={{ recipeId: recipe.id }} className="block">
             <CardContent className="p-4">
               <div className="flex items-start justify-between">
                 <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary">
@@ -135,6 +136,7 @@ function RecipesPage() {
                 </div>
               )}
             </CardContent>
+            </Link>
           </Card>
         ))}
       </div>
