@@ -21,6 +21,7 @@ import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDevicesRouteImport } from './routes/_authenticated.devices'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated.calendar'
+import { Route as AuthenticatedShoppingScanTicketRouteImport } from './routes/_authenticated.shopping.scan-ticket'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated.settings.notifications'
 import { Route as AuthenticatedSettingsLocalizationRouteImport } from './routes/_authenticated.settings.localization'
 import { Route as AuthenticatedSettingsFamilyRouteImport } from './routes/_authenticated.settings.family'
@@ -84,6 +85,12 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedShoppingScanTicketRoute =
+  AuthenticatedShoppingScanTicketRouteImport.update({
+    id: '/scan-ticket',
+    path: '/scan-ticket',
+    getParentRoute: () => AuthenticatedShoppingRoute,
+  } as any)
 const AuthenticatedSettingsNotificationsRoute =
   AuthenticatedSettingsNotificationsRouteImport.update({
     id: '/settings/notifications',
@@ -112,12 +119,13 @@ export interface FileRoutesByFullPath {
   '/finances': typeof AuthenticatedFinancesRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/recipes': typeof AuthenticatedRecipesRoute
-  '/shopping': typeof AuthenticatedShoppingRoute
+  '/shopping': typeof AuthenticatedShoppingRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -128,12 +136,13 @@ export interface FileRoutesByTo {
   '/finances': typeof AuthenticatedFinancesRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/recipes': typeof AuthenticatedRecipesRoute
-  '/shopping': typeof AuthenticatedShoppingRoute
+  '/shopping': typeof AuthenticatedShoppingRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -146,12 +155,13 @@ export interface FileRoutesById {
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/recipes': typeof AuthenticatedRecipesRoute
-  '/_authenticated/shopping': typeof AuthenticatedShoppingRoute
+  '/_authenticated/shopping': typeof AuthenticatedShoppingRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/_authenticated/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/_authenticated/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/_authenticated/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/settings/family'
     | '/settings/localization'
     | '/settings/notifications'
+    | '/shopping/scan-ticket'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/settings/family'
     | '/settings/localization'
     | '/settings/notifications'
+    | '/shopping/scan-ticket'
   id:
     | '__root__'
     | '/'
@@ -203,6 +215,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/family'
     | '/_authenticated/settings/localization'
     | '/_authenticated/settings/notifications'
+    | '/_authenticated/shopping/scan-ticket'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -297,6 +310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/shopping/scan-ticket': {
+      id: '/_authenticated/shopping/scan-ticket'
+      path: '/scan-ticket'
+      fullPath: '/shopping/scan-ticket'
+      preLoaderRoute: typeof AuthenticatedShoppingScanTicketRouteImport
+      parentRoute: typeof AuthenticatedShoppingRoute
+    }
     '/_authenticated/settings/notifications': {
       id: '/_authenticated/settings/notifications'
       path: '/settings/notifications'
@@ -321,6 +341,19 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedShoppingRouteChildren {
+  AuthenticatedShoppingScanTicketRoute: typeof AuthenticatedShoppingScanTicketRoute
+}
+
+const AuthenticatedShoppingRouteChildren: AuthenticatedShoppingRouteChildren = {
+  AuthenticatedShoppingScanTicketRoute: AuthenticatedShoppingScanTicketRoute,
+}
+
+const AuthenticatedShoppingRouteWithChildren =
+  AuthenticatedShoppingRoute._addFileChildren(
+    AuthenticatedShoppingRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -328,7 +361,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedRecipesRoute: typeof AuthenticatedRecipesRoute
-  AuthenticatedShoppingRoute: typeof AuthenticatedShoppingRoute
+  AuthenticatedShoppingRoute: typeof AuthenticatedShoppingRouteWithChildren
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedSettingsFamilyRoute: typeof AuthenticatedSettingsFamilyRoute
   AuthenticatedSettingsLocalizationRoute: typeof AuthenticatedSettingsLocalizationRoute
@@ -342,7 +375,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
   AuthenticatedRecipesRoute: AuthenticatedRecipesRoute,
-  AuthenticatedShoppingRoute: AuthenticatedShoppingRoute,
+  AuthenticatedShoppingRoute: AuthenticatedShoppingRouteWithChildren,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedSettingsFamilyRoute: AuthenticatedSettingsFamilyRoute,
   AuthenticatedSettingsLocalizationRoute:
@@ -373,3 +406,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
