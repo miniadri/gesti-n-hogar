@@ -1047,14 +1047,18 @@ export type Database = {
         Row: {
           assigned_to: string | null
           category: string | null
+          checklist: Json | null
+          child_allowed: boolean
           created_at: string
           created_by: string
           description: string | null
           due_date: string | null
           household_id: string
           id: string
+          photo_path: string | null
           priority: string
           recurrence: string | null
+          recurrence_days: number | null
           status: string
           title: string
           updated_at: string
@@ -1062,14 +1066,18 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           category?: string | null
+          checklist?: Json | null
+          child_allowed?: boolean
           created_at?: string
           created_by: string
           description?: string | null
           due_date?: string | null
           household_id: string
           id?: string
+          photo_path?: string | null
           priority?: string
           recurrence?: string | null
+          recurrence_days?: number | null
           status?: string
           title: string
           updated_at?: string
@@ -1077,14 +1085,18 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           category?: string | null
+          checklist?: Json | null
+          child_allowed?: boolean
           created_at?: string
           created_by?: string
           description?: string | null
           due_date?: string | null
           household_id?: string
           id?: string
+          photo_path?: string | null
           priority?: string
           recurrence?: string | null
+          recurrence_days?: number | null
           status?: string
           title?: string
           updated_at?: string
