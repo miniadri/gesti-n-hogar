@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
-import { Plus, Wallet, TrendingUp, Users, AlertTriangle, Eye, EyeOff, Trash2, Settings2 } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
+import { Plus, Wallet, TrendingUp, Users, AlertTriangle, Eye, EyeOff, Trash2, Settings2, Repeat, Camera, Upload, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,10 @@ import {
   upsertMyContribution,
   updateCriticalThreshold,
 } from "@/lib/finances.functions";
+import { scanTicket } from "@/lib/ocr.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
 
 const financesQueryOptions = queryOptions({
   queryKey: ["finances"],
