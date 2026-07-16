@@ -130,10 +130,38 @@ function FamilySettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{data.name}</CardTitle>
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={householdName}
+                onChange={(e) => setHouseholdName(e.target.value)}
+                autoFocus
+                maxLength={80}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); saveName(); }
+                  if (e.key === "Escape") setEditingName(false);
+                }}
+              />
+              <Button size="icon" variant="ghost" onClick={saveName} disabled={savingName} aria-label="Guardar">
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => setEditingName(false)} disabled={savingName} aria-label="Cancelar">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle>{data.name}</CardTitle>
+              <Button size="icon" variant="ghost" onClick={startEditName} aria-label="Renombrar hogar">
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
-          {data.household_members.map((member: any) => (
+          {[...data.household_members]
+            .sort((a: any, b: any) => Number(a.is_child) - Number(b.is_child))
+            .map((member: any) => (
             <div key={member.id} className="flex items-center justify-between rounded-lg border p-3">
               <div className="flex items-center gap-3">
                 <div className="grid h-10 w-10 place-items-center rounded-full bg-secondary">
@@ -147,12 +175,15 @@ function FamilySettingsPage() {
                 </div>
               </div>
               <Badge variant="secondary">
-                {data.user_roles.find((r: any) => r.user_id === member.user_id)?.role || "member"}
+                {member.is_child
+                  ? "infantil"
+                  : data.user_roles.find((r: any) => r.user_id === member.user_id)?.role || "member"}
               </Badge>
             </div>
           ))}
         </CardContent>
       </Card>
+
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
