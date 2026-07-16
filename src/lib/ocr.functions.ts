@@ -46,8 +46,8 @@ export const scanTicket = createServerFn({ method: "POST" })
               text: "Extrae la información estructurada de este ticket de compra. Devuelve el comercio, la fecha (ISO), el total y una lista de productos con nombre, cantidad, precio unitario, precio total y categoría. Si no puedes leer algo, usa null.",
             },
             {
-              type: "image_url",
-              imageUrl: { url: data.imageUrl },
+              type: "image",
+              image: data.imageUrl,
             },
           ],
         },

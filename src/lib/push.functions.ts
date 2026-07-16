@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import webPush from "web-push";
 
 const SubscriptionInput = z.object({
   endpoint: z.string().url(),
@@ -8,6 +9,10 @@ const SubscriptionInput = z.object({
     p256dh: z.string(),
     auth: z.string(),
   }),
+});
+
+export const getVapidPublicKey = createServerFn({ method: "GET" }).handler(async () => {
+  return { publicKey: process.env.VAPID_PUBLIC_KEY };
 });
 
 export const subscribePush = createServerFn({ method: "POST" })
@@ -51,8 +56,7 @@ export const sendPushNotification = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const webPush = await import("web-push");
-    webPush.default.setVapidDetails(
+    webPush.setVapidDetails(
       "mailto:admin@homesync.app",
       process.env.VAPID_PUBLIC_KEY!,
       process.env.VAPID_PRIVATE_KEY!,
@@ -67,7 +71,7 @@ export const sendPushNotification = createServerFn({ method: "POST" })
     const results = [];
     for (const sub of subs ?? []) {
       try {
-        await webPush.default.sendNotification(
+        await webPush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           JSON.stringify({ title: data.title, body: data.body, url: data.url || "/dashboard" }),
         );

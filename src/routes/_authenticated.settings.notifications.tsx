@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useServerFn } from "@tanstack/react-start";
-import { subscribePush, unsubscribePush } from "@/lib/push.functions";
+import { subscribePush, unsubscribePush, getVapidPublicKey } from "@/lib/push.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/settings/notifications")({
