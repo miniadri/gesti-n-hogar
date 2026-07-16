@@ -67,7 +67,7 @@ function PlannerPage() {
   const [editing, setEditing] = useState<{
     dayId: string;
     slot: "lunch" | "dinner";
-    current?: any;
+    current: any;
   } | null>(null);
   const [shopOpen, setShopOpen] = useState(false);
 
