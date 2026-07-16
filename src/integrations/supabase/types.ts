@@ -385,6 +385,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          critical_threshold_percent: number
           id: string
           name: string
           updated_at: string
@@ -392,6 +393,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          critical_threshold_percent?: number
           id?: string
           name: string
           updated_at?: string
@@ -399,6 +401,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          critical_threshold_percent?: number
           id?: string
           name?: string
           updated_at?: string
@@ -848,7 +851,9 @@ export type Database = {
       }
       salaries: {
         Row: {
-          amount: number
+          amount: number | null
+          contribution_type: string
+          contribution_value: number
           created_at: string
           currency: string
           effective_from: string
@@ -858,7 +863,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          amount: number
+          amount?: number | null
+          contribution_type?: string
+          contribution_value?: number
           created_at?: string
           currency?: string
           effective_from?: string
@@ -868,7 +875,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          amount?: number
+          amount?: number | null
+          contribution_type?: string
+          contribution_value?: number
           created_at?: string
           currency?: string
           effective_from?: string
@@ -1153,6 +1162,18 @@ export type Database = {
     }
     Functions: {
       current_household: { Args: never; Returns: string }
+      get_household_contributions: {
+        Args: { _household_id: string }
+        Returns: {
+          contribution_amount: number
+          contribution_type: string
+          contribution_value: number
+          display_name: string
+          has_income: boolean
+          is_child: boolean
+          member_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
