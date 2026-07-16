@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { getHousehold, createInvite, joinHousehold } from "@/lib/household.functions";
+import { getHousehold, createInvite, joinHousehold, createChildMember } from "@/lib/household.functions";
 import { toast } from "sonner";
 
 const householdQueryOptions = queryOptions({
