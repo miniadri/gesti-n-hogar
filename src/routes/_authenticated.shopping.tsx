@@ -1,0 +1,463 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions } from "@tanstack/react-query";
+import { useState } from "react";
+import {
+  Plus,
+  Trash2,
+  Store,
+  ScanLine,
+  Check,
+  Package,
+  Milk,
+  Apple,
+  Beef,
+  Fish,
+  Cookie,
+  Droplets,
+  Wine,
+  Pill,
+  ShoppingBag,
+} from "lucide-react";
+
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  listStores,
+  ensureDefaultLists,
+  listShoppingItems,
+  createStore,
+  createShoppingItem,
+  toggleShoppingItem,
+  deleteShoppingItem,
+} from "@/lib/shopping.functions";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  Lácteos: Milk,
+  Frutas: Apple,
+  Verduras: Apple,
+  Carne: Beef,
+  Pescado: Fish,
+  Panadería: Cookie,
+  Bebidas: Droplets,
+  Alcohol: Wine,
+  Farmacia: Pill,
+  Congelados: SnowflakeIcon,
+  default: Package,
+};
+
+function SnowflakeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4" />
+    </svg>
+  );
+}
+
+const categories = [
+  "Frutas",
+  "Verduras",
+  "Lácteos",
+  "Carne",
+  "Pescado",
+  "Panadería",
+  "Bebidas",
+  "Congelados",
+  "Limpieza",
+  "Farmacia",
+  "Otros",
+];
+
+const shoppingQueryOptions = queryOptions({
+  queryKey: ["shopping"],
+  queryFn: async () => {
+    await ensureDefaultLists();
+    const [stores, items] = await Promise.all([listStores(), listShoppingItems()]);
+    return { stores, items };
+  },
+});
+
+export const Route = createFileRoute("/_authenticated/shopping")({
+  loader: ({ context }) => context.queryClient.ensureQueryData(shoppingQueryOptions),
+  head: () => ({
+    meta: [{ title: "Lista de compra - HomeSync" }],
+  }),
+  component: ShoppingPage,
+});
+
+function ShoppingPage() {
+  const queryClient = useQueryClient();
+  const { data } = useSuspenseQuery(shoppingQueryOptions);
+  const [addOpen, setAddOpen] = useState(false);
+  const [storeOpen, setStoreOpen] = useState(false);
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["shopping"] });
+
+  const grouped = data.stores.map((store) => ({
+    store,
+    items: data.items.filter((item) => item.shopping_list?.store_id === store.id),
+  }));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Lista de compra</h2>
+          <p className="text-muted-foreground">Organizada por tienda, estilo Bring!</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link to="/shopping/scan-ticket">
+              <ScanLine className="mr-2 h-4 w-4" />
+              Escanear ticket
+            </Link>
+          </Button>
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Añadir
+          </Button>
+        </div>
+      </div>
+
+      {grouped.map(({ store, items }) => (
+        <section key={store.id} className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Store className="h-4 w-4 text-muted-foreground" />
+            <h3 className="font-semibold">{store.name}</h3>
+            <Badge variant="secondary" className="ml-auto">
+              {items.length} pendientes
+            </Badge>
+          </div>
+
+          {items.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay productos en esta lista.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {items.map((item) => (
+                <ShoppingItemCard key={item.id} item={item} onChange={refresh} />
+              ))}
+            </div>
+          )}
+        </section>
+      ))}
+
+      <div className="flex justify-center pt-4">
+        <Button variant="outline" onClick={() => setStoreOpen(true)}>
+          <Store className="mr-2 h-4 w-4" />
+          Gestionar tiendas
+        </Button>
+      </div>
+
+      <AddItemDialog open={addOpen} onOpenChange={setAddOpen} stores={data.stores} onAdded={refresh} />
+      <ManageStoresDialog open={storeOpen} onOpenChange={setStoreOpen} stores={data.stores} onChange={refresh} />
+    </div>
+  );
+}
+
+function ShoppingItemCard({
+  item,
+  onChange,
+}: {
+  item: any;
+  onChange: () => void;
+}) {
+  const doToggle = useServerFn(toggleShoppingItem);
+  const doDelete = useServerFn(deleteShoppingItem);
+  const [checked, setChecked] = useState(item.checked);
+
+  const handleToggle = async () => {
+    const next = !checked;
+    setChecked(next);
+    try {
+      await doToggle({ data: { id: item.id, checked: next } });
+      onChange();
+    } catch {
+      setChecked(!next);
+      toast.error("No se pudo actualizar el producto");
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await doDelete({ data: { id: item.id } });
+      onChange();
+      toast.success("Producto eliminado");
+    } catch {
+      toast.error("No se pudo eliminar el producto");
+    }
+  };
+
+  const Icon = categoryIcons[item.category || "default"] || Package;
+  const price = item.manual_price ?? item.ocr_price;
+
+  return (
+    <Card
+      className={cn(
+        "relative overflow-hidden transition-all",
+        checked && "opacity-60 grayscale",
+      )}
+    >
+      <CardContent className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <button
+            onClick={handleToggle}
+            className={cn(
+              "grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-colors",
+              checked
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-muted-foreground/30",
+            )}
+          >
+            {checked && <Check className="h-3.5 w-3.5" />}
+          </button>
+          <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-3 flex flex-col items-center text-center">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-secondary-foreground">
+            <Icon className="h-6 w-6" />
+          </div>
+          <p className="mt-2 line-clamp-2 text-sm font-semibold leading-tight">{item.name}</p>
+          <p className="text-xs text-muted-foreground">
+            {item.quantity} {item.unit || "ud."}
+          </p>
+          {price !== null && price !== undefined && (
+            <p className="mt-1 text-sm font-bold text-primary">€{Number(price).toFixed(2)}</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AddItemDialog({
+  open,
+  onOpenChange,
+  stores,
+  onAdded,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  stores: any[];
+  onAdded: () => void;
+}) {
+  const doCreate = useServerFn(createShoppingItem);
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("Otros");
+  const [storeId, setStoreId] = useState<string>("");
+  const [quantity, setQuantity] = useState("1");
+  const [price, setPrice] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const defaultStore = stores.find((s) => s.is_default) || stores[0];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    const selectedStoreId = storeId || defaultStore?.id;
+    const list = stores.find((s) => s.id === selectedStoreId)?.shopping_list;
+
+    setSubmitting(true);
+    try {
+      // Find the active list for this store
+      const { data: lists } = await supabase
+        .from("shopping_lists")
+        .select("id")
+        .eq("store_id", selectedStoreId)
+        .eq("is_archived", false);
+      const listId = lists?.[0]?.id;
+      if (!listId) throw new Error("No list found");
+
+      await doCreate({
+        data: {
+          shopping_list_id: listId,
+          name: name.trim(),
+          category,
+          quantity: Number(quantity) || 1,
+          manual_price: price ? Number(price) : undefined,
+        },
+      });
+      toast.success("Producto añadido");
+      setName("");
+      setQuantity("1");
+      setPrice("");
+      onAdded();
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message || "Error al añadir producto");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Añadir producto</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="item-name">Producto</Label>
+            <Input
+              id="item-name"
+              placeholder="Ej. Leche entera"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Cantidad</Label>
+              <Input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Precio (€)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Categoría</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Tienda</Label>
+            <Select value={storeId || defaultStore?.id} onValueChange={setStoreId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {stores.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" disabled={submitting || !name.trim()} className="w-full">
+              {submitting ? "Añadiendo..." : "Añadir a la lista"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ManageStoresDialog({
+  open,
+  onOpenChange,
+  stores,
+  onChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  stores: any[];
+  onChange: () => void;
+}) {
+  const doCreate = useServerFn(createStore);
+  const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSubmitting(true);
+    try {
+      await doCreate({ data: { name: name.trim() } });
+      toast.success("Tienda añadida");
+      setName("");
+      onChange();
+    } catch (err: any) {
+      toast.error(err.message || "Error al crear tienda");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Gestionar tiendas</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <ul className="space-y-2">
+            {stores.map((s) => (
+              <li key={s.id} className="flex items-center justify-between rounded-lg border p-3">
+                <span className="font-medium">{s.name}</span>
+                {s.is_default && <Badge variant="outline">Por defecto</Badge>}
+              </li>
+            ))}
+          </ul>
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <Input
+              placeholder="Nueva tienda"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <Button type="submit" disabled={submitting || !name.trim()}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </form>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
