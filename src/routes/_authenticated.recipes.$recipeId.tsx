@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Plus,
@@ -48,7 +48,7 @@ import {
   APPLIANCE_LABELS,
   type ApplianceType,
 } from "@/lib/appliances.functions";
-import { isSpeechSupported, speak, stop, pause as pauseTts, resume } from "@/lib/tts";
+import { isSpeechSupported, speak, stop } from "@/lib/tts";
 
 const recipeQO = (id: string) =>
   queryOptions({
