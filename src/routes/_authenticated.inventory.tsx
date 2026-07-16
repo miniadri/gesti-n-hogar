@@ -156,16 +156,72 @@ function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Inventario</h2>
           <p className="text-muted-foreground">Tu nevera virtual y despensa</p>
         </div>
-        <Button onClick={openDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Añadir producto
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant={selectMode ? "secondary" : "outline"} onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}>
+            {selectMode ? (
+              <>
+                <X className="mr-2 h-4 w-4" />
+                Cancelar
+              </>
+            ) : (
+              <>
+                <CheckSquare className="mr-2 h-4 w-4" />
+                Seleccionar
+              </>
+            )}
+          </Button>
+          <Button onClick={openDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Añadir producto
+          </Button>
+        </div>
       </div>
+
+      {selectMode && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="flex items-center gap-2 text-sm">
+              <ArrowLeftRight className="h-4 w-4 text-primary" />
+              <span className="font-medium">{selected.size} seleccionado(s)</span>
+              <span className="text-muted-foreground">— mover a:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selected.size === 0 || moving}
+                onClick={() => moveSelectedTo("Frigorífico")}
+              >
+                <Refrigerator className="mr-2 h-4 w-4" />
+                Frigorífico
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selected.size === 0 || moving}
+                onClick={() => moveSelectedTo("Congelador")}
+              >
+                <Snowflake className="mr-2 h-4 w-4" />
+                Congelador
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selected.size === 0 || moving}
+                onClick={() => moveSelectedTo("Armario")}
+              >
+                <Archive className="mr-2 h-4 w-4" />
+                Armario
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {lowStock.length > 0 && (
         <Card className="border-destructive/30 bg-destructive/5">
