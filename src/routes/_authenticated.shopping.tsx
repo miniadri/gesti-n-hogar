@@ -95,8 +95,12 @@ const shoppingQueryOptions = queryOptions({
   queryKey: ["shopping"],
   queryFn: async () => {
     await ensureDefaultLists();
-    const [stores, items] = await Promise.all([listStores(), listShoppingItems()]);
-    return { stores, items };
+    const [stores, items, recent] = await Promise.all([
+      listStores(),
+      listShoppingItems(),
+      listRecentItems(),
+    ]);
+    return { stores, items, recent };
   },
 });
 
