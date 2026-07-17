@@ -70,19 +70,33 @@ function ScanTicketPage() {
       </div>
 
       <Card>
-        <CardContent className="flex flex-col items-center justify-center gap-4 p-8">
+        <CardContent className="flex flex-col items-center justify-center gap-3 p-8">
           <input
             type="file"
             accept="image/*"
             capture="environment"
             className="hidden"
-            ref={fileRef}
+            ref={cameraRef}
             onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
           />
-          <Button onClick={() => fileRef.current?.click()} disabled={scanning} className="w-full max-w-xs">
-            {scanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-            {scanning ? "Escaneando..." : "Hacer foto / Subir"}
-          </Button>
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            className="hidden"
+            ref={uploadRef}
+            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+          />
+          <div className="flex w-full max-w-md flex-col gap-2 sm:flex-row">
+            <Button onClick={() => cameraRef.current?.click()} disabled={scanning} className="flex-1">
+              {scanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+              Hacer foto
+            </Button>
+            <Button variant="outline" onClick={() => uploadRef.current?.click()} disabled={scanning} className="flex-1">
+              {scanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Subir imagen / PDF
+            </Button>
+          </div>
+          {scanning && <p className="text-xs text-muted-foreground">Analizando ticket...</p>}
         </CardContent>
       </Card>
 
