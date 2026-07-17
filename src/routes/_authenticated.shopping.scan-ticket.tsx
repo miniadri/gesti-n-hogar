@@ -19,7 +19,8 @@ export const Route = createFileRoute("/_authenticated/shopping/scan-ticket")({
 function ScanTicketPage() {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<any>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
 
   const doScan = useServerFn(scanTicket);
 
