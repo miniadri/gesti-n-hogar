@@ -10,6 +10,7 @@ const ExpenseInput = z.object({
   date: z.string().date().default(() => new Date().toISOString().split("T")[0]),
   is_subscription: z.boolean().default(false),
   recurrence: z.string().optional(),
+  receipt_id: z.string().uuid().optional(),
 });
 
 const CategoryInput = z.object({

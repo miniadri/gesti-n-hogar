@@ -1,11 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef } from "react";
-import { Camera, Upload, Loader2 } from "lucide-react";
+import { Camera, Upload, Loader2, Check, Receipt as ReceiptIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useServerFn } from "@tanstack/react-start";
 import { scanTicket } from "@/lib/ocr.functions";
+import { createExpense } from "@/lib/finances.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -18,14 +21,23 @@ export const Route = createFileRoute("/_authenticated/shopping/scan-ticket")({
 
 function ScanTicketPage() {
   const [scanning, setScanning] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
+  const [expenseId, setExpenseId] = useState<string | null>(null);
+  const [editStore, setEditStore] = useState("");
+  const [editTotal, setEditTotal] = useState("");
+  const [editDate, setEditDate] = useState("");
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
 
   const doScan = useServerFn(scanTicket);
+  const doCreateExpense = useServerFn(createExpense);
 
   const handleFile = async (file: File) => {
     setScanning(true);
+    setResult(null);
+    setExpenseId(null);
     try {
       const householdId = (await supabase.rpc("current_household")).data;
       if (!householdId) throw new Error("No household");
@@ -54,7 +66,11 @@ function ScanTicketPage() {
 
       const scanResult = await doScan({ data: { imageUrl: signed.signedUrl, receiptId: receipt.id } });
       setResult(scanResult.receipt);
-      toast.success("Ticket escaneado");
+      setReceiptId(receipt.id);
+      setEditStore(scanResult.receipt.store || "");
+      setEditTotal(scanResult.receipt.total ? String(scanResult.receipt.total) : "");
+      setEditDate(scanResult.receipt.date || new Date().toISOString().split("T")[0]);
+      toast.success("Ticket escaneado. Revisa y confirma para añadir a Gastos.");
     } catch (err: any) {
       toast.error(err.message || "Error al escanear ticket");
     } finally {
@@ -62,11 +78,39 @@ function ScanTicketPage() {
     }
   };
 
+  const handleConfirm = async () => {
+    const total = parseFloat(editTotal.replace(",", "."));
+    if (!isFinite(total) || total <= 0) {
+      toast.error("Introduce un total válido");
+      return;
+    }
+    if (!receiptId) return;
+    setSaving(true);
+    try {
+      const expense = await doCreateExpense({
+        data: {
+          amount: total,
+          description: editStore || "Compra",
+          date: editDate || new Date().toISOString().split("T")[0],
+          receipt_id: receiptId,
+        },
+      });
+      setExpenseId(expense.id);
+      toast.success("Añadido a Gastos");
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo crear el gasto");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Escanear ticket</h2>
-        <p className="text-muted-foreground">Sube una foto del ticket para extraer los productos</p>
+        <p className="text-muted-foreground">
+          Sube una foto del ticket para extraer los productos. Se adjuntará como gasto tras tu confirmación.
+        </p>
       </div>
 
       <Card>
@@ -102,17 +146,66 @@ function ScanTicketPage() {
 
       {result && (
         <Card>
-          <CardContent className="space-y-3 p-4">
-            <p className="font-semibold">{result.store || "Comercio desconocido"}</p>
-            <p className="text-sm text-muted-foreground">Total: €{result.total?.toFixed(2) || "0.00"}</p>
-            <ul className="space-y-1 text-sm">
-              {result.items.map((item: any, i: number) => (
-                <li key={i} className="flex justify-between">
-                  <span>{item.name}</span>
-                  <span>€{item.total_price?.toFixed(2) || "0.00"}</span>
-                </li>
-              ))}
-            </ul>
+          <CardContent className="space-y-4 p-4">
+            <div className="flex items-center gap-2">
+              <ReceiptIcon className="h-4 w-4" />
+              <p className="font-semibold">Revisa los datos detectados</p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1">
+                <Label htmlFor="store">Comercio</Label>
+                <Input id="store" value={editStore} onChange={(e) => setEditStore(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="total">Total (€)</Label>
+                <Input
+                  id="total"
+                  inputMode="decimal"
+                  value={editTotal}
+                  onChange={(e) => setEditTotal(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="date">Fecha</Label>
+                <Input id="date" type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+              </div>
+            </div>
+
+            {result.items?.length > 0 && (
+              <ul className="max-h-64 space-y-1 overflow-auto rounded border p-2 text-sm">
+                {result.items.map((item: any, i: number) => (
+                  <li key={i} className="flex justify-between">
+                    <span>
+                      {item.quantity && item.quantity !== 1 ? `${item.quantity}× ` : ""}
+                      {item.name}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {item.total_price != null ? `€${item.total_price.toFixed(2)}` : "—"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {expenseId ? (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex flex-1 items-center gap-2 rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+                  <Check className="h-4 w-4" />
+                  Gasto añadido correctamente
+                </div>
+                <Button variant="outline" asChild>
+                  <Link to="/finances">Ver en Gastos</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={handleConfirm} disabled={saving} className="flex-1">
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                  Confirmar y añadir a Gastos
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
