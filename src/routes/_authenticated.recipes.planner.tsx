@@ -32,6 +32,7 @@ import {
 } from "@/lib/meal-plan.functions";
 import { listRecipes } from "@/lib/recipes.functions";
 import { listStores, createShoppingItem, ensureDefaultLists } from "@/lib/shopping.functions";
+import { autoImportFromInventory } from "@/lib/external-recipes.functions";
 
 const weekPlanQO = queryOptions({
   queryKey: ["week-plan"],
@@ -63,7 +64,9 @@ function PlannerPage() {
   const { data: missing } = useSuspenseQuery(missingQO);
 
   const doGenerate = useServerFn(generateWeekPlan);
+  const doAutoImport = useServerFn(autoImportFromInventory);
   const [generating, setGenerating] = useState(false);
+  const [autoImporting, setAutoImporting] = useState(false);
   const [editing, setEditing] = useState<{
     dayId: string;
     slot: "lunch" | "dinner";
@@ -73,6 +76,20 @@ function PlannerPage() {
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["week-plan"] });
+    qc.invalidateQueries({ queryKey: ["recipes"] });
+  };
+
+  const handleAutoImport = async () => {
+    setAutoImporting(true);
+    try {
+      const res: any = await doAutoImport({ data: { count: 6, meal_type: "ambas" } });
+      toast.success(`${res.imported} recetas importadas (${res.provider}). Ya puedes regenerar.`);
+      refresh();
+    } catch (e: any) {
+      toast.error(e.message || "Error al importar");
+    } finally {
+      setAutoImporting(false);
+    }
   };
 
   const handleGenerate = async () => {
@@ -80,9 +97,9 @@ function PlannerPage() {
     try {
       const res: any = await doGenerate({ data: { servings: 2 } });
       if (res?.recipes_available === 0) {
-        toast.warning("No hay recetas guardadas: añade recetas primero para poder planificar.");
+        toast.warning("No hay recetas. Usa 'Importar automáticamente' o ve a Descubrir.");
       } else if (res?.assigned === 0) {
-        toast.info("No se asignó ninguna receta nueva (los huecos libres no encontraron candidatos válidos).");
+        toast.info("No se asignó ninguna receta nueva.");
       } else {
         toast.success(`Semana generada: ${res.assigned} huecos asignados`);
       }
@@ -109,10 +126,14 @@ function PlannerPage() {
             <p className="text-muted-foreground">Semana del {plan.week_start}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setShopOpen(true)} disabled={missing.length === 0}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             Faltan {missing.length}
+          </Button>
+          <Button variant="secondary" onClick={handleAutoImport} disabled={autoImporting}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            {autoImporting ? "Importando..." : "Importar recetas"}
           </Button>
           <Button onClick={handleGenerate} disabled={generating}>
             <Sparkles className="mr-2 h-4 w-4" />
@@ -125,12 +146,21 @@ function PlannerPage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-start gap-2 py-4">
             <p className="text-sm">
-              Aún no tienes recetas guardadas. El planificador solo puede rellenar huecos con
-              recetas del catálogo o con texto libre que escribas tú.
+              Aún no tienes recetas guardadas. Puedes importarlas automáticamente usando tu inventario,
+              buscarlas manualmente en Descubrir, o crear una desde cero.
             </p>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/recipes">Ir a Recetas para crear la primera</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={handleAutoImport} disabled={autoImporting}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Importar automáticamente
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/recipes/discover">Buscar recetas</Link>
+              </Button>
+              <Button asChild size="sm" variant="ghost">
+                <Link to="/recipes">Crear manualmente</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

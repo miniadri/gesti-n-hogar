@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, ChefHat, Clock, Users, Sparkles } from "lucide-react";
+import { Plus, ChefHat, Clock, Users, Sparkles, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,7 +81,13 @@ function RecipesPage() {
           <h2 className="text-2xl font-bold tracking-tight">Recetas</h2>
           <p className="text-muted-foreground">Tus recetas y sugerencias de IA</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link to="/recipes/discover">
+              <Search className="mr-2 h-4 w-4" />
+              Descubrir
+            </Link>
+          </Button>
           <Button variant="outline" asChild>
             <Link to="/recipes/planner">
               <Sparkles className="mr-2 h-4 w-4" />
