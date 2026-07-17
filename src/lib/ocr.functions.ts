@@ -34,6 +34,11 @@ export const scanTicket = createServerFn({ method: "POST" })
     const gateway = createLovableAiGatewayProvider(key, undefined, { structuredOutputs: false });
     const model = gateway("google/gemini-3-flash-preview");
 
+    const isPdf = /\.pdf(\?|$)/i.test(data.imageUrl);
+    const mediaContent: any = isPdf
+      ? { type: "file", data: data.imageUrl, mediaType: "application/pdf" }
+      : { type: "image", image: data.imageUrl };
+
     const { output } = await generateText({
       model,
       output: Output.object({ schema: ReceiptSchema }),
@@ -45,10 +50,7 @@ export const scanTicket = createServerFn({ method: "POST" })
               type: "text",
               text: "Extrae la información estructurada de este ticket de compra. Devuelve el comercio, la fecha (ISO), el total y una lista de productos con nombre, cantidad, precio unitario, precio total y categoría. Si no puedes leer algo, usa null.",
             },
-            {
-              type: "image",
-              image: data.imageUrl,
-            },
+            mediaContent,
           ],
         },
       ],

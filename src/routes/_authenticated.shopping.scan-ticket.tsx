@@ -19,7 +19,8 @@ export const Route = createFileRoute("/_authenticated/shopping/scan-ticket")({
 function ScanTicketPage() {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<any>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
 
   const doScan = useServerFn(scanTicket);
 
@@ -28,24 +29,30 @@ function ScanTicketPage() {
     try {
       const householdId = (await supabase.rpc("current_household")).data;
       if (!householdId) throw new Error("No household");
-
-      const path = `${householdId}/${Date.now()}_${file.name}`;
+      const userId = (await supabase.auth.getUser()).data.user!.id;
+      const safeName = file.name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${userId}/${Date.now()}_${safeName}`;
       const { data: upload, error: uploadError } = await supabase.storage
         .from("receipts")
-        .upload(path, file);
+        .upload(path, file, { contentType: file.type || undefined });
       if (uploadError) throw uploadError;
 
-      const { data: url } = supabase.storage.from("receipts").getPublicUrl(upload.path);
+      const { data: signed, error: signedError } = await supabase.storage
+        .from("receipts")
+        .createSignedUrl(upload.path, 3600);
+      if (signedError) throw signedError;
 
-      // Create receipt record
       const { data: receipt, error: receiptError } = await supabase
         .from("receipts")
-        .insert({ household_id: householdId, image_url: url.publicUrl, created_by: (await supabase.auth.getUser()).data.user!.id })
+        .insert({ household_id: householdId, image_url: signed.signedUrl, created_by: userId })
         .select()
         .single();
       if (receiptError) throw receiptError;
 
-      const scanResult = await doScan({ data: { imageUrl: url.publicUrl, receiptId: receipt.id } });
+      const scanResult = await doScan({ data: { imageUrl: signed.signedUrl, receiptId: receipt.id } });
       setResult(scanResult.receipt);
       toast.success("Ticket escaneado");
     } catch (err: any) {
@@ -63,19 +70,33 @@ function ScanTicketPage() {
       </div>
 
       <Card>
-        <CardContent className="flex flex-col items-center justify-center gap-4 p-8">
+        <CardContent className="flex flex-col items-center justify-center gap-3 p-8">
           <input
             type="file"
             accept="image/*"
             capture="environment"
             className="hidden"
-            ref={fileRef}
+            ref={cameraRef}
             onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
           />
-          <Button onClick={() => fileRef.current?.click()} disabled={scanning} className="w-full max-w-xs">
-            {scanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-            {scanning ? "Escaneando..." : "Hacer foto / Subir"}
-          </Button>
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            className="hidden"
+            ref={uploadRef}
+            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+          />
+          <div className="flex w-full max-w-md flex-col gap-2 sm:flex-row">
+            <Button onClick={() => cameraRef.current?.click()} disabled={scanning} className="flex-1">
+              {scanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+              Hacer foto
+            </Button>
+            <Button variant="outline" onClick={() => uploadRef.current?.click()} disabled={scanning} className="flex-1">
+              {scanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Subir imagen / PDF
+            </Button>
+          </div>
+          {scanning && <p className="text-xs text-muted-foreground">Analizando ticket...</p>}
         </CardContent>
       </Card>
 
