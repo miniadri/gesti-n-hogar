@@ -27,6 +27,7 @@ import { Route as AuthenticatedSettingsLocalizationRouteImport } from './routes/
 import { Route as AuthenticatedSettingsFamilyRouteImport } from './routes/_authenticated.settings.family'
 import { Route as AuthenticatedSettingsAppliancesRouteImport } from './routes/_authenticated.settings.appliances'
 import { Route as AuthenticatedRecipesPlannerRouteImport } from './routes/_authenticated.recipes.planner'
+import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_authenticated.recipes.discover'
 import { Route as AuthenticatedRecipesRecipeIdRouteImport } from './routes/_authenticated.recipes.$recipeId'
 
 const AuthRoute = AuthRouteImport.update({
@@ -125,6 +126,12 @@ const AuthenticatedRecipesPlannerRoute =
     path: '/recipes/planner',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedRecipesDiscoverRoute =
+  AuthenticatedRecipesDiscoverRouteImport.update({
+    id: '/recipes/discover',
+    path: '/recipes/discover',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedRecipesRecipeIdRoute =
   AuthenticatedRecipesRecipeIdRouteImport.update({
     id: '/recipes/$recipeId',
@@ -144,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
+  '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
   '/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
   '/settings/family': typeof AuthenticatedSettingsFamilyRoute
@@ -164,6 +172,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
+  '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
   '/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
   '/settings/family': typeof AuthenticatedSettingsFamilyRoute
@@ -186,6 +195,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/_authenticated/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
+  '/_authenticated/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/_authenticated/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
   '/_authenticated/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
   '/_authenticated/settings/family': typeof AuthenticatedSettingsFamilyRoute
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/auth/callback'
     | '/recipes/$recipeId'
+    | '/recipes/discover'
     | '/recipes/planner'
     | '/settings/appliances'
     | '/settings/family'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/auth/callback'
     | '/recipes/$recipeId'
+    | '/recipes/discover'
     | '/recipes/planner'
     | '/settings/appliances'
     | '/settings/family'
@@ -249,6 +261,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/auth/callback'
     | '/_authenticated/recipes/$recipeId'
+    | '/_authenticated/recipes/discover'
     | '/_authenticated/recipes/planner'
     | '/_authenticated/settings/appliances'
     | '/_authenticated/settings/family'
@@ -392,6 +405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRecipesPlannerRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/recipes/discover': {
+      id: '/_authenticated/recipes/discover'
+      path: '/recipes/discover'
+      fullPath: '/recipes/discover'
+      preLoaderRoute: typeof AuthenticatedRecipesDiscoverRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/recipes/$recipeId': {
       id: '/_authenticated/recipes/$recipeId'
       path: '/recipes/$recipeId'
@@ -424,6 +444,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedShoppingRoute: typeof AuthenticatedShoppingRouteWithChildren
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedRecipesRecipeIdRoute: typeof AuthenticatedRecipesRecipeIdRoute
+  AuthenticatedRecipesDiscoverRoute: typeof AuthenticatedRecipesDiscoverRoute
   AuthenticatedRecipesPlannerRoute: typeof AuthenticatedRecipesPlannerRoute
   AuthenticatedSettingsAppliancesRoute: typeof AuthenticatedSettingsAppliancesRoute
   AuthenticatedSettingsFamilyRoute: typeof AuthenticatedSettingsFamilyRoute
@@ -441,6 +462,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedShoppingRoute: AuthenticatedShoppingRouteWithChildren,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedRecipesRecipeIdRoute: AuthenticatedRecipesRecipeIdRoute,
+  AuthenticatedRecipesDiscoverRoute: AuthenticatedRecipesDiscoverRoute,
   AuthenticatedRecipesPlannerRoute: AuthenticatedRecipesPlannerRoute,
   AuthenticatedSettingsAppliancesRoute: AuthenticatedSettingsAppliancesRoute,
   AuthenticatedSettingsFamilyRoute: AuthenticatedSettingsFamilyRoute,
