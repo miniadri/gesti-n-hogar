@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, ChefHat, Clock, Users, Sparkles } from "lucide-react";
+import { Plus, ChefHat, Clock, Users, Sparkles, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
