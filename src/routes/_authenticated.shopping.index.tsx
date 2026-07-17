@@ -106,7 +106,7 @@ const shoppingQueryOptions = queryOptions({
   },
 });
 
-export const Route = createFileRoute("/_authenticated/shopping")({
+export const Route = createFileRoute("/_authenticated/shopping/")({
   loader: ({ context }) => context.queryClient.ensureQueryData(shoppingQueryOptions),
   head: () => ({
     meta: [{ title: "Lista de compra - HomeSync" }],
