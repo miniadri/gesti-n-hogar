@@ -32,6 +32,7 @@ import {
 } from "@/lib/meal-plan.functions";
 import { listRecipes } from "@/lib/recipes.functions";
 import { listStores, createShoppingItem, ensureDefaultLists } from "@/lib/shopping.functions";
+import { autoImportFromInventory } from "@/lib/external-recipes.functions";
 
 const weekPlanQO = queryOptions({
   queryKey: ["week-plan"],
