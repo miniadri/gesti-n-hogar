@@ -278,17 +278,21 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
     try {
       const householdId = (await supabase.rpc("current_household")).data;
       if (!householdId) throw new Error("No household");
-      const path = `${householdId}/${Date.now()}_${file.name}`;
+      const userId = (await supabase.auth.getUser()).data.user!.id;
+      const safeName = file.name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${userId}/${Date.now()}_${safeName}`;
       const { data: upload, error: uploadError } = await supabase.storage
         .from("receipts")
-        .upload(path, file);
+        .upload(path, file, { contentType: file.type || undefined });
       if (uploadError) throw uploadError;
       const { data: signed, error: signedError } = await supabase.storage
         .from("receipts")
         .createSignedUrl(upload.path, 3600);
       if (signedError) throw signedError;
 
-      const userId = (await supabase.auth.getUser()).data.user!.id;
       const { data: receipt, error: receiptError } = await supabase
         .from("receipts")
         .insert({ household_id: householdId, image_url: signed.signedUrl, created_by: userId })
