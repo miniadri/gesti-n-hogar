@@ -25,7 +25,7 @@ const recipesQueryOptions = queryOptions({
   queryFn: () => listRecipes(),
 });
 
-export const Route = createFileRoute("/_authenticated/recipes")({
+export const Route = createFileRoute("/_authenticated/recipes/")({
   loader: ({ context }) => context.queryClient.ensureQueryData(recipesQueryOptions),
   head: () => ({
     meta: [{ title: "Recetas - HomeSync" }],
