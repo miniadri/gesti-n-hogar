@@ -314,7 +314,7 @@ export const importExternalRecipe = createServerFn({ method: "POST" })
 
     if (detail.ingredients.length > 0) {
       await context.supabase.from("recipe_ingredients").insert(
-        detail.ingredients.map((i) => ({
+        detail.ingredients.map((i: { name: string; quantity: number | null; unit: string | null }) => ({
           recipe_id: recipe.id,
           name: i.name,
           quantity: i.quantity,
