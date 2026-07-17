@@ -126,10 +126,14 @@ function PlannerPage() {
             <p className="text-muted-foreground">Semana del {plan.week_start}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setShopOpen(true)} disabled={missing.length === 0}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             Faltan {missing.length}
+          </Button>
+          <Button variant="secondary" onClick={handleAutoImport} disabled={autoImporting}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            {autoImporting ? "Importando..." : "Importar recetas"}
           </Button>
           <Button onClick={handleGenerate} disabled={generating}>
             <Sparkles className="mr-2 h-4 w-4" />
@@ -142,12 +146,21 @@ function PlannerPage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-start gap-2 py-4">
             <p className="text-sm">
-              Aún no tienes recetas guardadas. El planificador solo puede rellenar huecos con
-              recetas del catálogo o con texto libre que escribas tú.
+              Aún no tienes recetas guardadas. Puedes importarlas automáticamente usando tu inventario,
+              buscarlas manualmente en Descubrir, o crear una desde cero.
             </p>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/recipes">Ir a Recetas para crear la primera</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={handleAutoImport} disabled={autoImporting}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Importar automáticamente
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/recipes/discover">Buscar recetas</Link>
+              </Button>
+              <Button asChild size="sm" variant="ghost">
+                <Link to="/recipes">Crear manualmente</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
