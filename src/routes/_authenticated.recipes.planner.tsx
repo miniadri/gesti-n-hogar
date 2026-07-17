@@ -95,9 +95,22 @@ function PlannerPage() {
   const handleGenerate = async () => {
     setGenerating(true);
     try {
+      // Si el catálogo es demasiado pequeño para 14 huecos con variedad,
+      // importa recetas automáticamente antes de generar.
+      if ((recipes?.length ?? 0) < 10) {
+        try {
+          const imp: any = await doAutoImport({ data: { count: 8, meal_type: "ambas" } });
+          if (imp?.imported > 0) {
+            toast.info(`Importadas ${imp.imported} recetas nuevas (${imp.provider})`);
+            qc.invalidateQueries({ queryKey: ["recipes"] });
+          }
+        } catch (e: any) {
+          console.warn("Auto-import falló:", e?.message);
+        }
+      }
       const res: any = await doGenerate({ data: { servings: 2 } });
       if (res?.recipes_available === 0) {
-        toast.warning("No hay recetas. Usa 'Importar automáticamente' o ve a Descubrir.");
+        toast.warning("No hay recetas. Usa 'Importar recetas' o ve a Descubrir.");
       } else if (res?.assigned === 0) {
         toast.info("No se asignó ninguna receta nueva.");
       } else {
