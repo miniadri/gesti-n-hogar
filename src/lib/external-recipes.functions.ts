@@ -348,7 +348,7 @@ export const autoImportFromInventory = createServerFn({ method: "POST" })
       .order("expiry_date", { ascending: true, nullsFirst: false })
       .limit(15);
     const ingredients = (inv ?? [])
-      .map((i: any) => (i.name || "").trim())
+      .map((i: { name: string | null }) => (i.name || "").trim())
       .filter(Boolean)
       .slice(0, 5);
 
