@@ -157,16 +157,19 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
       return { recipe_id: chosen.id, protein: chosen.protein_group };
     };
 
+    let assigned = 0;
     for (const day of days ?? []) {
       const update: any = {};
       if (!day.lunch_locked && !day.lunch_skipped && !day.lunch_manual) {
         const p = pickForSlot("comida");
         update.lunch_recipe_id = p.recipe_id;
+        if (p.recipe_id) assigned++;
         if (p.protein) lastProtein = p.protein;
       }
       if (!day.dinner_locked && !day.dinner_skipped && !day.dinner_manual) {
         const p = pickForSlot("cena");
         update.dinner_recipe_id = p.recipe_id;
+        if (p.recipe_id) assigned++;
         if (p.protein) lastProtein = p.protein;
       }
       if (Object.keys(update).length > 0) {
@@ -174,8 +177,14 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
       }
     }
 
-    return { ok: true, week_start: weekStart };
+    return {
+      ok: true,
+      week_start: weekStart,
+      assigned,
+      recipes_available: (recipes ?? []).length,
+    };
   });
+
 
 export const updateMealSlot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
