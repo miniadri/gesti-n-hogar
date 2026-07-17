@@ -28,24 +28,30 @@ function ScanTicketPage() {
     try {
       const householdId = (await supabase.rpc("current_household")).data;
       if (!householdId) throw new Error("No household");
-
-      const path = `${householdId}/${Date.now()}_${file.name}`;
+      const userId = (await supabase.auth.getUser()).data.user!.id;
+      const safeName = file.name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${userId}/${Date.now()}_${safeName}`;
       const { data: upload, error: uploadError } = await supabase.storage
         .from("receipts")
-        .upload(path, file);
+        .upload(path, file, { contentType: file.type || undefined });
       if (uploadError) throw uploadError;
 
-      const { data: url } = supabase.storage.from("receipts").getPublicUrl(upload.path);
+      const { data: signed, error: signedError } = await supabase.storage
+        .from("receipts")
+        .createSignedUrl(upload.path, 3600);
+      if (signedError) throw signedError;
 
-      // Create receipt record
       const { data: receipt, error: receiptError } = await supabase
         .from("receipts")
-        .insert({ household_id: householdId, image_url: url.publicUrl, created_by: (await supabase.auth.getUser()).data.user!.id })
+        .insert({ household_id: householdId, image_url: signed.signedUrl, created_by: userId })
         .select()
         .single();
       if (receiptError) throw receiptError;
 
-      const scanResult = await doScan({ data: { imageUrl: url.publicUrl, receiptId: receipt.id } });
+      const scanResult = await doScan({ data: { imageUrl: signed.signedUrl, receiptId: receipt.id } });
       setResult(scanResult.receipt);
       toast.success("Ticket escaneado");
     } catch (err: any) {
