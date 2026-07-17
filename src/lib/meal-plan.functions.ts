@@ -128,6 +128,25 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
       return covered * 10 + expiryBonus;
     };
 
+    // Detecta la "familia" de una receta a partir del título para evitar repeticiones
+    // (pasta/arroz/pizza/etc.) además de la proteína.
+    const FAMILY_KEYWORDS: Array<[string, RegExp]> = [
+      ["pasta", /\b(pasta|espagueti|spaghetti|macarron|tallarin|lasagn|fideo|ravioli|carbonara|bolo[nñ]|pesto)\b/i],
+      ["arroz", /\b(arroz|risotto|paella)\b/i],
+      ["pizza", /\bpizza\b/i],
+      ["sopa", /\b(sopa|crema|caldo|pur[eé])\b/i],
+      ["ensalada", /\bensalad/i],
+      ["legumbre", /\b(lenteja|garbanz|jud[ií]a|alubia|fabada|potaje)\b/i],
+      ["sandwich", /\b(sandwich|bocadillo|wrap|tosta)\b/i],
+      ["horno", /\b(horno|asad|guisad)\b/i],
+      ["parrilla", /\b(parrilla|plancha|barbacoa)\b/i],
+    ];
+    const familyOf = (r: any): string | null => {
+      const t = (r.title || "").toLowerCase();
+      for (const [name, rx] of FAMILY_KEYWORDS) if (rx.test(t)) return name;
+      return null;
+    };
+
     const { data: days } = await context.supabase
       .from("meal_plan_days")
       .select("*")
@@ -135,26 +154,38 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
       .order("day_of_week");
 
     const usedRecipeIds = new Set<string>();
+    const familyCount = new Map<string, number>();
+    const proteinCount = new Map<string, number>();
+    let lastFamily: string | null = null;
     let lastProtein: string | null = null;
 
     const pickForSlot = (
       slot: "comida" | "cena",
-    ): { recipe_id: string | null; protein: string | null } => {
+    ): { recipe_id: string | null; protein: string | null; family: string | null } => {
       const candidates = (recipes ?? [])
-        .filter(
-          (r: any) =>
-            r.meal_type === slot || r.meal_type === "ambas",
-        )
+        .filter((r: any) => r.meal_type === slot || r.meal_type === "ambas" || !r.meal_type)
         .filter((r: any) => !usedRecipeIds.has(r.id))
-        .map((r: any) => ({
-          r,
-          score: scoreRecipe(r) + (r.protein_group && r.protein_group !== lastProtein ? 3 : 0),
-        }))
+        .map((r: any) => {
+          const fam = familyOf(r);
+          let score = scoreRecipe(r);
+          // Variedad de proteína
+          if (r.protein_group && r.protein_group !== lastProtein) score += 3;
+          if (r.protein_group) score -= (proteinCount.get(r.protein_group) ?? 0) * 4;
+          // Variedad de familia (evita 3 pastas seguidas)
+          if (fam && fam === lastFamily) score -= 10;
+          if (fam) score -= (familyCount.get(fam) ?? 0) * 3;
+          // Ruido pequeño para desempatar (evita orden estable trivial)
+          score += Math.random();
+          return { r, score, fam };
+        })
         .sort((a, b) => b.score - a.score);
-      const chosen = candidates[0]?.r;
-      if (!chosen) return { recipe_id: null, protein: null };
-      usedRecipeIds.add(chosen.id);
-      return { recipe_id: chosen.id, protein: chosen.protein_group };
+      const chosen = candidates[0];
+      if (!chosen) return { recipe_id: null, protein: null, family: null };
+      usedRecipeIds.add(chosen.r.id);
+      if (chosen.fam) familyCount.set(chosen.fam, (familyCount.get(chosen.fam) ?? 0) + 1);
+      if (chosen.r.protein_group)
+        proteinCount.set(chosen.r.protein_group, (proteinCount.get(chosen.r.protein_group) ?? 0) + 1);
+      return { recipe_id: chosen.r.id, protein: chosen.r.protein_group, family: chosen.fam };
     };
 
     let assigned = 0;
@@ -165,12 +196,14 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
         update.lunch_recipe_id = p.recipe_id;
         if (p.recipe_id) assigned++;
         if (p.protein) lastProtein = p.protein;
+        if (p.family) lastFamily = p.family;
       }
       if (!day.dinner_locked && !day.dinner_skipped && !day.dinner_manual) {
         const p = pickForSlot("cena");
         update.dinner_recipe_id = p.recipe_id;
         if (p.recipe_id) assigned++;
         if (p.protein) lastProtein = p.protein;
+        if (p.family) lastFamily = p.family;
       }
       if (Object.keys(update).length > 0) {
         await context.supabase.from("meal_plan_days").update(update).eq("id", day.id);
