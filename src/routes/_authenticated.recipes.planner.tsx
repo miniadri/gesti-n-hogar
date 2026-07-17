@@ -78,8 +78,14 @@ function PlannerPage() {
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      await doGenerate({ data: { servings: 2 } });
-      toast.success("Semana generada");
+      const res: any = await doGenerate({ data: { servings: 2 } });
+      if (res?.recipes_available === 0) {
+        toast.warning("No hay recetas guardadas: añade recetas primero para poder planificar.");
+      } else if (res?.assigned === 0) {
+        toast.info("No se asignó ninguna receta nueva (los huecos libres no encontraron candidatos válidos).");
+      } else {
+        toast.success(`Semana generada: ${res.assigned} huecos asignados`);
+      }
       refresh();
     } catch (e: any) {
       toast.error(e.message || "Error al generar");
@@ -87,6 +93,7 @@ function PlannerPage() {
       setGenerating(false);
     }
   };
+
 
   return (
     <div className="space-y-6">
@@ -114,7 +121,22 @@ function PlannerPage() {
         </div>
       </div>
 
+      {recipes.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-start gap-2 py-4">
+            <p className="text-sm">
+              Aún no tienes recetas guardadas. El planificador solo puede rellenar huecos con
+              recetas del catálogo o con texto libre que escribas tú.
+            </p>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/recipes">Ir a Recetas para crear la primera</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">
+
         {plan.days.map((day: any) => (
           <Card key={day.id} className="overflow-hidden">
             <CardHeader className="pb-2">
