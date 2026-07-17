@@ -15,12 +15,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated.tasks'
 import { Route as AuthenticatedShoppingRouteImport } from './routes/_authenticated.shopping'
-import { Route as AuthenticatedRecipesRouteImport } from './routes/_authenticated.recipes'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated.inventory'
 import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated.finances'
 import { Route as AuthenticatedDevicesRouteImport } from './routes/_authenticated.devices'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated.calendar'
+import { Route as AuthenticatedRecipesIndexRouteImport } from './routes/_authenticated.recipes.index'
 import { Route as AuthenticatedShoppingScanTicketRouteImport } from './routes/_authenticated.shopping.scan-ticket'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated.settings.notifications'
 import { Route as AuthenticatedSettingsLocalizationRouteImport } from './routes/_authenticated.settings.localization'
@@ -58,11 +58,6 @@ const AuthenticatedShoppingRoute = AuthenticatedShoppingRouteImport.update({
   path: '/shopping',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedRecipesRoute = AuthenticatedRecipesRouteImport.update({
-  id: '/recipes',
-  path: '/recipes',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
   id: '/inventory',
   path: '/inventory',
@@ -88,6 +83,12 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedRecipesIndexRoute =
+  AuthenticatedRecipesIndexRouteImport.update({
+    id: '/recipes/',
+    path: '/recipes/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedShoppingScanTicketRoute =
   AuthenticatedShoppingScanTicketRouteImport.update({
     id: '/scan-ticket',
@@ -120,15 +121,15 @@ const AuthenticatedSettingsAppliancesRoute =
   } as any)
 const AuthenticatedRecipesPlannerRoute =
   AuthenticatedRecipesPlannerRouteImport.update({
-    id: '/planner',
-    path: '/planner',
-    getParentRoute: () => AuthenticatedRecipesRoute,
+    id: '/recipes/planner',
+    path: '/recipes/planner',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedRecipesRecipeIdRoute =
   AuthenticatedRecipesRecipeIdRouteImport.update({
-    id: '/$recipeId',
-    path: '/$recipeId',
-    getParentRoute: () => AuthenticatedRecipesRoute,
+    id: '/recipes/$recipeId',
+    path: '/recipes/$recipeId',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -139,7 +140,6 @@ export interface FileRoutesByFullPath {
   '/devices': typeof AuthenticatedDevicesRoute
   '/finances': typeof AuthenticatedFinancesRoute
   '/inventory': typeof AuthenticatedInventoryRoute
-  '/recipes': typeof AuthenticatedRecipesRouteWithChildren
   '/shopping': typeof AuthenticatedShoppingRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -150,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
+  '/recipes/': typeof AuthenticatedRecipesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -159,7 +160,6 @@ export interface FileRoutesByTo {
   '/devices': typeof AuthenticatedDevicesRoute
   '/finances': typeof AuthenticatedFinancesRoute
   '/inventory': typeof AuthenticatedInventoryRoute
-  '/recipes': typeof AuthenticatedRecipesRouteWithChildren
   '/shopping': typeof AuthenticatedShoppingRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -170,6 +170,7 @@ export interface FileRoutesByTo {
   '/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
+  '/recipes': typeof AuthenticatedRecipesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -181,7 +182,6 @@ export interface FileRoutesById {
   '/_authenticated/devices': typeof AuthenticatedDevicesRoute
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
-  '/_authenticated/recipes': typeof AuthenticatedRecipesRouteWithChildren
   '/_authenticated/shopping': typeof AuthenticatedShoppingRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -192,6 +192,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
+  '/_authenticated/recipes/': typeof AuthenticatedRecipesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -203,7 +204,6 @@ export interface FileRouteTypes {
     | '/devices'
     | '/finances'
     | '/inventory'
-    | '/recipes'
     | '/shopping'
     | '/tasks'
     | '/auth/callback'
@@ -214,6 +214,7 @@ export interface FileRouteTypes {
     | '/settings/localization'
     | '/settings/notifications'
     | '/shopping/scan-ticket'
+    | '/recipes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -223,7 +224,6 @@ export interface FileRouteTypes {
     | '/devices'
     | '/finances'
     | '/inventory'
-    | '/recipes'
     | '/shopping'
     | '/tasks'
     | '/auth/callback'
@@ -234,6 +234,7 @@ export interface FileRouteTypes {
     | '/settings/localization'
     | '/settings/notifications'
     | '/shopping/scan-ticket'
+    | '/recipes'
   id:
     | '__root__'
     | '/'
@@ -244,7 +245,6 @@ export interface FileRouteTypes {
     | '/_authenticated/devices'
     | '/_authenticated/finances'
     | '/_authenticated/inventory'
-    | '/_authenticated/recipes'
     | '/_authenticated/shopping'
     | '/_authenticated/tasks'
     | '/auth/callback'
@@ -255,6 +255,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/localization'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/shopping/scan-ticket'
+    | '/_authenticated/recipes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -307,13 +308,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShoppingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/recipes': {
-      id: '/_authenticated/recipes'
-      path: '/recipes'
-      fullPath: '/recipes'
-      preLoaderRoute: typeof AuthenticatedRecipesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/inventory': {
       id: '/_authenticated/inventory'
       path: '/inventory'
@@ -347,6 +341,13 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/calendar'
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/recipes/': {
+      id: '/_authenticated/recipes/'
+      path: '/recipes'
+      fullPath: '/recipes/'
+      preLoaderRoute: typeof AuthenticatedRecipesIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/shopping/scan-ticket': {
@@ -386,33 +387,20 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/recipes/planner': {
       id: '/_authenticated/recipes/planner'
-      path: '/planner'
+      path: '/recipes/planner'
       fullPath: '/recipes/planner'
       preLoaderRoute: typeof AuthenticatedRecipesPlannerRouteImport
-      parentRoute: typeof AuthenticatedRecipesRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/recipes/$recipeId': {
       id: '/_authenticated/recipes/$recipeId'
-      path: '/$recipeId'
+      path: '/recipes/$recipeId'
       fullPath: '/recipes/$recipeId'
       preLoaderRoute: typeof AuthenticatedRecipesRecipeIdRouteImport
-      parentRoute: typeof AuthenticatedRecipesRoute
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
-
-interface AuthenticatedRecipesRouteChildren {
-  AuthenticatedRecipesRecipeIdRoute: typeof AuthenticatedRecipesRecipeIdRoute
-  AuthenticatedRecipesPlannerRoute: typeof AuthenticatedRecipesPlannerRoute
-}
-
-const AuthenticatedRecipesRouteChildren: AuthenticatedRecipesRouteChildren = {
-  AuthenticatedRecipesRecipeIdRoute: AuthenticatedRecipesRecipeIdRoute,
-  AuthenticatedRecipesPlannerRoute: AuthenticatedRecipesPlannerRoute,
-}
-
-const AuthenticatedRecipesRouteWithChildren =
-  AuthenticatedRecipesRoute._addFileChildren(AuthenticatedRecipesRouteChildren)
 
 interface AuthenticatedShoppingRouteChildren {
   AuthenticatedShoppingScanTicketRoute: typeof AuthenticatedShoppingScanTicketRoute
@@ -433,13 +421,15 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDevicesRoute: typeof AuthenticatedDevicesRoute
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
-  AuthenticatedRecipesRoute: typeof AuthenticatedRecipesRouteWithChildren
   AuthenticatedShoppingRoute: typeof AuthenticatedShoppingRouteWithChildren
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
+  AuthenticatedRecipesRecipeIdRoute: typeof AuthenticatedRecipesRecipeIdRoute
+  AuthenticatedRecipesPlannerRoute: typeof AuthenticatedRecipesPlannerRoute
   AuthenticatedSettingsAppliancesRoute: typeof AuthenticatedSettingsAppliancesRoute
   AuthenticatedSettingsFamilyRoute: typeof AuthenticatedSettingsFamilyRoute
   AuthenticatedSettingsLocalizationRoute: typeof AuthenticatedSettingsLocalizationRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
+  AuthenticatedRecipesIndexRoute: typeof AuthenticatedRecipesIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -448,15 +438,17 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDevicesRoute: AuthenticatedDevicesRoute,
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
-  AuthenticatedRecipesRoute: AuthenticatedRecipesRouteWithChildren,
   AuthenticatedShoppingRoute: AuthenticatedShoppingRouteWithChildren,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
+  AuthenticatedRecipesRecipeIdRoute: AuthenticatedRecipesRecipeIdRoute,
+  AuthenticatedRecipesPlannerRoute: AuthenticatedRecipesPlannerRoute,
   AuthenticatedSettingsAppliancesRoute: AuthenticatedSettingsAppliancesRoute,
   AuthenticatedSettingsFamilyRoute: AuthenticatedSettingsFamilyRoute,
   AuthenticatedSettingsLocalizationRoute:
     AuthenticatedSettingsLocalizationRoute,
   AuthenticatedSettingsNotificationsRoute:
     AuthenticatedSettingsNotificationsRoute,
+  AuthenticatedRecipesIndexRoute: AuthenticatedRecipesIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
