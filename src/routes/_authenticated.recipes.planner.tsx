@@ -121,7 +121,22 @@ function PlannerPage() {
         </div>
       </div>
 
+      {recipes.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-start gap-2 py-4">
+            <p className="text-sm">
+              Aún no tienes recetas guardadas. El planificador solo puede rellenar huecos con
+              recetas del catálogo o con texto libre que escribas tú.
+            </p>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/recipes">Ir a Recetas para crear la primera</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">
+
         {plan.days.map((day: any) => (
           <Card key={day.id} className="overflow-hidden">
             <CardHeader className="pb-2">
