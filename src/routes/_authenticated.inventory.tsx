@@ -113,11 +113,27 @@ function InventoryPage() {
     if (selected.size === 0) return;
     setMoving(true);
     try {
-      const ids = Array.from(selected);
+      const items = data.filter((i) => selected.has(i.id));
+      const addDays = (n: number) => {
+        const d = new Date();
+        d.setDate(d.getDate() + n);
+        return d.toISOString().slice(0, 10);
+      };
       await Promise.all(
-        ids.map((id) => doUpdate({ data: { id, location: target } })),
+        items.map((item) => {
+          const current = normalizeLocation(item.location);
+          const patch: { id: string; location: InventoryLocation; expiry_date?: string } = {
+            id: item.id,
+            location: target,
+          };
+          if (!item.expiry_date) {
+            if (current === "Frigorífico" && target === "Congelador") patch.expiry_date = addDays(30);
+            else if (current === "Congelador" && target === "Frigorífico") patch.expiry_date = addDays(2);
+          }
+          return doUpdate({ data: patch });
+        }),
       );
-      toast.success(`${ids.length} producto(s) movidos a ${target}`);
+      toast.success(`${items.length} producto(s) movidos a ${target}`);
       exitSelectMode();
       refresh();
     } catch {
