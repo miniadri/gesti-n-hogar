@@ -624,6 +624,50 @@ export type Database = {
           },
         ]
       }
+      medicines: {
+        Row: {
+          created_at: string
+          expiry_month: number | null
+          expiry_year: number | null
+          household_id: string
+          id: string
+          name: string
+          needs_purchase: boolean
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expiry_month?: number | null
+          expiry_year?: number | null
+          household_id: string
+          id?: string
+          name: string
+          needs_purchase?: boolean
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expiry_month?: number | null
+          expiry_year?: number | null
+          household_id?: string
+          id?: string
+          name?: string
+          needs_purchase?: boolean
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicines_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
