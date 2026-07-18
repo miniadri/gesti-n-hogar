@@ -189,11 +189,14 @@ function ShoppingPage() {
         ))
       )}
 
+      <PharmacySection medicines={data.medicines} />
+
       <RecentItemsSection
         recent={data.recent}
         activeNames={new Set(data.items.map((i: any) => i.name.toLowerCase()))}
         onAdded={refresh}
       />
+
 
       <AddItemDialog open={addOpen} onOpenChange={setAddOpen} stores={data.stores} onAdded={refresh} />
       <ManageStoresDialog open={storeOpen} onOpenChange={setStoreOpen} stores={data.stores} onChange={refresh} />
