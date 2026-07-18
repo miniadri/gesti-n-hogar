@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { BALANCED_PROTEIN_TARGETS, inferRecipeMeta, recipeFamily } from "./recipe-balance";
-import { autoImportBalancedRecipes } from "./external-recipes.server";
 
 // Devuelve el lunes de la semana actual (YYYY-MM-DD).
 export function currentWeekStart(base = new Date()): string {
@@ -135,6 +134,7 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
         .filter(Boolean)
         .slice(0, 5);
       const needed = Math.min(10, Math.max(6, 14 - (recipes ?? []).length));
+      const { autoImportBalancedRecipes } = await import("./external-recipes.server");
       const importResult = await autoImportBalancedRecipes({
         supabase: context.supabase,
         householdId,

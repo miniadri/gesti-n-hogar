@@ -1,17 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  autoImportBalancedRecipes,
-  findExternalRecipes,
-  importExternalRecipeForHousehold,
-  type ExternalHit,
-} from "./external-recipes.server";
 
 // Búsqueda e importación de recetas desde Spoonacular (primario) y TheMealDB (fallback).
 // Traducción al español opcional vía Lovable AI en el paso de importación.
 
-export type { ExternalHit } from "./external-recipes.server";
+export type ExternalHit = {
+  source: "spoonacular" | "themealdb";
+  external_id: string;
+  title: string;
+  image?: string | null;
+  ready_in?: number | null;
+  servings?: number | null;
+  used_ingredients?: string[];
+  missed_ingredients?: string[];
+};
 
 const SearchInput = z.object({
   query: z.string().optional(),
@@ -38,9 +41,10 @@ const AutoInput = z.object({
 export const searchExternalRecipes = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => SearchInput.parse(i))
-  .handler(async ({ data }): Promise<{ hits: ExternalHit[]; provider: string; note?: string }> =>
-    findExternalRecipes(data),
-  );
+  .handler(async ({ data }): Promise<{ hits: ExternalHit[]; provider: string; note?: string }> => {
+    const { findExternalRecipes } = await import("./external-recipes.server");
+    return findExternalRecipes(data);
+  });
 
 export const importExternalRecipe = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -49,6 +53,7 @@ export const importExternalRecipe = createServerFn({ method: "POST" })
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
 
+    const { importExternalRecipeForHousehold } = await import("./external-recipes.server");
     return importExternalRecipeForHousehold({
       supabase: context.supabase,
       householdId,
@@ -77,6 +82,7 @@ export const autoImportFromInventory = createServerFn({ method: "POST" })
       .filter(Boolean)
       .slice(0, 5);
 
+    const { autoImportBalancedRecipes } = await import("./external-recipes.server");
     const res = await autoImportBalancedRecipes({
       supabase: context.supabase,
       householdId,
