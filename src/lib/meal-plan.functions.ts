@@ -133,7 +133,7 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
         .map((i: { name: string | null }) => (i.name || "").trim())
         .filter(Boolean)
         .slice(0, 5);
-      const needed = Math.min(10, Math.max(6, 14 - (recipes ?? []).length));
+      const needed = Math.min(14, Math.max(8, 16 - (recipes ?? []).length));
       const { autoImportBalancedRecipes } = await import("./external-recipes.server");
       const importResult = await autoImportBalancedRecipes({
         supabase: context.supabase,
