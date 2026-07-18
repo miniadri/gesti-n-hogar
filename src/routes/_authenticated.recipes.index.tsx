@@ -178,7 +178,7 @@ function RecipesPage() {
           >
             {selectMode ? (
               <button type="button" onClick={() => toggleSelected(recipe.id)} className="block w-full text-left">
-                <RecipeCardContent recipe={recipe} selected={selectedIds.has(recipe.id)} />
+                <RecipeCardContent recipe={recipe} selectable selected={selectedIds.has(recipe.id)} />
               </button>
             ) : (
               <Link to="/recipes/$recipeId" params={{ recipeId: recipe.id }} className="block">
@@ -258,15 +258,23 @@ function RecipesPage() {
   );
 }
 
-function RecipeCardContent({ recipe, selected = false }: { recipe: any; selected?: boolean }) {
+function RecipeCardContent({
+  recipe,
+  selected = false,
+  selectable = false,
+}: {
+  recipe: any;
+  selected?: boolean;
+  selectable?: boolean;
+}) {
   return (
     <CardContent className="p-4">
       <div className="flex items-start justify-between">
         <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary">
           <ChefHat className="h-6 w-6 text-primary" />
         </div>
-        {selected ? (
-          <Checkbox checked aria-label="Receta seleccionada" />
+        {selectable ? (
+          <Checkbox checked={selected} aria-label={selected ? "Receta seleccionada" : "Receta no seleccionada"} />
         ) : recipe.source === "ai" ? (
           <Badge variant="secondary" className="bg-primary/10 text-primary">
             IA
