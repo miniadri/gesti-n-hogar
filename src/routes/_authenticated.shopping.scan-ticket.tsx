@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useServerFn } from "@tanstack/react-start";
 import { scanTicket } from "@/lib/ocr.functions";
 import { createExpense } from "@/lib/finances.functions";
+import { importReceiptToInventory } from "@/lib/inventory.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -33,6 +34,7 @@ function ScanTicketPage() {
 
   const doScan = useServerFn(scanTicket);
   const doCreateExpense = useServerFn(createExpense);
+  const doImportInv = useServerFn(importReceiptToInventory);
 
   const handleFile = async (file: File) => {
     setScanning(true);
@@ -96,7 +98,15 @@ function ScanTicketPage() {
         },
       });
       setExpenseId(expense.id);
-      toast.success("Añadido a Gastos");
+      try {
+        const inv = await doImportInv({ data: { receiptId } });
+        toast.success(
+          `Añadido a Gastos. Inventario: ${inv.added} añadidos, ${inv.skipped} ya presentes.`,
+        );
+      } catch (invErr: any) {
+        toast.success("Añadido a Gastos");
+        toast.error(`Inventario: ${invErr.message || "no se pudo importar"}`);
+      }
     } catch (err: any) {
       toast.error(err.message || "No se pudo crear el gasto");
     } finally {
