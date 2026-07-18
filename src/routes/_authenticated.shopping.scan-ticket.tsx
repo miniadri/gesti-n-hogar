@@ -34,6 +34,7 @@ function ScanTicketPage() {
 
   const doScan = useServerFn(scanTicket);
   const doCreateExpense = useServerFn(createExpense);
+  const doImportInv = useServerFn(importReceiptToInventory);
 
   const handleFile = async (file: File) => {
     setScanning(true);
