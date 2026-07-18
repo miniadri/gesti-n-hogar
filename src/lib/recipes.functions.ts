@@ -14,6 +14,7 @@ const RecipeInput = z.object({
 
 const UpdateRecipeInput = RecipeInput.partial().extend({ id: z.string().uuid() });
 const DeleteRecipeInput = z.object({ id: z.string().uuid() });
+const DeleteRecipesInput = z.object({ ids: z.array(z.string().uuid()).min(1).max(100) });
 
 export const listRecipes = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -68,4 +69,13 @@ export const deleteRecipe = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from("recipes").delete().eq("id", data.id);
     if (error) throw error;
     return { ok: true };
+  });
+
+export const deleteRecipes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => DeleteRecipesInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("recipes").delete().in("id", data.ids);
+    if (error) throw error;
+    return { ok: true, deleted: data.ids.length };
   });
