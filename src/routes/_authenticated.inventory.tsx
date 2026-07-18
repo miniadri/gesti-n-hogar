@@ -2,12 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight } from "lucide-react";
+import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight, Pill, ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +28,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
 import { listInventory, createInventoryItem, deleteInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
+import { listMedicines, createMedicine, updateMedicine, deleteMedicine } from "@/lib/medicines.functions";
 import { INVENTORY_LOCATIONS, suggestLocation, type InventoryLocation } from "@/lib/inventory-locations";
 import { toast } from "sonner";
 
@@ -33,8 +37,17 @@ const inventoryQueryOptions = queryOptions({
   queryFn: () => listInventory(),
 });
 
+const medicinesQueryOptions = queryOptions({
+  queryKey: ["medicines"],
+  queryFn: () => listMedicines(),
+});
+
 export const Route = createFileRoute("/_authenticated/inventory")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(inventoryQueryOptions),
+  loader: ({ context }) => Promise.all([
+    context.queryClient.ensureQueryData(inventoryQueryOptions),
+    context.queryClient.ensureQueryData(medicinesQueryOptions),
+  ]),
+
   head: () => ({
     meta: [{ title: "Inventario - HomeSync" }],
   }),
