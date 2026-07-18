@@ -128,19 +128,21 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
       return proteins.size >= 4 && families.size >= 6;
     };
 
+    let autoImported = 0;
     if (!hasBalancedCatalog(recipes ?? [])) {
       const ingredients = (inventory ?? [])
         .map((i: { name: string | null }) => (i.name || "").trim())
         .filter(Boolean)
         .slice(0, 5);
       const needed = Math.min(10, Math.max(6, 14 - (recipes ?? []).length));
-      await autoImportBalancedRecipes({
+      const importResult = await autoImportBalancedRecipes({
         supabase: context.supabase,
         householdId,
         count: needed,
         meal_type: "ambas",
         ingredients,
       });
+      autoImported = importResult.imported;
       const refreshed = await context.supabase
         .from("recipes")
         .select(
@@ -205,9 +207,18 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
           // Ruido pequeño para desempatar (evita orden estable trivial)
           score += Math.random() * 2;
           return { r, score, fam, protein };
-        })
+        });
+      const viableCandidates = candidates.filter((candidate) => {
+        if (candidate.fam && candidate.fam === lastFamily) return false;
+        if (candidate.fam && (familyCount.get(candidate.fam) ?? 0) >= 2) return false;
+        return true;
+      });
+      const ranked = (viableCandidates.length > 0 ? viableCandidates : candidates)
         .sort((a, b) => b.score - a.score);
-      const chosen = candidates[0];
+      const chosen = ranked[0];
+      if (!viableCandidates.length && chosen?.fam && (chosen.fam === lastFamily || (familyCount.get(chosen.fam) ?? 0) >= 2)) {
+        return { recipe_id: null, protein: null, family: null };
+      }
       if (!chosen) return { recipe_id: null, protein: null, family: null };
       usedRecipeIds.add(chosen.r.id);
       if (chosen.fam) familyCount.set(chosen.fam, (familyCount.get(chosen.fam) ?? 0) + 1);
@@ -225,6 +236,7 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
         if (p.recipe_id) assigned++;
         if (p.protein) lastProtein = p.protein;
         if (p.family) lastFamily = p.family;
+        if (!p.recipe_id) lastFamily = null;
       }
       if (!day.dinner_locked && !day.dinner_skipped && !day.dinner_manual) {
         const p = pickForSlot("cena");
@@ -232,6 +244,7 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
         if (p.recipe_id) assigned++;
         if (p.protein) lastProtein = p.protein;
         if (p.family) lastFamily = p.family;
+        if (!p.recipe_id) lastFamily = null;
       }
       if (Object.keys(update).length > 0) {
         await context.supabase.from("meal_plan_days").update(update).eq("id", day.id);
@@ -243,6 +256,7 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
       week_start: weekStart,
       assigned,
       recipes_available: (recipes ?? []).length,
+      auto_imported: autoImported,
     };
   });
 
