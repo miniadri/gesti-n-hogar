@@ -61,11 +61,17 @@ const prepAheadQO = queryOptions({
   queryFn: () => getPrepAheadForTomorrow(),
 });
 
+const medicinesQO = queryOptions({
+  queryKey: ["medicines"],
+  queryFn: () => listMedicines(),
+});
+
 export const Route = createFileRoute("/_authenticated/dashboard")({
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(dashboardQueryOptions),
       context.queryClient.ensureQueryData(prepAheadQO),
+      context.queryClient.ensureQueryData(medicinesQO),
     ]),
   head: () => ({
     meta: [{ title: "Dashboard - HomeSync" }],
@@ -76,6 +82,9 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 function DashboardPage() {
   const { data } = useSuspenseQuery(dashboardQueryOptions);
   const { data: prepAhead } = useSuspenseQuery(prepAheadQO);
+  const { data: medicines } = useSuspenseQuery(medicinesQO);
+  const pharmacyToBuy = medicines.filter((m: any) => m.needs_purchase);
+
 
   const totalExpenses = data.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const urgentTasks = data.tasks.filter((t) => t.priority === "high");
