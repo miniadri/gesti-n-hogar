@@ -98,7 +98,15 @@ function ScanTicketPage() {
         },
       });
       setExpenseId(expense.id);
-      toast.success("Añadido a Gastos");
+      try {
+        const inv = await doImportInv({ data: { receiptId } });
+        toast.success(
+          `Añadido a Gastos. Inventario: ${inv.added} añadidos, ${inv.skipped} ya presentes.`,
+        );
+      } catch (invErr: any) {
+        toast.success("Añadido a Gastos");
+        toast.error(`Inventario: ${invErr.message || "no se pudo importar"}`);
+      }
     } catch (err: any) {
       toast.error(err.message || "No se pudo crear el gasto");
     } finally {
