@@ -90,8 +90,28 @@ function DashboardPage() {
   const { data } = useSuspenseQuery(dashboardQueryOptions);
   const { data: prepAhead } = useSuspenseQuery(prepAheadQO);
   const { data: medicines } = useSuspenseQuery(medicinesQO);
+  const { data: inventory } = useSuspenseQuery(inventoryQO);
   const pharmacyToBuy = medicines.filter((m: any) => m.needs_purchase);
 
+  const today = new Date();
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const soonThreshold = new Date(todayMidnight);
+  soonThreshold.setDate(soonThreshold.getDate() + 7);
+
+  const expiringFoods = inventory
+    .filter((i: any) => i.expiry_date)
+    .map((i: any) => ({ ...i, _expiry: new Date(i.expiry_date) }))
+    .filter((i: any) => i._expiry <= soonThreshold)
+    .sort((a: any, b: any) => a._expiry.getTime() - b._expiry.getTime());
+
+  const expiringMeds = medicines
+    .filter((m: any) => m.expiry_year && m.expiry_month)
+    .map((m: any) => ({
+      ...m,
+      _expiry: new Date(m.expiry_year, m.expiry_month, 0), // last day of month
+    }))
+    .filter((m: any) => m._expiry <= soonThreshold)
+    .sort((a: any, b: any) => a._expiry.getTime() - b._expiry.getTime());
 
   const totalExpenses = data.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const urgentTasks = data.tasks.filter((t) => t.priority === "high");
