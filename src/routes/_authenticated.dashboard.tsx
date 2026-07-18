@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { getPrepAheadForTomorrow } from "@/lib/meal-plan.functions";
 import { listMedicines } from "@/lib/medicines.functions";
+import { listInventory } from "@/lib/inventory.functions";
 
 
 const MONTHLY_BUDGET = 1000;
