@@ -448,3 +448,210 @@ function InventoryPage() {
     </div>
   );
 }
+
+function MedicinesSection() {
+  const queryClient = useQueryClient();
+  const { data: meds } = useSuspenseQuery(medicinesQueryOptions);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const doDelete = useServerFn(deleteMedicine);
+  const doUpdate = useServerFn(updateMedicine);
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["medicines"] });
+
+  const toggleBuy = async (m: any) => {
+    try {
+      await doUpdate({ data: { id: m.id, needs_purchase: !m.needs_purchase } });
+      queryClient.invalidateQueries({ queryKey: ["medicines"] });
+      queryClient.invalidateQueries({ queryKey: ["shopping"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch {
+      toast.error("No se pudo actualizar");
+    }
+  };
+
+  const remove = async (id: string) => {
+    try {
+      await doDelete({ data: { id } });
+      refresh();
+      queryClient.invalidateQueries({ queryKey: ["shopping"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch {
+      toast.error("No se pudo eliminar");
+    }
+  };
+
+  const openNew = () => { setEditing(null); setDialogOpen(true); };
+  const openEdit = (m: any) => { setEditing(m); setDialogOpen(true); };
+
+  const needBuyCount = meds.filter((m: any) => m.needs_purchase).length;
+
+  return (
+    <>
+      <Collapsible open={open} onOpenChange={setOpen} className="rounded-lg border bg-card">
+        <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/40">
+          <Pill className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">Medicinas</span>
+          <span className="text-xs text-muted-foreground">({meds.length})</span>
+          {needBuyCount > 0 && (
+            <Badge variant="secondary" className="ml-1">{needBuyCount} por comprar</Badge>
+          )}
+          <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="border-t p-4 space-y-3">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={openNew}>
+              <Plus className="mr-2 h-4 w-4" /> Añadir medicina
+            </Button>
+          </div>
+          {meds.length === 0 ? (
+            <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+              No hay medicinas registradas.
+            </p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {meds.map((m: any) => (
+                <Card key={m.id}>
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <button onClick={() => openEdit(m)} className="text-left flex-1">
+                        <p className="font-medium">{m.name}</p>
+                        {m.expiry_month && m.expiry_year && (
+                          <p className="text-xs text-muted-foreground">
+                            Caduca: {String(m.expiry_month).padStart(2, "0")}/{m.expiry_year}
+                          </p>
+                        )}
+                        {m.note && <p className="text-xs text-muted-foreground line-clamp-2">{m.note}</p>}
+                      </button>
+                      <button onClick={() => remove(m.id)} className="text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <Checkbox checked={m.needs_purchase} onCheckedChange={() => toggleBuy(m)} />
+                      <span>Necesario comprar</span>
+                    </label>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
+
+      <MedicineDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editing={editing}
+        onSaved={() => {
+          refresh();
+          queryClient.invalidateQueries({ queryKey: ["shopping"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        }}
+      />
+    </>
+  );
+}
+
+function MedicineDialog({
+  open,
+  onOpenChange,
+  editing,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  editing: any | null;
+  onSaved: () => void;
+}) {
+  const doCreate = useServerFn(createMedicine);
+  const doUpdate = useServerFn(updateMedicine);
+  const [name, setName] = useState("");
+  const [month, setMonth] = useState("");
+  const [year, setYear] = useState("");
+  const [note, setNote] = useState("");
+  const [needs, setNeeds] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // reset when opening
+  const openRef = open ? editing?.id ?? "new" : "closed";
+  const [lastKey, setLastKey] = useState<string>("");
+  if (openRef !== lastKey) {
+    setLastKey(openRef);
+    setName(editing?.name ?? "");
+    setMonth(editing?.expiry_month ? String(editing.expiry_month) : "");
+    setYear(editing?.expiry_year ? String(editing.expiry_year) : "");
+    setNote(editing?.note ?? "");
+    setNeeds(editing?.needs_purchase ?? false);
+  }
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: name.trim(),
+        expiry_month: month ? Number(month) : null,
+        expiry_year: year ? Number(year) : null,
+        note: note.trim() || null,
+        needs_purchase: needs,
+      };
+      if (editing) {
+        await doUpdate({ data: { id: editing.id, ...payload } });
+      } else {
+        await doCreate({ data: payload });
+      }
+      toast.success(editing ? "Medicina actualizada" : "Medicina añadida");
+      onSaved();
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo guardar");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const currentYear = new Date().getFullYear();
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{editing ? "Editar medicina" : "Añadir medicina"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nombre</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Paracetamol" autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Mes caducidad</Label>
+              <Input type="number" min={1} max={12} value={month} onChange={(e) => setMonth(e.target.value)} placeholder="MM" />
+            </div>
+            <div className="space-y-2">
+              <Label>Año caducidad</Label>
+              <Input type="number" min={currentYear - 1} max={currentYear + 20} value={year} onChange={(e) => setYear(e.target.value)} placeholder="AAAA" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Anotación</Label>
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Para qué se usa, dosis..." rows={2} />
+          </div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <Checkbox checked={needs} onCheckedChange={(v) => setNeeds(!!v)} />
+            <span>Necesario comprar</span>
+          </label>
+          <DialogFooter>
+            <Button type="submit" disabled={submitting || !name.trim()} className="w-full">
+              {submitting ? "Guardando..." : editing ? "Guardar" : "Añadir"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
