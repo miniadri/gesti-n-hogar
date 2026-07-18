@@ -9,13 +9,17 @@ import {
   ChefHat,
   ArrowRight,
   Sparkles,
+  Pill,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { getPrepAheadForTomorrow } from "@/lib/meal-plan.functions";
+import { listMedicines } from "@/lib/medicines.functions";
+
 
 const MONTHLY_BUDGET = 1000;
 
