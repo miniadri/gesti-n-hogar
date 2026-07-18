@@ -52,10 +52,12 @@ import {
   toggleShoppingItem,
   deleteShoppingItem,
 } from "@/lib/shopping.functions";
+import { listMedicines, updateMedicine } from "@/lib/medicines.functions";
 import { createInventoryItem } from "@/lib/inventory.functions";
 import { INVENTORY_LOCATIONS, suggestLocation } from "@/lib/inventory-locations";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
 
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Lácteos: Milk,
