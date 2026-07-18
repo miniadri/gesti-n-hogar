@@ -76,6 +76,7 @@ function PlannerPage() {
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["week-plan"] });
+    qc.invalidateQueries({ queryKey: ["week-plan", "missing"] });
     qc.invalidateQueries({ queryKey: ["recipes"] });
   };
 
