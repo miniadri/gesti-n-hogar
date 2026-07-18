@@ -67,12 +67,18 @@ const medicinesQO = queryOptions({
   queryFn: () => listMedicines(),
 });
 
+const inventoryQO = queryOptions({
+  queryKey: ["inventory"],
+  queryFn: () => listInventory(),
+});
+
 export const Route = createFileRoute("/_authenticated/dashboard")({
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(dashboardQueryOptions),
       context.queryClient.ensureQueryData(prepAheadQO),
       context.queryClient.ensureQueryData(medicinesQO),
+      context.queryClient.ensureQueryData(inventoryQO),
     ]),
   head: () => ({
     meta: [{ title: "Dashboard - HomeSync" }],
