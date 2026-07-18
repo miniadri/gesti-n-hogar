@@ -16,7 +16,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -274,7 +273,14 @@ function RecipeCardContent({
           <ChefHat className="h-6 w-6 text-primary" />
         </div>
         {selectable ? (
-          <Checkbox checked={selected} aria-label={selected ? "Receta seleccionada" : "Receta no seleccionada"} />
+          <span
+            aria-label={selected ? "Receta seleccionada" : "Receta no seleccionada"}
+            className={`grid h-5 w-5 place-items-center rounded-sm border ${
+              selected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background"
+            }`}
+          >
+            {selected && <span className="h-2 w-2 rounded-full bg-current" />}
+          </span>
         ) : recipe.source === "ai" ? (
           <Badge variant="secondary" className="bg-primary/10 text-primary">
             IA
