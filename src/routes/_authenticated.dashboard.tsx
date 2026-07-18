@@ -204,6 +204,67 @@ function DashboardPage() {
         </Card>
       )}
 
+      {(expiringFoods.length > 0 || expiringMeds.length > 0) && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              Caducidad próxima
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/inventory">Abrir inventario</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {expiringFoods.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Alimentos ({expiringFoods.length})
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {expiringFoods.slice(0, 8).map((i: any) => (
+                    <Link
+                      key={i.id}
+                      to="/inventory"
+                      className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs hover:bg-accent"
+                    >
+                      {i.name}
+                      <span className="text-muted-foreground">
+                        · {i._expiry.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+            {expiringMeds.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Medicinas ({expiringMeds.length})
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {expiringMeds.slice(0, 8).map((m: any) => (
+                    <Link
+                      key={m.id}
+                      to="/inventory"
+                      className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs hover:bg-accent"
+                    >
+                      <Pill className="h-3 w-3" />
+                      {m.name}
+                      <span className="text-muted-foreground">
+                        · {String(m.expiry_month).padStart(2, "0")}/{m.expiry_year}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+
+
 
 
       <div className="grid gap-6 lg:grid-cols-3">
