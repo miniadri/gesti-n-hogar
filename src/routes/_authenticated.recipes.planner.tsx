@@ -76,6 +76,7 @@ function PlannerPage() {
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["week-plan"] });
+    qc.invalidateQueries({ queryKey: ["week-plan", "missing"] });
     qc.invalidateQueries({ queryKey: ["recipes"] });
   };
 
@@ -109,6 +110,9 @@ function PlannerPage() {
         }
       }
       const res: any = await doGenerate({ data: { servings: 2 } });
+      if (res?.auto_imported > 0) {
+        toast.info(`Añadidas ${res.auto_imported} recetas sencillas para equilibrar la semana`);
+      }
       if (res?.recipes_available === 0) {
         toast.warning("No hay recetas. Usa 'Importar recetas' o ve a Descubrir.");
       } else if (res?.assigned === 0) {

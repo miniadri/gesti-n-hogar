@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { BALANCED_PROTEIN_TARGETS, inferRecipeMeta, recipeFamily } from "./recipe-balance";
 
 // Devuelve el lunes de la semana actual (YYYY-MM-DD).
 export function currentWeekStart(base = new Date()): string {
@@ -88,7 +89,7 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
     const weekStart = data.week_start ?? currentWeekStart();
     const plan = await getOrCreatePlan(context.supabase, householdId, weekStart);
 
-    const { data: recipes } = await context.supabase
+    let { data: recipes } = await context.supabase
       .from("recipes")
       .select(
         "id,title,meal_type,protein_group,has_main_veg,recipe_ingredients(name,quantity,unit)",
@@ -110,6 +111,47 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
     }
 
     const now = Date.now();
+    const recipeMeta = (r: any) => {
+      const ingredientNames = (r.recipe_ingredients ?? []).map((ing: any) => ing.name).filter(Boolean);
+      const inferred = inferRecipeMeta(r.title, ingredientNames);
+      return {
+        protein: r.protein_group || inferred.protein_group,
+        family: recipeFamily(r.title, ingredientNames) || inferred.family,
+        hasVeg: Boolean(r.has_main_veg || inferred.has_main_veg),
+      };
+    };
+    const hasBalancedCatalog = (rows: any[]) => {
+      if (rows.length < 12) return false;
+      const proteins = new Set(rows.map((r) => recipeMeta(r).protein).filter((p) => p && p !== "otro"));
+      const families = new Set(rows.map((r) => recipeMeta(r).family).filter(Boolean));
+      return proteins.size >= 4 && families.size >= 6;
+    };
+
+    let autoImported = 0;
+    if (!hasBalancedCatalog(recipes ?? [])) {
+      const ingredients = (inventory ?? [])
+        .map((i: { name: string | null }) => (i.name || "").trim())
+        .filter(Boolean)
+        .slice(0, 5);
+      const needed = Math.min(14, Math.max(8, 16 - (recipes ?? []).length));
+      const { autoImportBalancedRecipes } = await import("./external-recipes.server");
+      const importResult = await autoImportBalancedRecipes({
+        supabase: context.supabase,
+        householdId,
+        count: needed,
+        meal_type: "ambas",
+        ingredients,
+      });
+      autoImported = importResult.imported;
+      const refreshed = await context.supabase
+        .from("recipes")
+        .select(
+          "id,title,meal_type,protein_group,has_main_veg,recipe_ingredients(name,quantity,unit)",
+        )
+        .eq("household_id", householdId);
+      recipes = refreshed.data ?? recipes ?? [];
+    }
+
     const scoreRecipe = (r: any) => {
       let covered = 0;
       let expiryBonus = 0;
@@ -128,25 +170,6 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
       return covered * 10 + expiryBonus;
     };
 
-    // Detecta la "familia" de una receta a partir del título para evitar repeticiones
-    // (pasta/arroz/pizza/etc.) además de la proteína.
-    const FAMILY_KEYWORDS: Array<[string, RegExp]> = [
-      ["pasta", /\b(pasta|espagueti|spaghetti|macarron|tallarin|lasagn|fideo|ravioli|carbonara|bolo[nñ]|pesto)\b/i],
-      ["arroz", /\b(arroz|risotto|paella)\b/i],
-      ["pizza", /\bpizza\b/i],
-      ["sopa", /\b(sopa|crema|caldo|pur[eé])\b/i],
-      ["ensalada", /\bensalad/i],
-      ["legumbre", /\b(lenteja|garbanz|jud[ií]a|alubia|fabada|potaje)\b/i],
-      ["sandwich", /\b(sandwich|bocadillo|wrap|tosta)\b/i],
-      ["horno", /\b(horno|asad|guisad)\b/i],
-      ["parrilla", /\b(parrilla|plancha|barbacoa)\b/i],
-    ];
-    const familyOf = (r: any): string | null => {
-      const t = (r.title || "").toLowerCase();
-      for (const [name, rx] of FAMILY_KEYWORDS) if (rx.test(t)) return name;
-      return null;
-    };
-
     const { data: days } = await context.supabase
       .from("meal_plan_days")
       .select("*")
@@ -159,33 +182,49 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
     let lastFamily: string | null = null;
     let lastProtein: string | null = null;
 
-    const pickForSlot = (
-      slot: "comida" | "cena",
-    ): { recipe_id: string | null; protein: string | null; family: string | null } => {
+    let slotIndex = 0;
+    const pickForSlot = (slot: "comida" | "cena"): { recipe_id: string | null; protein: string | null; family: string | null } => {
+      const targetProtein = BALANCED_PROTEIN_TARGETS[slotIndex % BALANCED_PROTEIN_TARGETS.length];
+      slotIndex++;
       const candidates = (recipes ?? [])
         .filter((r: any) => r.meal_type === slot || r.meal_type === "ambas" || !r.meal_type)
         .filter((r: any) => !usedRecipeIds.has(r.id))
         .map((r: any) => {
-          const fam = familyOf(r);
+          const meta = recipeMeta(r);
+          const fam = meta.family;
+          const protein = meta.protein;
           let score = scoreRecipe(r);
+          if (protein === targetProtein) score += 18;
+          else if (protein === lastProtein) score -= 14;
+          else if (protein && protein !== "otro") score += 5;
           // Variedad de proteína
-          if (r.protein_group && r.protein_group !== lastProtein) score += 3;
-          if (r.protein_group) score -= (proteinCount.get(r.protein_group) ?? 0) * 4;
+          if (protein && protein !== lastProtein) score += 3;
+          if (protein) score -= (proteinCount.get(protein) ?? 0) * 7;
           // Variedad de familia (evita 3 pastas seguidas)
-          if (fam && fam === lastFamily) score -= 10;
-          if (fam) score -= (familyCount.get(fam) ?? 0) * 3;
+          if (fam && fam === lastFamily) score -= 30;
+          if (fam) score -= (familyCount.get(fam) ?? 0) * 8;
+          if (meta.hasVeg) score += 2;
           // Ruido pequeño para desempatar (evita orden estable trivial)
-          score += Math.random();
-          return { r, score, fam };
-        })
+          score += Math.random() * 2;
+          return { r, score, fam, protein };
+        });
+      const viableCandidates = candidates.filter((candidate) => {
+        if (candidate.fam && candidate.fam === lastFamily) return false;
+        if (candidate.fam && (familyCount.get(candidate.fam) ?? 0) >= 2) return false;
+        return true;
+      });
+      const ranked = (viableCandidates.length > 0 ? viableCandidates : candidates)
         .sort((a, b) => b.score - a.score);
-      const chosen = candidates[0];
+      const chosen = ranked[0];
+      if (!viableCandidates.length && chosen?.fam && (chosen.fam === lastFamily || (familyCount.get(chosen.fam) ?? 0) >= 2)) {
+        return { recipe_id: null, protein: null, family: null };
+      }
       if (!chosen) return { recipe_id: null, protein: null, family: null };
       usedRecipeIds.add(chosen.r.id);
       if (chosen.fam) familyCount.set(chosen.fam, (familyCount.get(chosen.fam) ?? 0) + 1);
-      if (chosen.r.protein_group)
-        proteinCount.set(chosen.r.protein_group, (proteinCount.get(chosen.r.protein_group) ?? 0) + 1);
-      return { recipe_id: chosen.r.id, protein: chosen.r.protein_group, family: chosen.fam };
+      if (chosen.protein)
+        proteinCount.set(chosen.protein, (proteinCount.get(chosen.protein) ?? 0) + 1);
+      return { recipe_id: chosen.r.id, protein: chosen.protein, family: chosen.fam };
     };
 
     let assigned = 0;
@@ -197,6 +236,7 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
         if (p.recipe_id) assigned++;
         if (p.protein) lastProtein = p.protein;
         if (p.family) lastFamily = p.family;
+        if (!p.recipe_id) lastFamily = null;
       }
       if (!day.dinner_locked && !day.dinner_skipped && !day.dinner_manual) {
         const p = pickForSlot("cena");
@@ -204,6 +244,7 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
         if (p.recipe_id) assigned++;
         if (p.protein) lastProtein = p.protein;
         if (p.family) lastFamily = p.family;
+        if (!p.recipe_id) lastFamily = null;
       }
       if (Object.keys(update).length > 0) {
         await context.supabase.from("meal_plan_days").update(update).eq("id", day.id);
@@ -215,6 +256,7 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
       week_start: weekStart,
       assigned,
       recipes_available: (recipes ?? []).length,
+      auto_imported: autoImported,
     };
   });
 
