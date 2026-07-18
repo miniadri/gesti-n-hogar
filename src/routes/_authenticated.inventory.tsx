@@ -340,6 +340,10 @@ function InventoryPage() {
         })}
       </div>
 
+      <MedicinesSection />
+
+
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
