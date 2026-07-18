@@ -652,3 +652,57 @@ function ManageStoresDialog({
     </Dialog>
   );
 }
+
+function PharmacySection({ medicines }: { medicines: any[] }) {
+  const queryClient = useQueryClient();
+  const doUpdate = useServerFn(updateMedicine);
+  const toBuy = medicines.filter((m) => m.needs_purchase);
+
+  if (toBuy.length === 0) return null;
+
+  const markBought = async (m: any) => {
+    try {
+      await doUpdate({ data: { id: m.id, needs_purchase: false } });
+      queryClient.invalidateQueries({ queryKey: ["shopping"] });
+      queryClient.invalidateQueries({ queryKey: ["medicines"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Medicina marcada como comprada");
+    } catch {
+      toast.error("No se pudo actualizar");
+    }
+  };
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Pill className="h-4 w-4 text-muted-foreground" />
+        <h3 className="font-semibold uppercase tracking-wide">Farmacia</h3>
+        <Badge variant="secondary" className="ml-auto">{toBuy.length} pendientes</Badge>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {toBuy.map((m) => (
+          <Card key={m.id}>
+            <CardContent className="p-3">
+              <div className="flex items-start justify-between gap-2">
+                <button
+                  onClick={() => markBought(m)}
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 border-muted-foreground/30 hover:border-primary"
+                  title="Marcar como comprada"
+                >
+                  <Check className="h-3.5 w-3.5 opacity-0 hover:opacity-100" />
+                </button>
+              </div>
+              <div className="mt-3 flex flex-col items-center text-center">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-secondary-foreground">
+                  <Pill className="h-6 w-6" />
+                </div>
+                <p className="mt-2 line-clamp-2 text-sm font-semibold leading-tight">{m.name}</p>
+                {m.note && <p className="line-clamp-2 text-xs text-muted-foreground">{m.note}</p>}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
