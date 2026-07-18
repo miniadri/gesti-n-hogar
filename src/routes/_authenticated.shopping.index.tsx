@@ -99,14 +99,16 @@ const shoppingQueryOptions = queryOptions({
   queryKey: ["shopping"],
   queryFn: async () => {
     await ensureDefaultLists();
-    const [stores, items, recent] = await Promise.all([
+    const [stores, items, recent, medicines] = await Promise.all([
       listStores(),
       listShoppingItems(),
       listRecentItems(),
+      listMedicines(),
     ]);
-    return { stores, items, recent };
+    return { stores, items, recent, medicines };
   },
 });
+
 
 export const Route = createFileRoute("/_authenticated/shopping/")({
   loader: ({ context }) => context.queryClient.ensureQueryData(shoppingQueryOptions),
