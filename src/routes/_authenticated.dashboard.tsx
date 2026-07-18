@@ -152,6 +152,33 @@ function DashboardPage() {
         </Link>
       </div>
 
+      {pharmacyToBuy.length > 0 && (
+        <Card className="border-primary/30">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2 text-base uppercase tracking-wide">
+              <Pill className="h-4 w-4 text-primary" />
+              Farmacia
+              <Badge variant="secondary" className="ml-2">{pharmacyToBuy.length}</Badge>
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/shopping">Ver lista</Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {pharmacyToBuy.slice(0, 8).map((m: any) => (
+                <span key={m.id} className="inline-flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 text-xs">
+                  <Pill className="h-3 w-3" />
+                  {m.name}
+                </span>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
+
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
