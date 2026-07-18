@@ -265,7 +265,7 @@ export async function importExternalRecipeForHousehold(params: {
       source: sourceKey,
       protein_group: meta.protein_group,
       has_main_veg: meta.has_main_veg,
-      difficulty: (detail.ready_in ?? 0) <= 45 ? "facil" : null,
+      difficulty: (Number(detail.prep_time || 0) + Number(detail.cook_time || 0) || 30) <= 45 ? "facil" : null,
     })
     .select()
     .single();
