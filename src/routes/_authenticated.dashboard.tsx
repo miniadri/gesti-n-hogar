@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Sparkles,
   Pill,
+  AlertTriangle,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
