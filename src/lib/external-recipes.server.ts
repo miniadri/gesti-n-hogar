@@ -293,13 +293,38 @@ export async function importExternalRecipeForHousehold(params: {
   return { ok: true, recipe_id: recipe.id, already: false };
 }
 
-const BALANCED_QUERIES: Record<string, string[]> = {
-  pescado: ["salmon vegetables", "white fish potatoes", "tuna salad", "fish rice"],
-  legumbre: ["lentil soup", "chickpea stew", "bean chili", "hummus bowl"],
-  carne: ["chicken rice", "turkey vegetables", "beef stew", "pork tenderloin"],
-  vegetal: ["vegetable stir fry", "mushroom risotto", "vegetarian curry", "roasted vegetables"],
-  huevo: ["vegetable omelette", "frittata", "egg fried rice", "shakshuka"],
-  otro: ["simple healthy dinner"],
+const BALANCED_SEARCHES: Record<string, Array<{ query: string; ingredient?: string }>> = {
+  pescado: [
+    { query: "salmon vegetables", ingredient: "salmon" },
+    { query: "white fish potatoes", ingredient: "cod" },
+    { query: "tuna salad", ingredient: "tuna" },
+    { query: "fish rice", ingredient: "fish" },
+  ],
+  legumbre: [
+    { query: "lentil soup", ingredient: "lentils" },
+    { query: "chickpea stew", ingredient: "chickpeas" },
+    { query: "bean chili", ingredient: "beans" },
+    { query: "hummus bowl", ingredient: "chickpeas" },
+  ],
+  carne: [
+    { query: "chicken rice", ingredient: "chicken" },
+    { query: "turkey vegetables", ingredient: "turkey" },
+    { query: "beef stew", ingredient: "beef" },
+    { query: "pork tenderloin", ingredient: "pork" },
+  ],
+  vegetal: [
+    { query: "vegetable stir fry", ingredient: "broccoli" },
+    { query: "mushroom risotto", ingredient: "mushrooms" },
+    { query: "vegetarian curry", ingredient: "cauliflower" },
+    { query: "roasted vegetables", ingredient: "zucchini" },
+  ],
+  huevo: [
+    { query: "vegetable omelette", ingredient: "eggs" },
+    { query: "frittata", ingredient: "eggs" },
+    { query: "egg fried rice", ingredient: "eggs" },
+    { query: "shakshuka", ingredient: "eggs" },
+  ],
+  otro: [{ query: "simple healthy dinner" }],
 };
 
 export async function autoImportBalancedRecipes(params: {
@@ -312,17 +337,24 @@ export async function autoImportBalancedRecipes(params: {
   const providers = new Set<string>();
   let imported = 0;
   const targets = [...BALANCED_PROTEIN_TARGETS].sort(() => Math.random() - 0.5);
-  const inventoryQueries = (params.ingredients ?? []).slice(0, 3).map((name) => `${name} healthy dinner`);
-  const queries = [
-    ...inventoryQueries,
-    ...targets.flatMap((target) => BALANCED_QUERIES[target] ?? []),
+  const inventorySearches = (params.ingredients ?? [])
+    .slice(0, 3)
+    .map((name) => ({ query: `${name} healthy dinner`, ingredient: name }));
+  const searches = [
+    ...inventorySearches,
+    ...targets.flatMap((target) => BALANCED_SEARCHES[target] ?? []),
   ];
 
-  for (const query of queries) {
+  for (const search of searches) {
     if (imported >= params.count) break;
     let result: { hits: ExternalHit[]; provider: string };
     try {
-      result = await findExternalRecipes({ query, meal_type: "main course", number: 3 });
+      result = await findExternalRecipes({
+        query: search.query,
+        ingredients: search.ingredient ? [search.ingredient] : undefined,
+        meal_type: "main course",
+        number: 3,
+      });
     } catch {
       continue;
     }
