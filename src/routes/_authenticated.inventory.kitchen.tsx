@@ -109,7 +109,45 @@ function KitchenPage() {
         </div>
       </div>
 
-      <BarcodeScanner onDetected={handleDetected} paused={!!pending || busy} />
+      <BarcodeScanner onDetected={handleDetected} paused={!!pending || !!confirmAdd || busy} />
+
+      {confirmAdd && (
+        <Card>
+          <CardContent className="space-y-4 p-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Sin stock</p>
+              <p className="text-lg font-semibold">{confirmAdd.name}</p>
+              <p className="text-sm text-muted-foreground">
+                ¿Añadir a la lista de la compra?
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmAdd(null)}>
+                No
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await doAddToShopping({ data: { ean: confirmAdd.ean, name: confirmAdd.name } });
+                    toast.success(`${confirmAdd.name}: añadido a la lista`);
+                    qc.invalidateQueries({ queryKey: ["shopping"] });
+                    setConfirmAdd(null);
+                  } catch (e: any) {
+                    toast.error(e.message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                <ShoppingCart className="mr-2 h-4 w-4" /> Añadir
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {pending && (
         <Card>
