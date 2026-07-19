@@ -354,6 +354,13 @@ function SlotEditor({
                 ))}
               </SelectContent>
             </Select>
+            {recipeId && (
+              <Button asChild size="sm" variant="outline" className="w-full">
+                <Link to="/recipes/$recipeId" params={{ recipeId }}>
+                  Ver receta seleccionada
+                </Link>
+              </Button>
+            )}
           </div>
           <div className="space-y-2">
             <Label>O texto libre</Label>
