@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight, Pill, ChevronDown, ScanBarcode, ChefHat } from "lucide-react";
+import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight, Pill, ChevronDown, ScanBarcode, ChefHat, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,8 @@ function InventoryPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [moving, setMoving] = useState(false);
+  const [minEdit, setMinEdit] = useState<{ id: string; name: string; value: string } | null>(null);
+  const [savingMin, setSavingMin] = useState(false);
 
   const parseDecimal = (v: string) => {
     const n = Number(v.replace(",", "."));
@@ -334,6 +336,9 @@ function InventoryPage() {
                               <p className="text-xs text-muted-foreground">
                                 {item.category} · {item.quantity} {item.unit || "ud."}
                               </p>
+                              <p className="text-xs text-muted-foreground">
+                                Mínimo: {Number(item.min_stock) || 0} {item.unit || "ud."}
+                              </p>
                               {item.expiry_date && (
                                 <p className="text-xs text-muted-foreground">
                                   Caduca: {new Date(item.expiry_date).toLocaleDateString("es-ES")}
@@ -346,6 +351,19 @@ function InventoryPage() {
                               {Number(item.quantity) <= Number(item.min_stock) && (
                                 <Badge variant="destructive">Bajo</Badge>
                               )}
+                              <button
+                                onClick={() =>
+                                  setMinEdit({
+                                    id: item.id,
+                                    name: item.name,
+                                    value: String(Number(item.min_stock) || 0),
+                                  })
+                                }
+                                className="text-muted-foreground hover:text-primary"
+                                title="Editar stock mínimo"
+                              >
+                                <SlidersHorizontal className="h-4 w-4" />
+                              </button>
                               <button
                                 onClick={async () => {
                                   await doDelete({ data: { id: item.id } });
@@ -370,7 +388,60 @@ function InventoryPage() {
 
       <MedicinesSection />
 
-
+      <Dialog open={!!minEdit} onOpenChange={(o) => !o && setMinEdit(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Stock mínimo</DialogTitle>
+          </DialogHeader>
+          {minEdit && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const n = parseDecimal(minEdit.value);
+                if (!Number.isFinite(n) || n < 0) {
+                  toast.error("Introduce un número válido (0 o mayor)");
+                  return;
+                }
+                setSavingMin(true);
+                try {
+                  await doUpdate({ data: { id: minEdit.id, min_stock: n } });
+                  toast.success("Stock mínimo actualizado");
+                  setMinEdit(null);
+                  refresh();
+                } catch (err: any) {
+                  toast.error(err?.message || "No se pudo actualizar");
+                } finally {
+                  setSavingMin(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <p className="text-sm text-muted-foreground">
+                Cuando la cantidad de <span className="font-medium text-foreground">{minEdit.name}</span> baje a este valor, se añadirá automáticamente a la lista de la compra en <span className="font-medium text-foreground">Sin tienda</span>.
+              </p>
+              <div className="space-y-2">
+                <Label>Stock mínimo</Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  value={minEdit.value}
+                  onChange={(e) => setMinEdit({ ...minEdit, value: e.target.value })}
+                  placeholder="0, 1, 0.5..."
+                />
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="ghost" onClick={() => setMinEdit(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={savingMin}>
+                  {savingMin ? "Guardando..." : "Guardar"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
