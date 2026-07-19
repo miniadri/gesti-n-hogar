@@ -450,6 +450,7 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          ean: string | null
           expiry_date: string | null
           household_id: string
           id: string
@@ -465,6 +466,7 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
+          ean?: string | null
           expiry_date?: string | null
           household_id: string
           id?: string
@@ -480,6 +482,7 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
+          ean?: string | null
           expiry_date?: string | null
           household_id?: string
           id?: string
@@ -493,6 +496,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_items_ean_fkey"
+            columns: ["ean"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["ean"]
+          },
           {
             foreignKeyName: "inventory_items_household_id_fkey"
             columns: ["household_id"]
@@ -711,6 +721,112 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      product_prices: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          last_price: number | null
+          last_quantity: number | null
+          last_seen_at: string
+          last_unit: string | null
+          price_per_kg: number | null
+          product_ean: string
+          store_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          last_price?: number | null
+          last_quantity?: number | null
+          last_seen_at?: string
+          last_unit?: string | null
+          price_per_kg?: number | null
+          product_ean: string
+          store_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          last_price?: number | null
+          last_quantity?: number | null
+          last_seen_at?: string
+          last_unit?: string | null
+          price_per_kg?: number | null
+          product_ean?: string
+          store_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_prices_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_prices_product_ean_fkey"
+            columns: ["product_ean"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["ean"]
+          },
+          {
+            foreignKeyName: "product_prices_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          brand: string | null
+          category: string | null
+          created_at: string
+          created_by: string | null
+          default_location: string | null
+          ean: string
+          image_url: string | null
+          name: string
+          size_unit: string | null
+          size_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_location?: string | null
+          ean: string
+          image_url?: string | null
+          name: string
+          size_unit?: string | null
+          size_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_location?: string | null
+          ean?: string
+          image_url?: string | null
+          name?: string
+          size_unit?: string | null
+          size_value?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
