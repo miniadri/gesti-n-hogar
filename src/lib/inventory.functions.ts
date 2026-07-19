@@ -50,6 +50,54 @@ export const createInventoryItem = createServerFn({ method: "POST" })
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
 
+    // Merge into an existing row when possible so scans don't create duplicates:
+    //  - same EAN, OR
+    //  - same name (case-insensitive) and no EAN yet on the existing row
+    let existing: any = null;
+    if (data.ean) {
+      const { data: byEan } = await context.supabase
+        .from("inventory_items")
+        .select("*")
+        .eq("household_id", householdId)
+        .eq("ean", data.ean)
+        .limit(1)
+        .maybeSingle();
+      existing = byEan;
+    }
+    if (!existing) {
+      const { data: byName } = await context.supabase
+        .from("inventory_items")
+        .select("*")
+        .eq("household_id", householdId)
+        .ilike("name", data.name)
+        .is("ean", null)
+        .limit(1)
+        .maybeSingle();
+      existing = byName;
+    }
+
+    if (existing) {
+      const merged = {
+        name: data.name, // trust the user's latest name
+        quantity: Number(existing.quantity ?? 0) + Number(data.quantity ?? 1),
+        ean: data.ean ?? existing.ean ?? null,
+        category: data.category ?? existing.category,
+        unit: data.unit ?? existing.unit,
+        location: data.location ?? existing.location,
+        expiry_date: data.expiry_date ?? existing.expiry_date,
+        last_price: data.last_price ?? existing.last_price,
+        min_stock: data.min_stock ?? existing.min_stock,
+      };
+      const { data: updated, error } = await context.supabase
+        .from("inventory_items")
+        .update(merged)
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return updated;
+    }
+
     const { data: item, error } = await context.supabase
       .from("inventory_items")
       .insert({ ...data, household_id: householdId })
