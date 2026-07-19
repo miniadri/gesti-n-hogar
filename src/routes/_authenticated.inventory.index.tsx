@@ -388,7 +388,60 @@ function InventoryPage() {
 
       <MedicinesSection />
 
-
+      <Dialog open={!!minEdit} onOpenChange={(o) => !o && setMinEdit(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Stock mínimo</DialogTitle>
+          </DialogHeader>
+          {minEdit && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const n = parseDecimal(minEdit.value);
+                if (!Number.isFinite(n) || n < 0) {
+                  toast.error("Introduce un número válido (0 o mayor)");
+                  return;
+                }
+                setSavingMin(true);
+                try {
+                  await doUpdate({ data: { id: minEdit.id, min_stock: n } });
+                  toast.success("Stock mínimo actualizado");
+                  setMinEdit(null);
+                  refresh();
+                } catch (err: any) {
+                  toast.error(err?.message || "No se pudo actualizar");
+                } finally {
+                  setSavingMin(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <p className="text-sm text-muted-foreground">
+                Cuando la cantidad de <span className="font-medium text-foreground">{minEdit.name}</span> baje a este valor, se añadirá automáticamente a la lista de la compra en <span className="font-medium text-foreground">Sin tienda</span>.
+              </p>
+              <div className="space-y-2">
+                <Label>Stock mínimo</Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  value={minEdit.value}
+                  onChange={(e) => setMinEdit({ ...minEdit, value: e.target.value })}
+                  placeholder="0, 1, 0.5..."
+                />
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="ghost" onClick={() => setMinEdit(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={savingMin}>
+                  {savingMin ? "Guardando..." : "Guardar"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
