@@ -30,6 +30,7 @@ import { Route as AuthenticatedRecipesPlannerRouteImport } from './routes/_authe
 import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_authenticated.recipes.discover'
 import { Route as AuthenticatedRecipesRecipeIdRouteImport } from './routes/_authenticated.recipes.$recipeId'
 import { Route as AuthenticatedInventoryScanAddRouteImport } from './routes/_authenticated.inventory.scan-add'
+import { Route as AuthenticatedInventoryKitchenRouteImport } from './routes/_authenticated.inventory.kitchen'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -146,6 +147,12 @@ const AuthenticatedInventoryScanAddRoute =
     path: '/scan-add',
     getParentRoute: () => AuthenticatedInventoryRoute,
   } as any)
+const AuthenticatedInventoryKitchenRoute =
+  AuthenticatedInventoryKitchenRouteImport.update({
+    id: '/kitchen',
+    path: '/kitchen',
+    getParentRoute: () => AuthenticatedInventoryRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/inventory': typeof AuthenticatedInventoryRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
   '/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
@@ -179,6 +187,7 @@ export interface FileRoutesByTo {
   '/inventory': typeof AuthenticatedInventoryRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
   '/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
@@ -203,6 +212,7 @@ export interface FileRoutesById {
   '/_authenticated/inventory': typeof AuthenticatedInventoryRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/_authenticated/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
   '/_authenticated/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/_authenticated/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/_authenticated/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/tasks'
     | '/auth/callback'
+    | '/inventory/kitchen'
     | '/inventory/scan-add'
     | '/recipes/$recipeId'
     | '/recipes/discover'
@@ -249,6 +260,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/tasks'
     | '/auth/callback'
+    | '/inventory/kitchen'
     | '/inventory/scan-add'
     | '/recipes/$recipeId'
     | '/recipes/discover'
@@ -272,6 +284,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inventory'
     | '/_authenticated/tasks'
     | '/auth/callback'
+    | '/_authenticated/inventory/kitchen'
     | '/_authenticated/inventory/scan-add'
     | '/_authenticated/recipes/$recipeId'
     | '/_authenticated/recipes/discover'
@@ -440,15 +453,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventoryScanAddRouteImport
       parentRoute: typeof AuthenticatedInventoryRoute
     }
+    '/_authenticated/inventory/kitchen': {
+      id: '/_authenticated/inventory/kitchen'
+      path: '/kitchen'
+      fullPath: '/inventory/kitchen'
+      preLoaderRoute: typeof AuthenticatedInventoryKitchenRouteImport
+      parentRoute: typeof AuthenticatedInventoryRoute
+    }
   }
 }
 
 interface AuthenticatedInventoryRouteChildren {
+  AuthenticatedInventoryKitchenRoute: typeof AuthenticatedInventoryKitchenRoute
   AuthenticatedInventoryScanAddRoute: typeof AuthenticatedInventoryScanAddRoute
 }
 
 const AuthenticatedInventoryRouteChildren: AuthenticatedInventoryRouteChildren =
   {
+    AuthenticatedInventoryKitchenRoute: AuthenticatedInventoryKitchenRoute,
     AuthenticatedInventoryScanAddRoute: AuthenticatedInventoryScanAddRoute,
   }
 
