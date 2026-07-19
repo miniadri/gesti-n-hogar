@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight, Pill, ChevronDown } from "lucide-react";
+import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight, Pill, ChevronDown, ScanBarcode, ChefHat } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,7 @@ const medicinesQueryOptions = queryOptions({
   queryFn: () => listMedicines(),
 });
 
-export const Route = createFileRoute("/_authenticated/inventory")({
+export const Route = createFileRoute("/_authenticated/inventory/")({
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureQueryData(inventoryQueryOptions),
     context.queryClient.ensureQueryData(medicinesQueryOptions),
@@ -211,6 +211,18 @@ function InventoryPage() {
                 Seleccionar
               </>
             )}
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/inventory/scan-add">
+              <ScanBarcode className="mr-2 h-4 w-4" />
+              Escanear producto
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/inventory/kitchen">
+              <ChefHat className="mr-2 h-4 w-4" />
+              Modo cocina
+            </Link>
           </Button>
           <Button onClick={openDialog}>
             <Plus className="mr-2 h-4 w-4" />
