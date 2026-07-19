@@ -336,6 +336,9 @@ function InventoryPage() {
                               <p className="text-xs text-muted-foreground">
                                 {item.category} · {item.quantity} {item.unit || "ud."}
                               </p>
+                              <p className="text-xs text-muted-foreground">
+                                Mínimo: {Number(item.min_stock) || 0} {item.unit || "ud."}
+                              </p>
                               {item.expiry_date && (
                                 <p className="text-xs text-muted-foreground">
                                   Caduca: {new Date(item.expiry_date).toLocaleDateString("es-ES")}
