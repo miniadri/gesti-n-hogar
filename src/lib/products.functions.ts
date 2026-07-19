@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { suggestLocation } from "./inventory-locations";
+
 
 // ---------- schemas ----------
 const EAN = z.string().min(6).max(32);
