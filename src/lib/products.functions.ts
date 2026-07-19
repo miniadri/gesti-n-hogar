@@ -220,7 +220,8 @@ export const consumeByBarcode = createServerFn({ method: "POST" })
       .eq("ean", data.ean)
       .maybeSingle();
 
-    const { data: invItem } = await context.supabase
+    // 1) Prefer inventory match by EAN
+    let { data: invItem } = await context.supabase
       .from("inventory_items")
       .select("*")
       .eq("household_id", householdId)
@@ -229,9 +230,30 @@ export const consumeByBarcode = createServerFn({ method: "POST" })
       .limit(1)
       .maybeSingle();
 
+    // 2) Fall back to matching by product name (case-insensitive) and backfill the EAN
+    if (!invItem && product?.name) {
+      const { data: byName } = await context.supabase
+        .from("inventory_items")
+        .select("*")
+        .eq("household_id", householdId)
+        .ilike("name", product.name)
+        .is("ean", null)
+        .order("expiry_date", { ascending: true, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
+      if (byName) {
+        await context.supabase
+          .from("inventory_items")
+          .update({ ean: data.ean })
+          .eq("id", byName.id);
+        invItem = { ...byName, ean: data.ean };
+      }
+    }
+
     let newQty: number | null = null;
     let addedToShopping = false;
-    let itemName = product?.name ?? invItem?.name ?? `Producto ${data.ean}`;
+    // Household-chosen name wins over the global catalog name
+    let itemName = invItem?.name ?? product?.name ?? `Producto ${data.ean}`;
 
     if (invItem) {
       newQty = Math.max(0, Number(invItem.quantity ?? 0) - data.qty);
