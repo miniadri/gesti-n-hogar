@@ -352,6 +352,19 @@ function InventoryPage() {
                                 <Badge variant="destructive">Bajo</Badge>
                               )}
                               <button
+                                onClick={() =>
+                                  setMinEdit({
+                                    id: item.id,
+                                    name: item.name,
+                                    value: String(Number(item.min_stock) || 0),
+                                  })
+                                }
+                                className="text-muted-foreground hover:text-primary"
+                                title="Editar stock mínimo"
+                              >
+                                <SlidersHorizontal className="h-4 w-4" />
+                              </button>
+                              <button
                                 onClick={async () => {
                                   await doDelete({ data: { id: item.id } });
                                   refresh();
