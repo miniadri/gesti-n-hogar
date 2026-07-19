@@ -22,6 +22,7 @@ const InventoryInput = z.object({
   location: z.string().optional(),
   expiry_date: z.string().date().optional(),
   last_price: z.number().nonnegative().optional(),
+  ean: z.string().min(6).max(32).optional(),
 });
 
 const UpdateInventoryInput = InventoryInput.partial().extend({ id: z.string().uuid() });
