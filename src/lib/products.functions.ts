@@ -41,21 +41,54 @@ export const lookupProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ ean: EAN }).parse(input))
   .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data as string | null;
+
+    // Household inventory match by EAN takes precedence: this is the user's
+    // "known" name for this barcode and should win over the global catalog.
+    let invItem: any = null;
+    if (householdId) {
+      const { data: inv } = await context.supabase
+        .from("inventory_items")
+        .select("id, name, quantity, min_stock, location, expiry_date, ean")
+        .eq("household_id", householdId)
+        .eq("ean", data.ean)
+        .order("expiry_date", { ascending: true, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
+      invItem = inv;
+    }
+
     const { data: product } = await context.supabase
       .from("products")
       .select("*")
       .eq("ean", data.ean)
       .maybeSingle();
 
-    if (product) {
-      const householdId = (await context.supabase.rpc("current_household")).data;
-      const { data: prices } = await context.supabase
-        .from("product_prices")
-        .select("*, store:store_id(id, name)")
-        .eq("household_id", householdId as string)
-        .eq("product_ean", data.ean)
-        .order("last_seen_at", { ascending: false });
-      return { product, prices: prices ?? [], from: "db" as const };
+    if (product || invItem) {
+      let prices: any[] = [];
+      if (householdId && product) {
+        const { data: p } = await context.supabase
+          .from("product_prices")
+          .select("*, store:store_id(id, name)")
+          .eq("household_id", householdId)
+          .eq("product_ean", data.ean)
+          .order("last_seen_at", { ascending: false });
+        prices = p ?? [];
+      }
+      // Prefer inventory name (the household's chosen name) for display
+      const merged = product
+        ? { ...product, name: invItem?.name ?? product.name }
+        : {
+            ean: data.ean,
+            name: invItem.name,
+            brand: null,
+            category: null,
+            size_value: null,
+            size_unit: null,
+            image_url: null,
+            default_location: invItem.location ?? null,
+          };
+      return { product: merged, inventory: invItem, prices, from: "db" as const };
     }
 
     // Try Open Food Facts as a fallback
@@ -77,14 +110,14 @@ export const lookupProduct = createServerFn({ method: "POST" })
             size_value: null,
             size_unit: null,
           };
-          return { product: null, suggestion, prices: [], from: "openfoodfacts" as const };
+          return { product: null, inventory: null, suggestion, prices: [], from: "openfoodfacts" as const };
         }
       }
     } catch (e) {
       console.warn("OpenFoodFacts lookup failed", e);
     }
 
-    return { product: null, suggestion: null, prices: [], from: "none" as const };
+    return { product: null, inventory: null, suggestion: null, prices: [], from: "none" as const };
   });
 
 export const upsertProduct = createServerFn({ method: "POST" })
