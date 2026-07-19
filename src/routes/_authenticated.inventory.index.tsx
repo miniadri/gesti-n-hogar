@@ -42,7 +42,7 @@ const medicinesQueryOptions = queryOptions({
   queryFn: () => listMedicines(),
 });
 
-export const Route = createFileRoute("/_authenticated/inventory")({
+export const Route = createFileRoute("/_authenticated/inventory/")({
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureQueryData(inventoryQueryOptions),
     context.queryClient.ensureQueryData(medicinesQueryOptions),
