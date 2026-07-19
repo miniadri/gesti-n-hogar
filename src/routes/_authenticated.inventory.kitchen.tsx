@@ -39,7 +39,12 @@ function KitchenPage() {
     setBusy(true);
     try {
       const res: any = await doLookup({ data: { ean: code } });
-      const name = res.product?.name ?? res.suggestion?.name ?? `Producto ${code}`;
+      // Priority: inventory-known name → product catalog name → OFF suggestion → fallback
+      const name =
+        res.inventory?.name ??
+        res.product?.name ??
+        res.suggestion?.name ??
+        `Producto ${code}`;
       setPending({ ean: code, name, qty: 1 });
     } catch (e: any) {
       toast.error(e.message);
