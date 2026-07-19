@@ -265,33 +265,39 @@ function SlotCell({
   onEdit: () => void;
 }) {
   return (
-    <button
-      onClick={onEdit}
-      className="w-full rounded-lg border border-border p-2 text-left transition-colors hover:bg-accent/40"
-    >
-      <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-muted-foreground">
-        <span className="flex items-center gap-1">
-          {icon} {label}
-        </span>
-        {locked && <Lock className="h-3 w-3" />}
-      </div>
-      {skipped ? (
-        <p className="mt-1 text-sm italic text-muted-foreground">No como en casa</p>
-      ) : recipe ? (
-        <div className="mt-1">
-          <p className="line-clamp-2 text-sm font-medium">{recipe.title}</p>
-          {recipe.protein_group && (
-            <Badge variant="outline" className="mt-1 text-[10px]">
-              {recipe.protein_group}
-            </Badge>
-          )}
+    <div className="w-full rounded-lg border border-border p-2 transition-colors hover:bg-accent/40">
+      <button onClick={onEdit} className="w-full min-w-0 text-left">
+        <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-muted-foreground">
+          <span className="flex min-w-0 items-center gap-1 truncate">
+            {icon} {label}
+          </span>
+          {locked && <Lock className="h-3 w-3 shrink-0" />}
         </div>
-      ) : manual ? (
-        <p className="mt-1 line-clamp-2 text-sm">{manual}</p>
-      ) : (
-        <p className="mt-1 text-sm italic text-muted-foreground">Sin asignar</p>
+        {skipped ? (
+          <p className="mt-1 text-sm italic text-muted-foreground">No como en casa</p>
+        ) : recipe ? (
+          <div className="mt-1 min-w-0">
+            <p className="text-sm font-medium break-words leading-snug">{recipe.title}</p>
+            {recipe.protein_group && (
+              <Badge variant="outline" className="mt-1 text-[10px]">
+                {recipe.protein_group}
+              </Badge>
+            )}
+          </div>
+        ) : manual ? (
+          <p className="mt-1 text-sm break-words leading-snug">{manual}</p>
+        ) : (
+          <p className="mt-1 text-sm italic text-muted-foreground">Sin asignar</p>
+        )}
+      </button>
+      {recipe?.id && (
+        <Button asChild size="sm" variant="ghost" className="mt-1 h-7 w-full justify-center px-2 text-xs">
+          <Link to="/recipes/$recipeId" params={{ recipeId: recipe.id }}>
+            Ver receta
+          </Link>
+        </Button>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -348,6 +354,13 @@ function SlotEditor({
                 ))}
               </SelectContent>
             </Select>
+            {recipeId && (
+              <Button asChild size="sm" variant="outline" className="w-full">
+                <Link to="/recipes/$recipeId" params={{ recipeId }}>
+                  Ver receta seleccionada
+                </Link>
+              </Button>
+            )}
           </div>
           <div className="space-y-2">
             <Label>O texto libre</Label>

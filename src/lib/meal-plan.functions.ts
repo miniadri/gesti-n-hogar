@@ -179,13 +179,35 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
     const usedRecipeIds = new Set<string>();
     const familyCount = new Map<string, number>();
     const proteinCount = new Map<string, number>();
-    let lastFamily: string | null = null;
-    let lastProtein: string | null = null;
+    // Historial por slot para evitar repetir proteína/familia en días consecutivos dentro del mismo slot,
+    // y en el slot inmediatamente anterior (misma jornada).
+    const lastLunchProtein: (string | null)[] = [];
+    const lastDinnerProtein: (string | null)[] = [];
+    const lastLunchFamily: (string | null)[] = [];
+    const lastDinnerFamily: (string | null)[] = [];
 
-    let slotIndex = 0;
-    const pickForSlot = (slot: "comida" | "cena"): { recipe_id: string | null; protein: string | null; family: string | null } => {
-      const targetProtein = BALANCED_PROTEIN_TARGETS[slotIndex % BALANCED_PROTEIN_TARGETS.length];
-      slotIndex++;
+    let lunchIdx = 0;
+    let dinnerIdx = 0;
+    const pickForSlot = (
+      slot: "comida" | "cena",
+    ): { recipe_id: string | null; protein: string | null; family: string | null } => {
+      const isLunch = slot === "comida";
+      // Desfase para que comida y cena no marchen sincronizadas
+      const seq = BALANCED_PROTEIN_TARGETS;
+      const targetProtein = isLunch
+        ? seq[lunchIdx % seq.length]
+        : seq[(dinnerIdx + 2) % seq.length]; // desfase de 2 en cena
+      if (isLunch) lunchIdx++; else dinnerIdx++;
+
+      const prevSlotProtein = isLunch ? lastLunchProtein.at(-1) ?? null : lastDinnerProtein.at(-1) ?? null;
+      const prevSlotFamily = isLunch ? lastLunchFamily.at(-1) ?? null : lastDinnerFamily.at(-1) ?? null;
+      const oppositeSlotProteinToday = isLunch
+        ? lastDinnerProtein.at(-1) ?? null // cena del día anterior
+        : lastLunchProtein.at(-1) ?? null; // comida de hoy
+      const oppositeSlotFamilyToday = isLunch
+        ? lastDinnerFamily.at(-1) ?? null
+        : lastLunchFamily.at(-1) ?? null;
+
       const candidates = (recipes ?? [])
         .filter((r: any) => r.meal_type === slot || r.meal_type === "ambas" || !r.meal_type)
         .filter((r: any) => !usedRecipeIds.has(r.id))
@@ -194,58 +216,64 @@ export const generateWeekPlan = createServerFn({ method: "POST" })
           const fam = meta.family;
           const protein = meta.protein;
           let score = scoreRecipe(r);
-          if (protein === targetProtein) score += 18;
-          else if (protein === lastProtein) score -= 14;
-          else if (protein && protein !== "otro") score += 5;
-          // Variedad de proteína
-          if (protein && protein !== lastProtein) score += 3;
-          if (protein) score -= (proteinCount.get(protein) ?? 0) * 7;
-          // Variedad de familia (evita 3 pastas seguidas)
-          if (fam && fam === lastFamily) score -= 30;
+          if (protein === targetProtein) score += 20;
+          else if (protein && protein !== "otro") score += 4;
+          // Fuerte penalización si repite proteína en el mismo slot del día anterior
+          if (protein && protein === prevSlotProtein) score -= 40;
+          // Penaliza si coincide con proteína del otro slot cercano (mismo día para cena, día previo para comida)
+          if (protein && protein === oppositeSlotProteinToday) score -= 12;
+          if (protein) score -= (proteinCount.get(protein) ?? 0) * 8;
+          // Variedad de familia
+          if (fam && fam === prevSlotFamily) score -= 35;
+          if (fam && fam === oppositeSlotFamilyToday) score -= 10;
           if (fam) score -= (familyCount.get(fam) ?? 0) * 8;
           if (meta.hasVeg) score += 2;
-          // Ruido pequeño para desempatar (evita orden estable trivial)
           score += Math.random() * 2;
           return { r, score, fam, protein };
         });
       const viableCandidates = candidates.filter((candidate) => {
-        if (candidate.fam && candidate.fam === lastFamily) return false;
+        if (candidate.protein && candidate.protein === prevSlotProtein) return false;
+        if (candidate.fam && candidate.fam === prevSlotFamily) return false;
         if (candidate.fam && (familyCount.get(candidate.fam) ?? 0) >= 2) return false;
         return true;
       });
-      const ranked = (viableCandidates.length > 0 ? viableCandidates : candidates)
-        .sort((a, b) => b.score - a.score);
+      const ranked = (viableCandidates.length > 0 ? viableCandidates : candidates).sort(
+        (a, b) => b.score - a.score,
+      );
       const chosen = ranked[0];
-      if (!viableCandidates.length && chosen?.fam && (chosen.fam === lastFamily || (familyCount.get(chosen.fam) ?? 0) >= 2)) {
-        return { recipe_id: null, protein: null, family: null };
-      }
       if (!chosen) return { recipe_id: null, protein: null, family: null };
       usedRecipeIds.add(chosen.r.id);
       if (chosen.fam) familyCount.set(chosen.fam, (familyCount.get(chosen.fam) ?? 0) + 1);
-      if (chosen.protein)
-        proteinCount.set(chosen.protein, (proteinCount.get(chosen.protein) ?? 0) + 1);
+      if (chosen.protein) proteinCount.set(chosen.protein, (proteinCount.get(chosen.protein) ?? 0) + 1);
       return { recipe_id: chosen.r.id, protein: chosen.protein, family: chosen.fam };
     };
 
     let assigned = 0;
     for (const day of days ?? []) {
       const update: any = {};
+      let lunchP: string | null = null;
+      let lunchF: string | null = null;
+      let dinnerP: string | null = null;
+      let dinnerF: string | null = null;
       if (!day.lunch_locked && !day.lunch_skipped && !day.lunch_manual) {
         const p = pickForSlot("comida");
         update.lunch_recipe_id = p.recipe_id;
         if (p.recipe_id) assigned++;
-        if (p.protein) lastProtein = p.protein;
-        if (p.family) lastFamily = p.family;
-        if (!p.recipe_id) lastFamily = null;
+        lunchP = p.protein;
+        lunchF = p.family;
       }
+      // Registra antes de elegir cena para que la cena "vea" la comida de hoy
+      lastLunchProtein.push(lunchP);
+      lastLunchFamily.push(lunchF);
       if (!day.dinner_locked && !day.dinner_skipped && !day.dinner_manual) {
         const p = pickForSlot("cena");
         update.dinner_recipe_id = p.recipe_id;
         if (p.recipe_id) assigned++;
-        if (p.protein) lastProtein = p.protein;
-        if (p.family) lastFamily = p.family;
-        if (!p.recipe_id) lastFamily = null;
+        dinnerP = p.protein;
+        dinnerF = p.family;
       }
+      lastDinnerProtein.push(dinnerP);
+      lastDinnerFamily.push(dinnerF);
       if (Object.keys(update).length > 0) {
         await context.supabase.from("meal_plan_days").update(update).eq("id", day.id);
       }
