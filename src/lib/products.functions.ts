@@ -253,79 +253,42 @@ export const consumeByBarcode = createServerFn({ method: "POST" })
 
     let newQty: number | null = null;
     let addedToShopping = false;
-    // Household-chosen name wins over the global catalog name
+    let removedFromInventory = false;
+    let askAddToShopping = false;
     let itemName = invItem?.name ?? product?.name ?? `Producto ${data.ean}`;
 
     if (invItem) {
       newQty = Math.max(0, Number(invItem.quantity ?? 0) - data.qty);
-      const { error } = await context.supabase
-        .from("inventory_items")
-        .update({ quantity: newQty })
-        .eq("id", invItem.id);
-      if (error) throw error;
       itemName = invItem.name;
-    }
+      const minStock = Number(invItem.min_stock ?? 0);
+      const hasMinStock = minStock > 0;
 
-    // Auto-add to shopping list when we run out (or hit min_stock)
-    const minStock = Number(invItem?.min_stock ?? 0);
-    const shouldReorder = newQty !== null && newQty <= minStock;
-    if (shouldReorder || !invItem) {
-      // ensure "Sin tienda" list exists
-      let storeId: string | null = null;
-      const { data: defaultStore } = await context.supabase
-        .from("stores")
-        .select("id")
-        .eq("household_id", householdId)
-        .eq("is_default", true)
-        .maybeSingle();
-      storeId = defaultStore?.id ?? null;
-      if (!storeId) {
-        const { data: created } = await context.supabase
-          .from("stores")
-          .insert({ household_id: householdId, name: "Sin tienda", is_default: true })
-          .select("id")
-          .single();
-        storeId = created?.id ?? null;
-      }
-      let listId: string | null = null;
-      if (storeId) {
-        const { data: list } = await context.supabase
-          .from("shopping_lists")
-          .select("id")
-          .eq("household_id", householdId)
-          .eq("store_id", storeId)
-          .eq("is_archived", false)
-          .maybeSingle();
-        if (list) listId = list.id;
-        else {
-          const { data: newList } = await context.supabase
-            .from("shopping_lists")
-            .insert({ household_id: householdId, store_id: storeId, name: "Sin tienda" })
-            .select("id")
-            .single();
-          listId = newList?.id ?? null;
+      if (newQty === 0 && !hasMinStock) {
+        const { error } = await context.supabase
+          .from("inventory_items")
+          .delete()
+          .eq("id", invItem.id);
+        if (error) throw error;
+        removedFromInventory = true;
+        askAddToShopping = true;
+      } else {
+        const { error } = await context.supabase
+          .from("inventory_items")
+          .update({ quantity: newQty })
+          .eq("id", invItem.id);
+        if (error) throw error;
+
+        if (hasMinStock && newQty <= minStock) {
+          addedToShopping = await addToDefaultShoppingList(
+            context.supabase,
+            householdId,
+            itemName,
+            product?.category ?? null,
+          );
         }
       }
-
-      if (listId) {
-        // Avoid duplicates: same name unchecked in the list
-        const { data: dup } = await context.supabase
-          .from("shopping_list_items")
-          .select("id, quantity")
-          .eq("shopping_list_id", listId)
-          .eq("checked", false)
-          .ilike("name", itemName)
-          .maybeSingle();
-        if (!dup) {
-          await context.supabase.from("shopping_list_items").insert({
-            shopping_list_id: listId,
-            name: itemName,
-            quantity: 1,
-            category: product?.category ?? null,
-          });
-          addedToShopping = true;
-        }
-      }
+    } else {
+      askAddToShopping = true;
     }
 
     return {
@@ -334,5 +297,88 @@ export const consumeByBarcode = createServerFn({ method: "POST" })
       product_name: itemName,
       new_quantity: newQty,
       added_to_shopping: addedToShopping,
+      removed_from_inventory: removedFromInventory,
+      ask_add_to_shopping: askAddToShopping,
     };
+  });
+
+async function addToDefaultShoppingList(
+  supabase: any,
+  householdId: string,
+  itemName: string,
+  category: string | null,
+): Promise<boolean> {
+  let storeId: string | null = null;
+  const { data: defaultStore } = await supabase
+    .from("stores")
+    .select("id")
+    .eq("household_id", householdId)
+    .eq("is_default", true)
+    .maybeSingle();
+  storeId = defaultStore?.id ?? null;
+  if (!storeId) {
+    const { data: created } = await supabase
+      .from("stores")
+      .insert({ household_id: householdId, name: "Sin tienda", is_default: true })
+      .select("id")
+      .single();
+    storeId = created?.id ?? null;
+  }
+  if (!storeId) return false;
+
+  let listId: string | null = null;
+  const { data: list } = await supabase
+    .from("shopping_lists")
+    .select("id")
+    .eq("household_id", householdId)
+    .eq("store_id", storeId)
+    .eq("is_archived", false)
+    .maybeSingle();
+  if (list) listId = list.id;
+  else {
+    const { data: newList } = await supabase
+      .from("shopping_lists")
+      .insert({ household_id: householdId, store_id: storeId, name: "Sin tienda" })
+      .select("id")
+      .single();
+    listId = newList?.id ?? null;
+  }
+  if (!listId) return false;
+
+  const { data: dup } = await supabase
+    .from("shopping_list_items")
+    .select("id")
+    .eq("shopping_list_id", listId)
+    .eq("checked", false)
+    .ilike("name", itemName)
+    .maybeSingle();
+  if (dup) return false;
+
+  await supabase.from("shopping_list_items").insert({
+    shopping_list_id: listId,
+    name: itemName,
+    quantity: 1,
+    category,
+  });
+  return true;
+}
+
+export const addToShoppingListByEan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ ean: EAN, name: z.string().min(1) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data as string;
+    if (!householdId) throw new Error("No household");
+    const { data: product } = await context.supabase
+      .from("products")
+      .select("category")
+      .eq("ean", data.ean)
+      .maybeSingle();
+    const added = await addToDefaultShoppingList(
+      context.supabase,
+      householdId,
+      data.name,
+      product?.category ?? null,
+    );
+    return { added };
   });

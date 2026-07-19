@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { consumeByBarcode, lookupProduct } from "@/lib/products.functions";
+import { consumeByBarcode, lookupProduct, addToShoppingListByEan } from "@/lib/products.functions";
 
 export const Route = createFileRoute("/_authenticated/inventory/kitchen")({
   head: () => ({ meta: [{ title: "Modo cocina - HomeSync" }] }),
@@ -28,7 +28,9 @@ function KitchenPage() {
   const qc = useQueryClient();
   const doConsume = useServerFn(consumeByBarcode);
   const doLookup = useServerFn(lookupProduct);
+  const doAddToShopping = useServerFn(addToShoppingListByEan);
   const [pending, setPending] = useState<PendingScan | null>(null);
+  const [confirmAdd, setConfirmAdd] = useState<{ ean: string; name: string } | null>(null);
   const [history, setHistory] = useState<
     { name: string; qty: number; new_qty: number | null; added_to_shopping: boolean }[]
   >([]);
@@ -69,6 +71,8 @@ function KitchenPage() {
       ].slice(0, 20));
       if (res.added_to_shopping) {
         toast.success(`${res.product_name}: añadido a la lista de la compra`);
+      } else if (res.removed_from_inventory) {
+        toast.info(`${res.product_name}: retirado del inventario`);
       } else if (res.matched) {
         toast.success(`${res.product_name}: quedan ${res.new_quantity}`);
       } else {
@@ -76,7 +80,12 @@ function KitchenPage() {
       }
       qc.invalidateQueries({ queryKey: ["inventory"] });
       qc.invalidateQueries({ queryKey: ["shopping"] });
+      const nameForAdd = pending.name;
+      const eanForAdd = pending.ean;
       setPending(null);
+      if (res.ask_add_to_shopping) {
+        setConfirmAdd({ ean: eanForAdd, name: nameForAdd });
+      }
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -100,7 +109,45 @@ function KitchenPage() {
         </div>
       </div>
 
-      <BarcodeScanner onDetected={handleDetected} paused={!!pending || busy} />
+      <BarcodeScanner onDetected={handleDetected} paused={!!pending || !!confirmAdd || busy} />
+
+      {confirmAdd && (
+        <Card>
+          <CardContent className="space-y-4 p-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Sin stock</p>
+              <p className="text-lg font-semibold">{confirmAdd.name}</p>
+              <p className="text-sm text-muted-foreground">
+                ¿Añadir a la lista de la compra?
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmAdd(null)}>
+                No
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await doAddToShopping({ data: { ean: confirmAdd.ean, name: confirmAdd.name } });
+                    toast.success(`${confirmAdd.name}: añadido a la lista`);
+                    qc.invalidateQueries({ queryKey: ["shopping"] });
+                    setConfirmAdd(null);
+                  } catch (e: any) {
+                    toast.error(e.message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                <ShoppingCart className="mr-2 h-4 w-4" /> Añadir
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {pending && (
         <Card>
