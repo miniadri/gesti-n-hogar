@@ -221,7 +221,7 @@ export const consumeByBarcode = createServerFn({ method: "POST" })
       .maybeSingle();
 
     // 1) Prefer inventory match by EAN
-    let { data: invItem } = await context.supabase
+    const { data: invByEan } = await context.supabase
       .from("inventory_items")
       .select("*")
       .eq("household_id", householdId)
@@ -229,6 +229,7 @@ export const consumeByBarcode = createServerFn({ method: "POST" })
       .order("expiry_date", { ascending: true, nullsFirst: false })
       .limit(1)
       .maybeSingle();
+    let invItem: any = invByEan;
 
     // 2) Fall back to matching by product name (case-insensitive) and backfill the EAN
     if (!invItem && product?.name) {
