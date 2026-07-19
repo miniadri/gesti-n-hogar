@@ -71,6 +71,8 @@ function KitchenPage() {
       ].slice(0, 20));
       if (res.added_to_shopping) {
         toast.success(`${res.product_name}: añadido a la lista de la compra`);
+      } else if (res.removed_from_inventory) {
+        toast.info(`${res.product_name}: retirado del inventario`);
       } else if (res.matched) {
         toast.success(`${res.product_name}: quedan ${res.new_quantity}`);
       } else {
@@ -78,7 +80,12 @@ function KitchenPage() {
       }
       qc.invalidateQueries({ queryKey: ["inventory"] });
       qc.invalidateQueries({ queryKey: ["shopping"] });
+      const nameForAdd = pending.name;
+      const eanForAdd = pending.ean;
       setPending(null);
+      if (res.ask_add_to_shopping) {
+        setConfirmAdd({ ean: eanForAdd, name: nameForAdd });
+      }
     } catch (e: any) {
       toast.error(e.message);
     } finally {
