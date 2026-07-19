@@ -28,7 +28,9 @@ function KitchenPage() {
   const qc = useQueryClient();
   const doConsume = useServerFn(consumeByBarcode);
   const doLookup = useServerFn(lookupProduct);
+  const doAddToShopping = useServerFn(addToShoppingListByEan);
   const [pending, setPending] = useState<PendingScan | null>(null);
+  const [confirmAdd, setConfirmAdd] = useState<{ ean: string; name: string } | null>(null);
   const [history, setHistory] = useState<
     { name: string; qty: number; new_qty: number | null; added_to_shopping: boolean }[]
   >([]);
