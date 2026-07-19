@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { consumeByBarcode, lookupProduct } from "@/lib/products.functions";
+import { consumeByBarcode, lookupProduct, addToShoppingListByEan } from "@/lib/products.functions";
 
 export const Route = createFileRoute("/_authenticated/inventory/kitchen")({
   head: () => ({ meta: [{ title: "Modo cocina - HomeSync" }] }),
