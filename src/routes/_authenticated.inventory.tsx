@@ -212,6 +212,18 @@ function InventoryPage() {
               </>
             )}
           </Button>
+          <Button asChild variant="outline">
+            <Link to="/inventory/scan-add">
+              <ScanBarcode className="mr-2 h-4 w-4" />
+              Escanear producto
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/inventory/kitchen">
+              <ChefHat className="mr-2 h-4 w-4" />
+              Modo cocina
+            </Link>
+          </Button>
           <Button onClick={openDialog}>
             <Plus className="mr-2 h-4 w-4" />
             Añadir producto
