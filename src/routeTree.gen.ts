@@ -29,6 +29,7 @@ import { Route as AuthenticatedSettingsAppliancesRouteImport } from './routes/_a
 import { Route as AuthenticatedRecipesPlannerRouteImport } from './routes/_authenticated.recipes.planner'
 import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_authenticated.recipes.discover'
 import { Route as AuthenticatedRecipesRecipeIdRouteImport } from './routes/_authenticated.recipes.$recipeId'
+import { Route as AuthenticatedInventoryScanAddRouteImport } from './routes/_authenticated.inventory.scan-add'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -139,6 +140,12 @@ const AuthenticatedRecipesRecipeIdRoute =
     path: '/recipes/$recipeId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedInventoryScanAddRoute =
+  AuthenticatedInventoryScanAddRouteImport.update({
+    id: '/scan-add',
+    path: '/scan-add',
+    getParentRoute: () => AuthenticatedInventoryRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -147,9 +154,10 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/devices': typeof AuthenticatedDevicesRoute
   '/finances': typeof AuthenticatedFinancesRoute
-  '/inventory': typeof AuthenticatedInventoryRoute
+  '/inventory': typeof AuthenticatedInventoryRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
@@ -168,9 +176,10 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/devices': typeof AuthenticatedDevicesRoute
   '/finances': typeof AuthenticatedFinancesRoute
-  '/inventory': typeof AuthenticatedInventoryRoute
+  '/inventory': typeof AuthenticatedInventoryRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
@@ -191,9 +200,10 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/devices': typeof AuthenticatedDevicesRoute
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
-  '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
+  '/_authenticated/inventory': typeof AuthenticatedInventoryRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/_authenticated/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/_authenticated/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/_authenticated/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/_authenticated/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/tasks'
     | '/auth/callback'
+    | '/inventory/scan-add'
     | '/recipes/$recipeId'
     | '/recipes/discover'
     | '/recipes/planner'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/tasks'
     | '/auth/callback'
+    | '/inventory/scan-add'
     | '/recipes/$recipeId'
     | '/recipes/discover'
     | '/recipes/planner'
@@ -260,6 +272,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inventory'
     | '/_authenticated/tasks'
     | '/auth/callback'
+    | '/_authenticated/inventory/scan-add'
     | '/_authenticated/recipes/$recipeId'
     | '/_authenticated/recipes/discover'
     | '/_authenticated/recipes/planner'
@@ -420,15 +433,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRecipesRecipeIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/inventory/scan-add': {
+      id: '/_authenticated/inventory/scan-add'
+      path: '/scan-add'
+      fullPath: '/inventory/scan-add'
+      preLoaderRoute: typeof AuthenticatedInventoryScanAddRouteImport
+      parentRoute: typeof AuthenticatedInventoryRoute
+    }
   }
 }
+
+interface AuthenticatedInventoryRouteChildren {
+  AuthenticatedInventoryScanAddRoute: typeof AuthenticatedInventoryScanAddRoute
+}
+
+const AuthenticatedInventoryRouteChildren: AuthenticatedInventoryRouteChildren =
+  {
+    AuthenticatedInventoryScanAddRoute: AuthenticatedInventoryScanAddRoute,
+  }
+
+const AuthenticatedInventoryRouteWithChildren =
+  AuthenticatedInventoryRoute._addFileChildren(
+    AuthenticatedInventoryRouteChildren,
+  )
 
 interface AuthenticatedRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDevicesRoute: typeof AuthenticatedDevicesRoute
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
-  AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
+  AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRouteWithChildren
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedRecipesRecipeIdRoute: typeof AuthenticatedRecipesRecipeIdRoute
   AuthenticatedRecipesDiscoverRoute: typeof AuthenticatedRecipesDiscoverRoute
@@ -447,7 +481,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDevicesRoute: AuthenticatedDevicesRoute,
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
-  AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
+  AuthenticatedInventoryRoute: AuthenticatedInventoryRouteWithChildren,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedRecipesRecipeIdRoute: AuthenticatedRecipesRecipeIdRoute,
   AuthenticatedRecipesDiscoverRoute: AuthenticatedRecipesDiscoverRoute,
