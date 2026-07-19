@@ -182,16 +182,16 @@ function PlannerPage() {
         </Card>
       )}
 
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid auto-rows-fr gap-3 md:grid-cols-2 lg:grid-cols-7">
 
         {plan.days.map((day: any) => (
-          <Card key={day.id} className="overflow-hidden">
+          <Card key={day.id} className="flex h-full flex-col overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold">
                 {DAYS[day.day_of_week]}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="flex flex-1 flex-col gap-2">
               <SlotCell
                 icon={<Utensils className="h-3 w-3" />}
                 label="Comida"
