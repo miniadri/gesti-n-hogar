@@ -182,16 +182,16 @@ function PlannerPage() {
         </Card>
       )}
 
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid auto-rows-fr gap-3 md:grid-cols-2 lg:grid-cols-7">
 
         {plan.days.map((day: any) => (
-          <Card key={day.id} className="overflow-hidden">
+          <Card key={day.id} className="flex h-full flex-col overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold">
                 {DAYS[day.day_of_week]}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="flex flex-1 flex-col gap-2">
               <SlotCell
                 icon={<Utensils className="h-3 w-3" />}
                 label="Comida"
@@ -265,8 +265,8 @@ function SlotCell({
   onEdit: () => void;
 }) {
   return (
-    <div className="w-full rounded-lg border border-border p-2 transition-colors hover:bg-accent/40">
-      <button onClick={onEdit} className="w-full min-w-0 text-left">
+    <div className="flex h-full min-h-[7rem] w-full flex-col rounded-lg border border-border p-2 transition-colors hover:bg-accent/40">
+      <button onClick={onEdit} className="flex w-full flex-1 min-w-0 flex-col text-left">
         <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-muted-foreground">
           <span className="flex min-w-0 items-center gap-1 truncate">
             {icon} {label}
@@ -274,10 +274,15 @@ function SlotCell({
           {locked && <Lock className="h-3 w-3 shrink-0" />}
         </div>
         {skipped ? (
-          <p className="mt-1 text-sm italic text-muted-foreground">No como en casa</p>
+          <p className="mt-1 line-clamp-3 text-sm italic text-muted-foreground">No como en casa</p>
         ) : recipe ? (
           <div className="mt-1 min-w-0">
-            <p className="text-sm font-medium break-words leading-snug">{recipe.title}</p>
+            <p
+              className="text-sm font-medium leading-snug line-clamp-3 [overflow-wrap:anywhere]"
+              title={recipe.title}
+            >
+              {recipe.title}
+            </p>
             {recipe.protein_group && (
               <Badge variant="outline" className="mt-1 text-[10px]">
                 {recipe.protein_group}
@@ -285,7 +290,9 @@ function SlotCell({
             )}
           </div>
         ) : manual ? (
-          <p className="mt-1 text-sm break-words leading-snug">{manual}</p>
+          <p className="mt-1 line-clamp-3 text-sm leading-snug [overflow-wrap:anywhere]" title={manual}>
+            {manual}
+          </p>
         ) : (
           <p className="mt-1 text-sm italic text-muted-foreground">Sin asignar</p>
         )}
