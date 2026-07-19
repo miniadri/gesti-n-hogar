@@ -148,6 +148,7 @@ function ScanAddPage() {
           unit: form.unit.trim() || form.size_unit.trim() || undefined,
           location: form.location || form.default_location || undefined,
           last_price: form.price ? Number(form.price) : undefined,
+          ean,
         } as any,
       });
 
