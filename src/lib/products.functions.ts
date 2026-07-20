@@ -382,3 +382,68 @@ export const addToShoppingListByEan = createServerFn({ method: "POST" })
     );
     return { added };
   });
+
+// Consume by inventory item id (for products without barcode / manual search)
+const ConsumeByIdInput = z.object({
+  id: z.string().uuid(),
+  qty: z.number().positive().default(1),
+});
+
+export const consumeByItemId = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ConsumeByIdInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data as string;
+    if (!householdId) throw new Error("No household");
+
+    const { data: invItem, error: fErr } = await context.supabase
+      .from("inventory_items")
+      .select("*")
+      .eq("household_id", householdId)
+      .eq("id", data.id)
+      .single();
+    if (fErr) throw fErr;
+
+    const newQty = Math.max(0, Number(invItem.quantity ?? 0) - data.qty);
+    const minStock = Number(invItem.min_stock ?? 0);
+    const hasMinStock = minStock > 0;
+    const itemName = invItem.name;
+
+    let removedFromInventory = false;
+    let addedToShopping = false;
+    let askAddToShopping = false;
+
+    if (newQty === 0 && !hasMinStock) {
+      const { error } = await context.supabase
+        .from("inventory_items")
+        .delete()
+        .eq("id", invItem.id);
+      if (error) throw error;
+      removedFromInventory = true;
+      askAddToShopping = true;
+    } else {
+      const { error } = await context.supabase
+        .from("inventory_items")
+        .update({ quantity: newQty })
+        .eq("id", invItem.id);
+      if (error) throw error;
+      if (hasMinStock && newQty <= minStock) {
+        addedToShopping = await addToDefaultShoppingList(
+          context.supabase,
+          householdId,
+          itemName,
+          invItem.category ?? null,
+        );
+      }
+    }
+
+    return {
+      ok: true,
+      matched: true,
+      product_name: itemName,
+      new_quantity: newQty,
+      added_to_shopping: addedToShopping,
+      removed_from_inventory: removedFromInventory,
+      ask_add_to_shopping: askAddToShopping,
+    };
+  });
