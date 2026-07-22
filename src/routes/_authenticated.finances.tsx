@@ -58,6 +58,8 @@ function FinancesPage() {
   const [thresholdOpen, setThresholdOpen] = useState(false);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["finances"] });
+  const doDeleteExpense = useServerFn(deleteExpense);
+  const doRestoreExpense = useServerFn(restoreExpense);
 
   const totalExpenses = data.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const totalBudget = data.budgets.reduce((sum, b) => sum + Number(b.amount), 0);
