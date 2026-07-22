@@ -119,7 +119,9 @@ const shoppingQueryOptions = queryOptions({
       listRecentItems(),
       listMedicines(),
     ]);
-    return { stores, items, recent, medicines };
+    const names = Array.from(new Set((items ?? []).map((i: any) => i.name).filter(Boolean)));
+    const prices = names.length > 0 ? await comparePrices({ data: { names } }) : {};
+    return { stores, items, recent, medicines, prices };
   },
 });
 
