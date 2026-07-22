@@ -27,8 +27,9 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listInventory, createInventoryItem, deleteInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
-import { listMedicines, createMedicine, updateMedicine, deleteMedicine } from "@/lib/medicines.functions";
+import { listInventory, createInventoryItem, deleteInventoryItem, restoreInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
+import { listMedicines, createMedicine, updateMedicine, deleteMedicine, restoreMedicine } from "@/lib/medicines.functions";
+import { undoableToast } from "@/hooks/use-undoable";
 import { INVENTORY_LOCATIONS, suggestLocation, type InventoryLocation } from "@/lib/inventory-locations";
 import { toast } from "sonner";
 
