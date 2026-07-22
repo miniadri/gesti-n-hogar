@@ -51,9 +51,11 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const { data: profile } = useSuspenseQuery(profileQueryOptions);
+  const { data: household } = useSuspenseQuery(householdQueryOptions);
   const queryClient = useQueryClient();
   const doJoin = useServerFn(joinHousehold);
   const processed = useRef(false);
+  const realtimeStatus = useRealtimeSync(household?.id);
 
   useEffect(() => {
     if (processed.current) return;
@@ -74,7 +76,7 @@ function AuthenticatedLayout() {
   }, [doJoin, queryClient]);
 
   return (
-    <AppShell userName={profile?.full_name || undefined}>
+    <AppShell userName={profile?.full_name || undefined} realtimeStatus={realtimeStatus}>
       <Outlet />
     </AppShell>
   );
