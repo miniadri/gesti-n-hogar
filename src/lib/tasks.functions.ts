@@ -150,3 +150,22 @@ export const getTaskPhotoUrl = createServerFn({ method: "POST" })
     if (error) throw error;
     return signed;
   });
+
+const RestoreTaskInput = z.object({ row: z.record(z.string(), z.any()) });
+
+export const restoreTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => RestoreTaskInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const payload: Record<string, any> = { ...data.row, household_id: householdId };
+    delete payload.updated_at;
+    const { data: row, error } = await context.supabase
+      .from("tasks")
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .single();
+    if (error) throw error;
+    return row;
+  });
