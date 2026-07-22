@@ -299,6 +299,7 @@ function ShoppingItemCard({
 }) {
   const doToggle = useServerFn(toggleShoppingItem);
   const doDelete = useServerFn(deleteShoppingItem);
+  const doRestore = useServerFn(restoreShoppingItem);
   const doCreateInv = useServerFn(createInventoryItem);
   const [checked, setChecked] = useState(item.checked);
   const [locationOpen, setLocationOpen] = useState(false);
