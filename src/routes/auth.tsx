@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Eye, EyeOff, Mail, Lock, Home } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +14,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
-    meta: [{ title: "Iniciar sesión - HomeSync" }],
+    meta: [{ title: "Sign in — HomeSync" }],
   }),
   component: AuthPage,
 });
@@ -22,6 +23,7 @@ const PENDING_INVITE_KEY = "homesync_pending_invite_code";
 
 function AuthPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -61,7 +63,7 @@ function AuthPage() {
       if (inviteCode.trim()) {
         sessionStorage.setItem(PENDING_INVITE_KEY, inviteCode.trim().toUpperCase());
       }
-      toast.success("Revisa tu correo para confirmar la cuenta.");
+      toast.success(t("auth.checkEmail"));
     }
   };
 
@@ -73,7 +75,7 @@ function AuthPage() {
       redirect_uri: window.location.origin,
     });
     if (result.error) {
-      toast.error(result.error.message || "Error al iniciar sesión con Google");
+      toast.error(result.error.message || t("auth.googleError"));
     }
   };
 
@@ -88,26 +90,26 @@ function AuthPage() {
 
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Bienvenido</CardTitle>
-          <CardDescription>Gestiona tu hogar de forma colaborativa</CardDescription>
+          <CardTitle className="text-2xl">{t("auth.welcome")}</CardTitle>
+          <CardDescription>{t("auth.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Iniciar sesión</TabsTrigger>
-              <TabsTrigger value="register">Crear cuenta</TabsTrigger>
+              <TabsTrigger value="login">{t("auth.signIn")}</TabsTrigger>
+              <TabsTrigger value="register">{t("auth.signUp")}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
               <form onSubmit={handleEmailSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Correo electrónico</Label>
+                  <Label htmlFor="email">{t("auth.email")}</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
-                      placeholder="tu@email.com"
+                      placeholder={t("auth.emailPlaceholder")}
                       className="pl-9"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -116,7 +118,7 @@ function AuthPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña</Label>
+                  <Label htmlFor="password">{t("auth.password")}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -138,7 +140,7 @@ function AuthPage() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Entrando..." : "Iniciar sesión"}
+                  {loading ? t("auth.signingIn") : t("auth.signIn")}
                 </Button>
               </form>
             </TabsContent>
@@ -146,13 +148,13 @@ function AuthPage() {
             <TabsContent value="register">
               <form onSubmit={handleEmailSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="register-email">Correo electrónico</Label>
+                  <Label htmlFor="register-email">{t("auth.email")}</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="register-email"
                       type="email"
-                      placeholder="tu@email.com"
+                      placeholder={t("auth.emailPlaceholder")}
                       className="pl-9"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -161,7 +163,7 @@ function AuthPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="register-password">Contraseña</Label>
+                  <Label htmlFor="register-password">{t("auth.password")}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -185,24 +187,21 @@ function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="invite-code">
-                    Código de hogar <span className="text-muted-foreground">(opcional)</span>
+                    {t("auth.inviteCode")} <span className="text-muted-foreground">({t("common.optional")})</span>
                   </Label>
                   <Input
                     id="invite-code"
                     type="text"
-                    placeholder="Ej: ABCDEFGH"
+                    placeholder={t("auth.inviteCodePlaceholder")}
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                     maxLength={32}
                     autoCapitalize="characters"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Si un familiar te ha compartido un código, introdúcelo para unirte a su hogar.
-                    Si no, se creará uno nuevo para ti y podrás añadirlo más tarde en Ajustes → Familia.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("auth.inviteCodeHint")}</p>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Creando cuenta..." : "Crear cuenta"}
+                  {loading ? t("auth.signingUp") : t("auth.signUp")}
                 </Button>
               </form>
             </TabsContent>
@@ -228,15 +227,13 @@ function AuthPage() {
                   fill="#EA4335"
                 />
               </svg>
-              Continuar con Google
+              {t("auth.continueWithGoogle")}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <p className="mt-8 text-center text-sm text-muted-foreground">
-        Al continuar, aceptas nuestros términos y política de privacidad.
-      </p>
+      <p className="mt-8 text-center text-sm text-muted-foreground">{t("auth.terms")}</p>
     </div>
   );
 }
