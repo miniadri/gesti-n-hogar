@@ -365,11 +365,17 @@ function InventoryPage() {
                               <p className="text-xs text-muted-foreground">
                                 Mínimo: {Number(item.min_stock) || 0} {item.unit || "ud."}
                               </p>
-                              {item.expiry_date && (
-                                <p className="text-xs text-muted-foreground">
-                                  Caduca: {new Date(item.expiry_date).toLocaleDateString("es-ES")}
-                                </p>
-                              )}
+                              {item.expiry_date && (() => {
+                                const d = new Date(item.expiry_date);
+                                const expired = d < todayMidnight;
+                                const soon = d <= soonThreshold;
+                                return (
+                                  <p className={`text-xs ${expired ? "text-destructive font-medium" : soon ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                                    {expired ? "Caducó: " : "Caduca: "}
+                                    {d.toLocaleDateString("es-ES")}
+                                  </p>
+                                );
+                              })()}
                             </div>
                           </div>
                           {!selectMode && (
