@@ -169,15 +169,17 @@ export const syncHomeAssistantEntities = createServerFn({ method: "POST" })
           domain,
           external_source: "home_assistant",
           external_id: s.entity_id,
-          attributes: {
-            state: s.state,
-            unit_of_measurement: s.attributes?.unit_of_measurement ?? null,
-            brightness: s.attributes?.brightness ?? null,
-            current_temperature: s.attributes?.current_temperature ?? null,
-            temperature: s.attributes?.temperature ?? null,
-            hvac_modes: s.attributes?.hvac_modes ?? null,
-            device_class: s.attributes?.device_class ?? null,
-          },
+          attributes: JSON.parse(
+            JSON.stringify({
+              state: s.state,
+              unit_of_measurement: s.attributes?.unit_of_measurement ?? null,
+              brightness: s.attributes?.brightness ?? null,
+              current_temperature: s.attributes?.current_temperature ?? null,
+              temperature: s.attributes?.temperature ?? null,
+              hvac_modes: s.attributes?.hvac_modes ?? null,
+              device_class: s.attributes?.device_class ?? null,
+            }),
+          ),
           last_state_at: nowIso,
           updated_at: nowIso,
         },
@@ -239,13 +241,14 @@ export const callHomeAssistantService = createServerFn({ method: "POST" })
         .from("devices")
         .update({
           status,
-          attributes: {
-            ...(device as any).attributes,
-            state: s.state,
-            brightness: s.attributes?.brightness ?? null,
-            current_temperature: s.attributes?.current_temperature ?? null,
-            temperature: s.attributes?.temperature ?? null,
-          },
+          attributes: JSON.parse(
+            JSON.stringify({
+              state: s.state,
+              brightness: s.attributes?.brightness ?? null,
+              current_temperature: s.attributes?.current_temperature ?? null,
+              temperature: s.attributes?.temperature ?? null,
+            }),
+          ),
           last_state_at: new Date().toISOString(),
         })
         .eq("id", device.id);
