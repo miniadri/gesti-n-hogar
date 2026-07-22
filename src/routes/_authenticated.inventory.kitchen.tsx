@@ -48,6 +48,7 @@ function KitchenPage() {
   const doConsumeById = useServerFn(consumeByItemId);
   const doLookup = useServerFn(lookupProduct);
   const doAddToShopping = useServerFn(addToShoppingListByEan);
+  const doRestoreInv = useServerFn(restoreInventoryItem);
   const fnListInventory = useServerFn(listInventory);
 
   const [pending, setPending] = useState<PendingScan | null>(null);
