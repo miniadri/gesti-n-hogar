@@ -175,8 +175,16 @@ function TasksPage() {
               refresh();
             }}
             onDelete={async () => {
+              const snapshot = { ...task };
               await doDelete({ data: { id: task.id } });
               refresh();
+              undoableToast({
+                message: `Tarea "${task.title}" eliminada`,
+                undo: async () => {
+                  await doRestore({ data: { row: snapshot } });
+                  refresh();
+                },
+              });
             }}
           />
         ))}
