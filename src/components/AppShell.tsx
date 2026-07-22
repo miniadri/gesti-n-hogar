@@ -258,8 +258,6 @@ function NavItem({
 }
 
 function SignOutButton() {
-  return (
-function SignOutButton() {
   const { t } = useTranslation();
   return (
     <button
