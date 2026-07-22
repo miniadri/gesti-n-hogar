@@ -84,6 +84,7 @@ function TasksPage() {
   const doCreate = useServerFn(createTask);
   const doUpdate = useServerFn(updateTask);
   const doDelete = useServerFn(deleteTask);
+  const doRestore = useServerFn(restoreTask);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
