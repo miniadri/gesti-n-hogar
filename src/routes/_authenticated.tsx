@@ -4,11 +4,13 @@ import { queryOptions } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { joinHousehold } from "@/lib/household.functions";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
+import { setLanguage } from "@/i18n";
 
 const PENDING_INVITE_KEY = "homesync_pending_invite_code";
 
@@ -56,6 +58,14 @@ function AuthenticatedLayout() {
   const doJoin = useServerFn(joinHousehold);
   const processed = useRef(false);
   const realtimeStatus = useRealtimeSync(household?.id);
+  const { i18n } = useTranslation();
+
+  useEffect(() => {
+    const preferred = profile?.preferred_language as "es" | "en" | undefined;
+    if (preferred && preferred !== i18n.language) {
+      setLanguage(preferred);
+    }
+  }, [profile?.preferred_language, i18n.language]);
 
   useEffect(() => {
     if (processed.current) return;

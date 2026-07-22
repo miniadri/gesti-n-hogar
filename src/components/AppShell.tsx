@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -24,24 +25,30 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-const bottomNavItems = [
-  { to: "/dashboard", label: "Inicio", icon: Home },
-  { to: "/tasks", label: "Tareas", icon: ListTodo },
-  { to: "/calendar", label: "Calendario", icon: Calendar },
-  { to: "/shopping", label: "Compra", icon: ShoppingCart },
-  { to: "/finances", label: "Finanzas", icon: Wallet },
-];
+function useBottomNav() {
+  const { t } = useTranslation();
+  return [
+    { to: "/dashboard", label: t("nav.home"), icon: Home },
+    { to: "/tasks", label: t("nav.tasks"), icon: ListTodo },
+    { to: "/calendar", label: t("nav.calendar"), icon: Calendar },
+    { to: "/shopping", label: t("nav.shopping"), icon: ShoppingCart },
+    { to: "/finances", label: t("nav.finances"), icon: Wallet },
+  ];
+}
 
-const sidebarNavItems = [
-  { to: "/dashboard", label: "Dashboard", icon: Home },
-  { to: "/tasks", label: "Tareas", icon: ListTodo },
-  { to: "/calendar", label: "Calendario", icon: Calendar },
-  { to: "/shopping", label: "Lista de compra", icon: ShoppingCart },
-  { to: "/inventory", label: "Inventario", icon: Package },
-  { to: "/recipes", label: "Recetas", icon: ChefHat },
-  { to: "/finances", label: "Finanzas", icon: Wallet },
-  { to: "/devices", label: "Hogar", icon: Zap },
-];
+function useSidebarNav() {
+  const { t } = useTranslation();
+  return [
+    { to: "/dashboard", label: t("nav.dashboard"), icon: Home },
+    { to: "/tasks", label: t("nav.tasks"), icon: ListTodo },
+    { to: "/calendar", label: t("nav.calendar"), icon: Calendar },
+    { to: "/shopping", label: t("nav.shoppingList"), icon: ShoppingCart },
+    { to: "/inventory", label: t("nav.inventory"), icon: Package },
+    { to: "/recipes", label: t("nav.recipes"), icon: ChefHat },
+    { to: "/finances", label: t("nav.finances"), icon: Wallet },
+    { to: "/devices", label: t("nav.devices"), icon: Zap },
+  ];
+}
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -98,6 +105,7 @@ function TopBar({
   onMenuOpen: () => void;
 }) {
   const isMobile = useIsMobile();
+  const { t } = useTranslation();
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/80 px-4 py-3 backdrop-blur-md md:px-6">
@@ -106,7 +114,7 @@ function TopBar({
           {isMobile && (
             <Button variant="ghost" size="icon" className="shrink-0" onClick={onMenuOpen}>
               <Menu className="h-5 w-5" />
-              <span className="sr-only">Menú</span>
+              <span className="sr-only">{t("common.menu")}</span>
             </Button>
           )}
           <div className="flex min-w-0 items-center gap-2">
@@ -125,10 +133,10 @@ function TopBar({
             <span
               title={
                 realtimeStatus === "live"
-                  ? "Sincronización en vivo activa"
+                  ? t("realtime.liveTitle")
                   : realtimeStatus === "connecting"
-                    ? "Conectando…"
-                    : "Sin conexión en vivo"
+                    ? t("realtime.connectingTitle")
+                    : t("realtime.errorTitle")
               }
               className="hidden items-center gap-1.5 rounded-full border border-border bg-background/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-flex"
             >
@@ -140,7 +148,11 @@ function TopBar({
                   realtimeStatus === "error" && "bg-muted-foreground/50",
                 )}
               />
-              {realtimeStatus === "live" ? "En vivo" : realtimeStatus === "connecting" ? "…" : "Offline"}
+              {realtimeStatus === "live"
+                ? t("realtime.live")
+                : realtimeStatus === "connecting"
+                  ? t("realtime.connecting")
+                  : t("realtime.offline")}
             </span>
           )}
           <Link to="/settings/notifications">
@@ -154,7 +166,7 @@ function TopBar({
                   {notificationCount > 99 ? "99+" : notificationCount}
                 </Badge>
               )}
-              <span className="sr-only">Notificaciones</span>
+              <span className="sr-only">{t("common.notifications")}</span>
             </Button>
           </Link>
 
@@ -170,6 +182,8 @@ function TopBar({
 }
 
 function DesktopSidebar() {
+  const { t } = useTranslation();
+  const sidebarNavItems = useSidebarNav();
   return (
     <aside className="sticky top-[61px] hidden h-[calc(100vh-61px)] w-64 shrink-0 border-r border-border bg-card lg:block">
       <div className="flex h-full flex-col p-4">
@@ -179,9 +193,9 @@ function DesktopSidebar() {
           ))}
         </nav>
         <div className="border-t border-border pt-4">
-          <NavItem item={{ to: "/settings/family", label: "Familia", icon: Users }} />
-          <NavItem item={{ to: "/settings/appliances", label: "Electrodomésticos", icon: ChefHat }} />
-          <NavItem item={{ to: "/settings/localization", label: "Ajustes", icon: Settings }} />
+          <NavItem item={{ to: "/settings/family", label: t("nav.family"), icon: Users }} />
+          <NavItem item={{ to: "/settings/appliances", label: t("nav.appliances"), icon: ChefHat }} />
+          <NavItem item={{ to: "/settings/localization", label: t("nav.settings"), icon: Settings }} />
           <SignOutButton />
         </div>
       </div>
@@ -190,6 +204,8 @@ function DesktopSidebar() {
 }
 
 function MobileSidebar({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const sidebarNavItems = useSidebarNav();
   return (
     <div className="flex h-full flex-col p-4">
       <div className="mb-6 flex items-center gap-2 px-2">
@@ -204,9 +220,9 @@ function MobileSidebar({ onClose }: { onClose: () => void }) {
         ))}
       </nav>
       <div className="border-t border-border pt-4">
-        <NavItem item={{ to: "/settings/family", label: "Familia", icon: Users }} onClick={onClose} />
-        <NavItem item={{ to: "/settings/appliances", label: "Electrodomésticos", icon: ChefHat }} onClick={onClose} />
-        <NavItem item={{ to: "/settings/localization", label: "Ajustes", icon: Settings }} onClick={onClose} />
+        <NavItem item={{ to: "/settings/family", label: t("nav.family"), icon: Users }} onClick={onClose} />
+        <NavItem item={{ to: "/settings/appliances", label: t("nav.appliances"), icon: ChefHat }} onClick={onClose} />
+        <NavItem item={{ to: "/settings/localization", label: t("nav.settings"), icon: Settings }} onClick={onClose} />
         <SignOutButton />
       </div>
     </div>
@@ -242,19 +258,22 @@ function NavItem({
 }
 
 function SignOutButton() {
+  const { t } = useTranslation();
   return (
     <button
       onClick={() => supabase.auth.signOut()}
       className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
     >
       <LogOut className="h-5 w-5 shrink-0" />
-      <span>Cerrar sesión</span>
+      <span>{t("common.signOut")}</span>
     </button>
   );
 }
 
 function MobileBottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const bottomNavItems = useBottomNav();
+
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card pb-safe pt-2">
