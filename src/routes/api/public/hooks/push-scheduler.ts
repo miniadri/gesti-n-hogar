@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/public/hooks/push-scheduler")({
 });
 
 async function resolveUserIds(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   householdId: string,
   memberId: string | null,
 ): Promise<string[]> {
@@ -107,7 +107,7 @@ async function resolveUserIds(
 }
 
 async function sendTo(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   userIds: string[],
   payload: { title: string; body: string; url: string },
 ): Promise<boolean> {
@@ -117,10 +117,10 @@ async function sendTo(
     .select("id, endpoint, p256dh, auth")
     .in("user_id", userIds);
   let any = false;
-  for (const sub of subs ?? []) {
+  for (const sub of (subs ?? []) as any[]) {
     try {
       await webPush.sendNotification(
-        { endpoint: sub.endpoint as string, keys: { p256dh: sub.p256dh as string, auth: sub.auth as string } },
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         JSON.stringify(payload),
       );
       any = true;

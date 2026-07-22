@@ -31,6 +31,7 @@ import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_auth
 import { Route as AuthenticatedRecipesRecipeIdRouteImport } from './routes/_authenticated.recipes.$recipeId'
 import { Route as AuthenticatedInventoryScanAddRouteImport } from './routes/_authenticated.inventory.scan-add'
 import { Route as AuthenticatedInventoryKitchenRouteImport } from './routes/_authenticated.inventory.kitchen'
+import { Route as ApiPublicHooksPushSchedulerRouteImport } from './routes/api/public/hooks/push-scheduler'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -154,6 +155,12 @@ const AuthenticatedInventoryKitchenRoute =
     path: '/inventory/kitchen',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicHooksPushSchedulerRoute =
+  ApiPublicHooksPushSchedulerRouteImport.update({
+    id: '/api/public/hooks/push-scheduler',
+    path: '/api/public/hooks/push-scheduler',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/inventory/': typeof AuthenticatedInventoryIndexRoute
   '/recipes/': typeof AuthenticatedRecipesIndexRoute
   '/shopping/': typeof AuthenticatedShoppingIndexRoute
+  '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -200,6 +208,7 @@ export interface FileRoutesByTo {
   '/inventory': typeof AuthenticatedInventoryIndexRoute
   '/recipes': typeof AuthenticatedRecipesIndexRoute
   '/shopping': typeof AuthenticatedShoppingIndexRoute
+  '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -225,6 +234,7 @@ export interface FileRoutesById {
   '/_authenticated/inventory/': typeof AuthenticatedInventoryIndexRoute
   '/_authenticated/recipes/': typeof AuthenticatedRecipesIndexRoute
   '/_authenticated/shopping/': typeof AuthenticatedShoppingIndexRoute
+  '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/inventory/'
     | '/recipes/'
     | '/shopping/'
+    | '/api/public/hooks/push-scheduler'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/recipes'
     | '/shopping'
+    | '/api/public/hooks/push-scheduler'
   id:
     | '__root__'
     | '/'
@@ -297,12 +309,14 @@ export interface FileRouteTypes {
     | '/_authenticated/inventory/'
     | '/_authenticated/recipes/'
     | '/_authenticated/shopping/'
+    | '/api/public/hooks/push-scheduler'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  ApiPublicHooksPushSchedulerRoute: typeof ApiPublicHooksPushSchedulerRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -461,6 +475,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventoryKitchenRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/hooks/push-scheduler': {
+      id: '/api/public/hooks/push-scheduler'
+      path: '/api/public/hooks/push-scheduler'
+      fullPath: '/api/public/hooks/push-scheduler'
+      preLoaderRoute: typeof ApiPublicHooksPushSchedulerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -526,17 +547,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  ApiPublicHooksPushSchedulerRoute: ApiPublicHooksPushSchedulerRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
