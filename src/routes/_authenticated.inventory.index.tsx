@@ -94,6 +94,7 @@ function InventoryPage() {
 
   const doCreate = useServerFn(createInventoryItem);
   const doDelete = useServerFn(deleteInventoryItem);
+  const doRestore = useServerFn(restoreInventoryItem);
   const doUpdate = useServerFn(updateInventoryItem);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["inventory"] });
