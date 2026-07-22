@@ -94,6 +94,28 @@ function FinancesPage() {
           <p className="text-muted-foreground">Aportes del hogar, gastos y presupuesto</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => exportExpensesCSV(data.expenses as any, data.categories as any)}
+            disabled={data.expenses.length === 0}
+          >
+            <FileDown className="mr-2 h-4 w-4" /> CSV
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              exportFinancesPDF({
+                expenses: data.expenses as any,
+                categories: data.categories as any,
+                contributions: data.contributions as any,
+                householdName: data.household.name,
+                totals: { expenses: totalExpenses, contributions: totalContributions, budget: totalBudget },
+              })
+            }
+            disabled={data.expenses.length === 0}
+          >
+            <FileText className="mr-2 h-4 w-4" /> PDF
+          </Button>
           <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
             <Settings2 className="mr-2 h-4 w-4" /> Categorías
           </Button>
