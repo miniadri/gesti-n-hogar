@@ -432,6 +432,12 @@ function ShoppingItemCard({
             {price !== null && price !== undefined && (
               <p className="mt-1 text-sm font-bold text-primary">€{Number(price).toFixed(2)}</p>
             )}
+            {cheapest && (
+              <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
+                Mejor: <span className="font-semibold text-foreground">€{cheapest.price.toFixed(2)}</span>{" "}
+                en {cheapest.store_name}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
