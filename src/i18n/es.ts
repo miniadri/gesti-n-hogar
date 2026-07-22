@@ -106,6 +106,6 @@ export const es = {
     languages: { es: "Español", en: "English" },
     currencies: { EUR: "Euro (€)", USD: "Dólar ($)", GBP: "Libra (£)" },
   },
-} as const;
+};
 
 export type Dict = typeof es;
