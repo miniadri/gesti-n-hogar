@@ -187,12 +187,24 @@ function InventoryPage() {
 
   const lowStock = data.filter((item) => Number(item.quantity) <= Number(item.min_stock));
 
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const soonThreshold = new Date(todayMidnight);
+  soonThreshold.setDate(soonThreshold.getDate() + 7);
+  const isExpiringSoon = (item: any) => {
+    if (!item.expiry_date) return false;
+    const d = new Date(item.expiry_date);
+    return d <= soonThreshold;
+  };
+  const expiringCount = data.filter(isExpiringSoon).length;
+  const visibleData = expiringOnly ? data.filter(isExpiringSoon) : data;
+
   const grouped: Record<InventoryLocation, typeof data> = {
     Frigorífico: [],
     Congelador: [],
     Armario: [],
   };
-  for (const item of data) {
+  for (const item of visibleData) {
     grouped[normalizeLocation(item.location)].push(item);
   }
 
