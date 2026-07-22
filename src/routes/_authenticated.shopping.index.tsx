@@ -748,3 +748,58 @@ function PharmacySection({ medicines }: { medicines: any[] }) {
     </section>
   );
 }
+
+function PriceComparePopover({ name, quotes }: { name: string; quotes: PriceQuote[] }) {
+  const fmtDate = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+    } catch {
+      return "";
+    }
+  };
+  const cheapest = quotes[0]?.price;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="text-muted-foreground hover:text-primary"
+          title="Comparar precios entre tiendas"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Euro className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="end">
+        <p className="mb-2 text-sm font-semibold">{name}</p>
+        {quotes.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Sin historial de precios.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {quotes.map((q, i) => (
+              <li
+                key={`${q.store_id ?? "none"}-${i}`}
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs",
+                  q.price === cheapest ? "bg-primary/10" : "bg-muted/40",
+                )}
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{q.store_name}</p>
+                  <p className="text-[10px] text-muted-foreground">{fmtDate(q.date)}</p>
+                </div>
+                <span className={cn("font-bold tabular-nums", q.price === cheapest && "text-primary")}>
+                  €{q.price.toFixed(2)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 text-[10px] text-muted-foreground">
+          Basado en tus tickets escaneados.
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
