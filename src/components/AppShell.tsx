@@ -121,6 +121,28 @@ function TopBar({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {realtimeStatus && (
+            <span
+              title={
+                realtimeStatus === "live"
+                  ? "Sincronización en vivo activa"
+                  : realtimeStatus === "connecting"
+                    ? "Conectando…"
+                    : "Sin conexión en vivo"
+              }
+              className="hidden items-center gap-1.5 rounded-full border border-border bg-background/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-flex"
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  realtimeStatus === "live" && "bg-emerald-500 animate-pulse",
+                  realtimeStatus === "connecting" && "bg-amber-500",
+                  realtimeStatus === "error" && "bg-muted-foreground/50",
+                )}
+              />
+              {realtimeStatus === "live" ? "En vivo" : realtimeStatus === "connecting" ? "…" : "Offline"}
+            </span>
+          )}
           <Link to="/settings/notifications">
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
