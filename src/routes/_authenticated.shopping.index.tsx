@@ -412,9 +412,12 @@ function ShoppingItemCard({
             >
               {checked && <Check className="h-3.5 w-3.5" />}
             </button>
-            <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              {quotes.length > 0 && <PriceComparePopover name={item.name} quotes={quotes} />}
+              <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <div className="mt-3 flex flex-col items-center text-center">
