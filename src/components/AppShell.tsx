@@ -48,9 +48,10 @@ interface AppShellProps {
   title?: string;
   userName?: string;
   notificationCount?: number;
+  realtimeStatus?: "connecting" | "live" | "error";
 }
 
-export function AppShell({ children, title, userName, notificationCount = 0 }: AppShellProps) {
+export function AppShell({ children, title, userName, notificationCount = 0, realtimeStatus }: AppShellProps) {
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -60,6 +61,7 @@ export function AppShell({ children, title, userName, notificationCount = 0 }: A
         title={title}
         userName={userName}
         notificationCount={notificationCount}
+        realtimeStatus={realtimeStatus}
         onMenuOpen={() => setMobileMenuOpen(true)}
       />
 
