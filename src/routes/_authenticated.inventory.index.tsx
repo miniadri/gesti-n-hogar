@@ -368,8 +368,16 @@ function InventoryPage() {
                               </button>
                               <button
                                 onClick={async () => {
+                                  const snapshot = { ...item };
                                   await doDelete({ data: { id: item.id } });
                                   refresh();
+                                  undoableToast({
+                                    message: `"${item.name}" eliminado del inventario`,
+                                    undo: async () => {
+                                      await doRestore({ data: { row: snapshot } });
+                                      refresh();
+                                    },
+                                  });
                                 }}
                                 className="text-muted-foreground hover:text-destructive"
                               >
