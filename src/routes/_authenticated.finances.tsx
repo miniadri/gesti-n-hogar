@@ -26,9 +26,12 @@ import {
   createBudget,
   upsertMyContribution,
   updateCriticalThreshold,
+  deleteExpense,
+  restoreExpense,
 } from "@/lib/finances.functions";
 import { scanTicket } from "@/lib/ocr.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { undoableToast } from "@/hooks/use-undoable";
 import { toast } from "sonner";
 
 
@@ -55,6 +58,8 @@ function FinancesPage() {
   const [thresholdOpen, setThresholdOpen] = useState(false);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["finances"] });
+  const doDeleteExpense = useServerFn(deleteExpense);
+  const doRestoreExpense = useServerFn(restoreExpense);
 
   const totalExpenses = data.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const totalBudget = data.budgets.reduce((sum, b) => sum + Number(b.amount), 0);
@@ -226,7 +231,33 @@ function FinancesPage() {
                   {data.categories.find((c) => c.id === expense.category_id)?.name || "Sin categoría"}
                 </p>
               </div>
-              <span className="font-bold text-destructive">-€{Number(expense.amount).toFixed(2)}</span>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-destructive">-€{Number(expense.amount).toFixed(2)}</span>
+                {data.isAdmin && (
+                  <button
+                    onClick={async () => {
+                      const snapshot = { ...expense };
+                      try {
+                        await doDeleteExpense({ data: { id: expense.id } });
+                        refresh();
+                        undoableToast({
+                          message: `Gasto "${expense.description || "Gasto"}" eliminado`,
+                          undo: async () => {
+                            await doRestoreExpense({ data: { row: snapshot } });
+                            refresh();
+                          },
+                        });
+                      } catch (err: any) {
+                        toast.error(err?.message || "No se pudo eliminar");
+                      }
+                    }}
+                    className="text-muted-foreground hover:text-destructive"
+                    title="Eliminar gasto"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
 

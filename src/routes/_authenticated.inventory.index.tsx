@@ -86,6 +86,7 @@ function InventoryPage() {
   const [moving, setMoving] = useState(false);
   const [minEdit, setMinEdit] = useState<{ id: string; name: string; value: string } | null>(null);
   const [savingMin, setSavingMin] = useState(false);
+  const [expiringOnly, setExpiringOnly] = useState(false);
 
   const parseDecimal = (v: string) => {
     const n = Number(v.replace(",", "."));
@@ -186,12 +187,24 @@ function InventoryPage() {
 
   const lowStock = data.filter((item) => Number(item.quantity) <= Number(item.min_stock));
 
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const soonThreshold = new Date(todayMidnight);
+  soonThreshold.setDate(soonThreshold.getDate() + 7);
+  const isExpiringSoon = (item: any) => {
+    if (!item.expiry_date) return false;
+    const d = new Date(item.expiry_date);
+    return d <= soonThreshold;
+  };
+  const expiringCount = data.filter(isExpiringSoon).length;
+  const visibleData = expiringOnly ? data.filter(isExpiringSoon) : data;
+
   const grouped: Record<InventoryLocation, typeof data> = {
     Frigorífico: [],
     Congelador: [],
     Armario: [],
   };
-  for (const item of data) {
+  for (const item of visibleData) {
     grouped[normalizeLocation(item.location)].push(item);
   }
 
@@ -203,6 +216,17 @@ function InventoryPage() {
           <p className="text-muted-foreground">Tu nevera virtual y despensa</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant={expiringOnly ? "secondary" : "outline"}
+            onClick={() => setExpiringOnly((v) => !v)}
+            title="Ver solo productos próximos a caducar (7 días o menos, incluye caducados)"
+          >
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            Próximo a caducar
+            {expiringCount > 0 && (
+              <Badge variant="destructive" className="ml-2">{expiringCount}</Badge>
+            )}
+          </Button>
           <Button variant={selectMode ? "secondary" : "outline"} onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}>
             {selectMode ? (
               <>
@@ -341,11 +365,17 @@ function InventoryPage() {
                               <p className="text-xs text-muted-foreground">
                                 Mínimo: {Number(item.min_stock) || 0} {item.unit || "ud."}
                               </p>
-                              {item.expiry_date && (
-                                <p className="text-xs text-muted-foreground">
-                                  Caduca: {new Date(item.expiry_date).toLocaleDateString("es-ES")}
-                                </p>
-                              )}
+                              {item.expiry_date && (() => {
+                                const d = new Date(item.expiry_date);
+                                const expired = d < todayMidnight;
+                                const soon = d <= soonThreshold;
+                                return (
+                                  <p className={`text-xs ${expired ? "text-destructive font-medium" : soon ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                                    {expired ? "Caducó: " : "Caduca: "}
+                                    {d.toLocaleDateString("es-ES")}
+                                  </p>
+                                );
+                              })()}
                             </div>
                           </div>
                           {!selectMode && (

@@ -55,6 +55,10 @@ async function currentMemberId(supabase: any, userId: string, householdId: strin
 export const listFinances = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
     const householdId = await currentHouseholdId(context.supabase);
 
     const [
@@ -106,6 +110,7 @@ export const listFinances = createServerFn({ method: "GET" })
       }>,
       myMemberId: memberId ?? null,
       mySalary,
+      isAdmin: Boolean(isAdmin),
     };
   });
 
@@ -213,4 +218,39 @@ export const updateCriticalThreshold = createServerFn({ method: "POST" })
       .eq("id", householdId);
     if (error) throw error;
     return { ok: true };
+  });
+
+export const deleteExpense = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("Solo el administrador del hogar puede borrar gastos");
+    const { error } = await context.supabase.from("expenses").delete().eq("id", data.id);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const restoreExpense = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ row: z.record(z.string(), z.any()) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("Solo el administrador puede restaurar gastos");
+    const householdId = await currentHouseholdId(context.supabase);
+    const payload: Record<string, any> = { ...data.row, household_id: householdId };
+    delete payload.updated_at;
+    const { data: row, error } = await context.supabase
+      .from("expenses")
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .single();
+    if (error) throw error;
+    return row;
   });
