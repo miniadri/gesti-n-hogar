@@ -196,9 +196,14 @@ export type Database = {
       }
       devices: {
         Row: {
+          attributes: Json
           created_at: string
+          domain: string | null
+          external_id: string | null
+          external_source: string | null
           household_id: string
           id: string
+          last_state_at: string | null
           name: string
           next_maintenance: string | null
           room: string | null
@@ -207,9 +212,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attributes?: Json
           created_at?: string
+          domain?: string | null
+          external_id?: string | null
+          external_source?: string | null
           household_id: string
           id?: string
+          last_state_at?: string | null
           name: string
           next_maintenance?: string | null
           room?: string | null
@@ -218,9 +228,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attributes?: Json
           created_at?: string
+          domain?: string | null
+          external_id?: string | null
+          external_source?: string | null
           household_id?: string
           id?: string
+          last_state_at?: string | null
           name?: string
           next_maintenance?: string | null
           room?: string | null
@@ -342,6 +357,50 @@ export type Database = {
             columns: ["paid_by"]
             isOneToOne: false
             referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      home_assistant_connections: {
+        Row: {
+          base_url: string
+          created_at: string
+          household_id: string
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          status: string
+          token_ciphertext: string
+          updated_at: string
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          household_id: string
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          status?: string
+          token_ciphertext: string
+          updated_at?: string
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          status?: string
+          token_ciphertext?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "home_assistant_connections_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: true
+            referencedRelation: "households"
             referencedColumns: ["id"]
           },
         ]
