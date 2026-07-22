@@ -351,9 +351,17 @@ function ShoppingItemCard({
 
   const handleDelete = async () => {
     try {
+      const snapshot = { ...item };
+      delete (snapshot as any).shopping_list;
       await doDelete({ data: { id: item.id } });
       onChange();
-      toast.success("Producto eliminado");
+      undoableToast({
+        message: `"${item.name}" eliminado`,
+        undo: async () => {
+          await doRestore({ data: { row: snapshot } });
+          onChange();
+        },
+      });
     } catch {
       toast.error("No se pudo eliminar el producto");
     }
