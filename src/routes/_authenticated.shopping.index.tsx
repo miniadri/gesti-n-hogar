@@ -59,6 +59,18 @@ import { createInventoryItem } from "@/lib/inventory.functions";
 import { INVENTORY_LOCATIONS, suggestLocation } from "@/lib/inventory-locations";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { comparePrices, type PriceQuote } from "@/lib/prices.functions";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Euro } from "lucide-react";
+
+function normalizeKey(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -107,7 +119,9 @@ const shoppingQueryOptions = queryOptions({
       listRecentItems(),
       listMedicines(),
     ]);
-    return { stores, items, recent, medicines };
+    const names = Array.from(new Set((items ?? []).map((i: any) => i.name).filter(Boolean)));
+    const prices = names.length > 0 ? await comparePrices({ data: { names } }) : {};
+    return { stores, items, recent, medicines, prices };
   },
 });
 
@@ -184,7 +198,12 @@ function ShoppingPage() {
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {items.map((item) => (
-                <ShoppingItemCard key={item.id} item={item} onChange={refresh} />
+                <ShoppingItemCard
+                  key={item.id}
+                  item={item}
+                  onChange={refresh}
+                  quotes={data.prices[normalizeKey(item.name)] ?? []}
+                />
               ))}
             </div>
           </section>
@@ -293,9 +312,11 @@ function RecentItemsSection({
 function ShoppingItemCard({
   item,
   onChange,
+  quotes = [],
 }: {
   item: any;
   onChange: () => void;
+  quotes?: PriceQuote[];
 }) {
   const doToggle = useServerFn(toggleShoppingItem);
   const doDelete = useServerFn(deleteShoppingItem);
@@ -369,6 +390,7 @@ function ShoppingItemCard({
 
   const Icon = categoryIcons[item.category || "default"] || Package;
   const price = item.manual_price ?? item.ocr_price;
+  const cheapest = quotes[0];
 
   return (
     <>
@@ -391,9 +413,12 @@ function ShoppingItemCard({
             >
               {checked && <Check className="h-3.5 w-3.5" />}
             </button>
-            <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              {quotes.length > 0 && <PriceComparePopover name={item.name} quotes={quotes} />}
+              <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <div className="mt-3 flex flex-col items-center text-center">
@@ -406,6 +431,12 @@ function ShoppingItemCard({
             </p>
             {price !== null && price !== undefined && (
               <p className="mt-1 text-sm font-bold text-primary">€{Number(price).toFixed(2)}</p>
+            )}
+            {cheapest && (
+              <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
+                Mejor: <span className="font-semibold text-foreground">€{cheapest.price.toFixed(2)}</span>{" "}
+                en {cheapest.store_name}
+              </p>
             )}
           </div>
         </CardContent>
@@ -717,3 +748,58 @@ function PharmacySection({ medicines }: { medicines: any[] }) {
     </section>
   );
 }
+
+function PriceComparePopover({ name, quotes }: { name: string; quotes: PriceQuote[] }) {
+  const fmtDate = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+    } catch {
+      return "";
+    }
+  };
+  const cheapest = quotes[0]?.price;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="text-muted-foreground hover:text-primary"
+          title="Comparar precios entre tiendas"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Euro className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="end">
+        <p className="mb-2 text-sm font-semibold">{name}</p>
+        {quotes.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Sin historial de precios.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {quotes.map((q, i) => (
+              <li
+                key={`${q.store_id ?? "none"}-${i}`}
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs",
+                  q.price === cheapest ? "bg-primary/10" : "bg-muted/40",
+                )}
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{q.store_name}</p>
+                  <p className="text-[10px] text-muted-foreground">{fmtDate(q.date)}</p>
+                </div>
+                <span className={cn("font-bold tabular-nums", q.price === cheapest && "text-primary")}>
+                  €{q.price.toFixed(2)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 text-[10px] text-muted-foreground">
+          Basado en tus tickets escaneados.
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
