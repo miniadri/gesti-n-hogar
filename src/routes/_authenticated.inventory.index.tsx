@@ -582,12 +582,20 @@ function MedicinesSection() {
     }
   };
 
-  const remove = async (id: string) => {
+  const remove = async (m: any) => {
     try {
-      await doDelete({ data: { id } });
+      const snapshot = { ...m };
+      await doDelete({ data: { id: m.id } });
       refresh();
       queryClient.invalidateQueries({ queryKey: ["shopping"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      undoableToast({
+        message: `"${m.name}" eliminada`,
+        undo: async () => {
+          await doRestore({ data: { row: snapshot } });
+          refresh();
+        },
+      });
     } catch {
       toast.error("No se pudo eliminar");
     }
