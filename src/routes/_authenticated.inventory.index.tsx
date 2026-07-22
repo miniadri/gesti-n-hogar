@@ -216,6 +216,17 @@ function InventoryPage() {
           <p className="text-muted-foreground">Tu nevera virtual y despensa</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant={expiringOnly ? "secondary" : "outline"}
+            onClick={() => setExpiringOnly((v) => !v)}
+            title="Ver solo productos próximos a caducar (7 días o menos, incluye caducados)"
+          >
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            Próximo a caducar
+            {expiringCount > 0 && (
+              <Badge variant="destructive" className="ml-2">{expiringCount}</Badge>
+            )}
+          </Button>
           <Button variant={selectMode ? "secondary" : "outline"} onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}>
             {selectMode ? (
               <>
