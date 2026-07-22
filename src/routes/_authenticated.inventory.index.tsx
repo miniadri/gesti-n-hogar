@@ -643,7 +643,7 @@ function MedicinesSection() {
                         )}
                         {m.note && <p className="text-xs text-muted-foreground line-clamp-2">{m.note}</p>}
                       </button>
-                      <button onClick={() => remove(m.id)} className="text-muted-foreground hover:text-destructive">
+                      <button onClick={() => remove(m)} className="text-muted-foreground hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
