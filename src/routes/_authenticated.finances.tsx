@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState, useMemo, useRef } from "react";
-import { Plus, Wallet, TrendingUp, Users, AlertTriangle, Eye, EyeOff, Trash2, Settings2, Repeat, Camera, Upload, Loader2 } from "lucide-react";
+import { Plus, Wallet, TrendingUp, Users, AlertTriangle, Eye, EyeOff, Trash2, Settings2, Repeat, Camera, Upload, Loader2, FileDown, FileText } from "lucide-react";
+import { exportExpensesCSV, exportFinancesPDF } from "@/lib/finances-export";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
