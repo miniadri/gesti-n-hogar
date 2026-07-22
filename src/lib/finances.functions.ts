@@ -110,6 +110,7 @@ export const listFinances = createServerFn({ method: "GET" })
       }>,
       myMemberId: memberId ?? null,
       mySalary,
+      isAdmin: Boolean(isAdmin),
     };
   });
 
