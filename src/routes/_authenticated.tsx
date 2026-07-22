@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { joinHousehold } from "@/lib/household.functions";
+import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 
 const PENDING_INVITE_KEY = "homesync_pending_invite_code";
 
