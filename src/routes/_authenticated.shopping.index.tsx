@@ -312,9 +312,11 @@ function RecentItemsSection({
 function ShoppingItemCard({
   item,
   onChange,
+  quotes = [],
 }: {
   item: any;
   onChange: () => void;
+  quotes?: PriceQuote[];
 }) {
   const doToggle = useServerFn(toggleShoppingItem);
   const doDelete = useServerFn(deleteShoppingItem);
