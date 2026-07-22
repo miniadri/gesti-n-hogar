@@ -8,16 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
  */
 const TABLE_QUERY_KEYS: Record<string, string[][]> = {
   tasks: [["tasks"], ["dashboard"]],
-  expenses: [["expenses"], ["finances"], ["dashboard"]],
-  budgets: [["budgets"], ["finances"]],
   shopping_lists: [["shopping-lists"], ["shopping"]],
   shopping_list_items: [["shopping-lists"], ["shopping"], ["shopping-items"]],
   inventory_items: [["inventory"], ["dashboard"]],
   medicines: [["medicines"], ["inventory"], ["dashboard"]],
-  meal_plans: [["meal-plans"], ["recipes"]],
-  meal_plan_days: [["meal-plans"], ["recipes"]],
-  calendar_events: [["calendar"], ["dashboard"]],
-  notifications: [["notifications"]],
   household_members: [["household"], ["members"]],
   households: [["household"]],
 };
