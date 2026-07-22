@@ -259,18 +259,23 @@ function NavItem({
 
 function SignOutButton() {
   return (
+function SignOutButton() {
+  const { t } = useTranslation();
+  return (
     <button
       onClick={() => supabase.auth.signOut()}
       className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
     >
       <LogOut className="h-5 w-5 shrink-0" />
-      <span>Cerrar sesión</span>
+      <span>{t("common.signOut")}</span>
     </button>
   );
 }
 
 function MobileBottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const bottomNavItems = useBottomNav();
+
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card pb-safe pt-2">
