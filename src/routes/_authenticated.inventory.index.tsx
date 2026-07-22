@@ -566,6 +566,7 @@ function MedicinesSection() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const doDelete = useServerFn(deleteMedicine);
+  const doRestore = useServerFn(restoreMedicine);
   const doUpdate = useServerFn(updateMedicine);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["medicines"] });
