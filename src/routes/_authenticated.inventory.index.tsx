@@ -86,6 +86,7 @@ function InventoryPage() {
   const [moving, setMoving] = useState(false);
   const [minEdit, setMinEdit] = useState<{ id: string; name: string; value: string } | null>(null);
   const [savingMin, setSavingMin] = useState(false);
+  const [expiringOnly, setExpiringOnly] = useState(false);
 
   const parseDecimal = (v: string) => {
     const n = Number(v.replace(",", "."));
