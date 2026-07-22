@@ -87,23 +87,75 @@ function DevicesPage() {
     refresh();
   };
 
+  const doSync = useServerFn(syncHomeAssistantEntities);
+  const doCall = useServerFn(callHomeAssistantService);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = (await doSync()) as { count: number };
+      toast.success(`Sincronizados ${res.count} dispositivos de Home Assistant`);
+      refresh();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Error al sincronizar");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const toggleHa = async (device: any) => {
+    const domain = device.domain ?? String(device.external_id ?? "").split(".")[0];
+    const turnOn = device.status !== "on";
+    // media_player uses media_play/pause; cover uses open/close. Everything else uses turn_on/off.
+    let service = turnOn ? "turn_on" : "turn_off";
+    if (domain === "cover") service = turnOn ? "open_cover" : "close_cover";
+    if (domain === "media_player") service = turnOn ? "media_play" : "media_pause";
+    try {
+      await doCall({ data: { entity_id: device.external_id, service } });
+      refresh();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Error al enviar comando");
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Hogar inteligente</h2>
           <p className="text-muted-foreground">Control de dispositivos y mantenimiento</p>
         </div>
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Dispositivo
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleSync} disabled={syncing}>
+            <RefreshCw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
+            Sincronizar HA
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/settings/home-assistant">
+              <Settings2 className="mr-2 h-4 w-4" />
+              Home Assistant
+            </Link>
+          </Button>
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Dispositivo
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {data.map((device: any) => {
+          const isHa = device.external_source === "home_assistant";
+          const isSensor = device.type === "sensor" || device.domain === "sensor" || device.domain === "binary_sensor";
           const typeInfo = deviceTypes.find((t) => t.value === device.type) || deviceTypes[3];
-          const Icon = typeInfo.icon;
+          const Icon = isSensor ? Activity : typeInfo.icon;
+          const attrs = device.attributes ?? {};
+          const stateLabel = isSensor
+            ? `${attrs.state ?? "-"}${attrs.unit_of_measurement ? ` ${attrs.unit_of_measurement}` : ""}`
+            : device.status === "on"
+              ? "Encendido"
+              : "Apagado";
           return (
             <Card key={device.id}>
               <CardContent className="p-4">
@@ -120,27 +172,33 @@ function DevicesPage() {
                     <div>
                       <p className="font-semibold">{device.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {typeInfo.label} · {device.room || "Sin habitación"}
+                        {isHa ? `HA · ${device.domain ?? typeInfo.label}` : typeInfo.label} · {device.room || "Sin habitación"}
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={async () => {
-                      await doDelete({ data: { id: device.id } });
-                      refresh();
-                    }}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {!isHa && (
+                    <button
+                      onClick={async () => {
+                        await doDelete({ data: { id: device.id } });
+                        refresh();
+                      }}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
                 <div className="mt-4 flex items-center justify-between">
-                  <Badge variant={device.status === "on" ? "default" : "secondary"}>
-                    {device.status === "on" ? "Encendido" : "Apagado"}
-                  </Badge>
-                  <Button size="sm" variant="outline" onClick={() => toggleDevice(device)}>
-                    {device.status === "on" ? "Apagar" : "Encender"}
-                  </Button>
+                  <Badge variant={device.status === "on" ? "default" : "secondary"}>{stateLabel}</Badge>
+                  {isSensor ? null : isHa ? (
+                    <Button size="sm" variant="outline" onClick={() => toggleHa(device)}>
+                      {device.status === "on" ? "Apagar" : "Encender"}
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => toggleDevice(device)}>
+                      {device.status === "on" ? "Apagar" : "Encender"}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

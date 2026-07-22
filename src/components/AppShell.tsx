@@ -195,6 +195,7 @@ function DesktopSidebar() {
         <div className="border-t border-border pt-4">
           <NavItem item={{ to: "/settings/family", label: t("nav.family"), icon: Users }} />
           <NavItem item={{ to: "/settings/appliances", label: t("nav.appliances"), icon: ChefHat }} />
+          <NavItem item={{ to: "/settings/home-assistant", label: "Home Assistant", icon: Home }} />
           <NavItem item={{ to: "/settings/localization", label: t("nav.settings"), icon: Settings }} />
           <SignOutButton />
         </div>
@@ -222,6 +223,7 @@ function MobileSidebar({ onClose }: { onClose: () => void }) {
       <div className="border-t border-border pt-4">
         <NavItem item={{ to: "/settings/family", label: t("nav.family"), icon: Users }} onClick={onClose} />
         <NavItem item={{ to: "/settings/appliances", label: t("nav.appliances"), icon: ChefHat }} onClick={onClose} />
+        <NavItem item={{ to: "/settings/home-assistant", label: "Home Assistant", icon: Home }} onClick={onClose} />
         <NavItem item={{ to: "/settings/localization", label: t("nav.settings"), icon: Settings }} onClick={onClose} />
         <SignOutButton />
       </div>
