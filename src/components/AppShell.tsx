@@ -88,11 +88,13 @@ function TopBar({
   title,
   userName,
   notificationCount,
+  realtimeStatus,
   onMenuOpen,
 }: {
   title?: string;
   userName?: string;
   notificationCount: number;
+  realtimeStatus?: "connecting" | "live" | "error";
   onMenuOpen: () => void;
 }) {
   const isMobile = useIsMobile();
