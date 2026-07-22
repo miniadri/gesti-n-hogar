@@ -26,9 +26,12 @@ import {
   createBudget,
   upsertMyContribution,
   updateCriticalThreshold,
+  deleteExpense,
+  restoreExpense,
 } from "@/lib/finances.functions";
 import { scanTicket } from "@/lib/ocr.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { undoableToast } from "@/hooks/use-undoable";
 import { toast } from "sonner";
 
 
