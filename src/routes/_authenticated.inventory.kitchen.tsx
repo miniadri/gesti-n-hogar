@@ -27,7 +27,8 @@ import {
   lookupProduct,
   addToShoppingListByEan,
 } from "@/lib/products.functions";
-import { listInventory } from "@/lib/inventory.functions";
+import { listInventory, restoreInventoryItem } from "@/lib/inventory.functions";
+import { undoableToast } from "@/hooks/use-undoable";
 
 export const Route = createFileRoute("/_authenticated/inventory/kitchen")({
   head: () => ({ meta: [{ title: "Modo cocina - HomeSync" }] }),
