@@ -231,7 +231,33 @@ function FinancesPage() {
                   {data.categories.find((c) => c.id === expense.category_id)?.name || "Sin categoría"}
                 </p>
               </div>
-              <span className="font-bold text-destructive">-€{Number(expense.amount).toFixed(2)}</span>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-destructive">-€{Number(expense.amount).toFixed(2)}</span>
+                {data.isAdmin && (
+                  <button
+                    onClick={async () => {
+                      const snapshot = { ...expense };
+                      try {
+                        await doDeleteExpense({ data: { id: expense.id } });
+                        refresh();
+                        undoableToast({
+                          message: `Gasto "${expense.description || "Gasto"}" eliminado`,
+                          undo: async () => {
+                            await doRestoreExpense({ data: { row: snapshot } });
+                            refresh();
+                          },
+                        });
+                      } catch (err: any) {
+                        toast.error(err?.message || "No se pudo eliminar");
+                      }
+                    }}
+                    className="text-muted-foreground hover:text-destructive"
+                    title="Eliminar gasto"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
 
