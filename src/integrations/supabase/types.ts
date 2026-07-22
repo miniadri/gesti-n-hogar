@@ -111,6 +111,7 @@ export type Database = {
           external_id: string | null
           household_id: string
           id: string
+          notified_at: string | null
           source: string
           start_at: string
           title: string
@@ -126,6 +127,7 @@ export type Database = {
           external_id?: string | null
           household_id: string
           id?: string
+          notified_at?: string | null
           source?: string
           start_at: string
           title: string
@@ -141,6 +143,7 @@ export type Database = {
           external_id?: string | null
           household_id?: string
           id?: string
+          notified_at?: string | null
           source?: string
           start_at?: string
           title?: string
@@ -1100,9 +1103,11 @@ export type Database = {
           id: string
           image_url: string | null
           instructions: string | null
+          is_favorite: boolean
           meal_type: string
           prep_time: number | null
           protein_group: string | null
+          rating: number | null
           servings: number | null
           source: string
           title: string
@@ -1119,9 +1124,11 @@ export type Database = {
           id?: string
           image_url?: string | null
           instructions?: string | null
+          is_favorite?: boolean
           meal_type?: string
           prep_time?: number | null
           protein_group?: string | null
+          rating?: number | null
           servings?: number | null
           source?: string
           title: string
@@ -1138,9 +1145,11 @@ export type Database = {
           id?: string
           image_url?: string | null
           instructions?: string | null
+          is_favorite?: boolean
           meal_type?: string
           prep_time?: number | null
           protein_group?: string | null
+          rating?: number | null
           servings?: number | null
           source?: string
           title?: string
@@ -1371,6 +1380,7 @@ export type Database = {
           due_date: string | null
           household_id: string
           id: string
+          notified_at: string | null
           photo_path: string | null
           priority: string
           recurrence: string | null
@@ -1390,6 +1400,7 @@ export type Database = {
           due_date?: string | null
           household_id: string
           id?: string
+          notified_at?: string | null
           photo_path?: string | null
           priority?: string
           recurrence?: string | null
@@ -1409,6 +1420,7 @@ export type Database = {
           due_date?: string | null
           household_id?: string
           id?: string
+          notified_at?: string | null
           photo_path?: string | null
           priority?: string
           recurrence?: string | null
