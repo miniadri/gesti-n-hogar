@@ -390,6 +390,7 @@ function ShoppingItemCard({
 
   const Icon = categoryIcons[item.category || "default"] || Package;
   const price = item.manual_price ?? item.ocr_price;
+  const cheapest = quotes[0];
 
   return (
     <>
