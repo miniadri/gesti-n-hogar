@@ -211,3 +211,22 @@ export const importReceiptToInventory = createServerFn({ method: "POST" })
     return { added, skipped, total: items?.length ?? 0 };
   });
 
+
+const RestoreInventoryInput = z.object({ row: z.record(z.string(), z.any()) });
+
+export const restoreInventoryItem = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => RestoreInventoryInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const payload: Record<string, any> = { ...data.row, household_id: householdId };
+    delete payload.updated_at;
+    const { data: row, error } = await context.supabase
+      .from("inventory_items")
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .single();
+    if (error) throw error;
+    return row;
+  });

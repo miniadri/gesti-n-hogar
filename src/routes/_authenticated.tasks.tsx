@@ -26,7 +26,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listTasks, createTask, updateTask, deleteTask, getTaskPhotoUrl } from "@/lib/tasks.functions";
+import { listTasks, createTask, updateTask, deleteTask, restoreTask, getTaskPhotoUrl } from "@/lib/tasks.functions";
+import { undoableToast } from "@/hooks/use-undoable";
 import { getHousehold } from "@/lib/household.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -83,6 +84,7 @@ function TasksPage() {
   const doCreate = useServerFn(createTask);
   const doUpdate = useServerFn(updateTask);
   const doDelete = useServerFn(deleteTask);
+  const doRestore = useServerFn(restoreTask);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
@@ -173,8 +175,16 @@ function TasksPage() {
               refresh();
             }}
             onDelete={async () => {
+              const snapshot = { ...task };
               await doDelete({ data: { id: task.id } });
               refresh();
+              undoableToast({
+                message: `Tarea "${task.title}" eliminada`,
+                undo: async () => {
+                  await doRestore({ data: { row: snapshot } });
+                  refresh();
+                },
+              });
             }}
           />
         ))}

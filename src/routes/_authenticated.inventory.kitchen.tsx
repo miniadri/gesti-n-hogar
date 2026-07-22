@@ -27,7 +27,8 @@ import {
   lookupProduct,
   addToShoppingListByEan,
 } from "@/lib/products.functions";
-import { listInventory } from "@/lib/inventory.functions";
+import { listInventory, restoreInventoryItem } from "@/lib/inventory.functions";
+import { undoableToast } from "@/hooks/use-undoable";
 
 export const Route = createFileRoute("/_authenticated/inventory/kitchen")({
   head: () => ({ meta: [{ title: "Modo cocina - HomeSync" }] }),
@@ -47,6 +48,7 @@ function KitchenPage() {
   const doConsumeById = useServerFn(consumeByItemId);
   const doLookup = useServerFn(lookupProduct);
   const doAddToShopping = useServerFn(addToShoppingListByEan);
+  const doRestoreInv = useServerFn(restoreInventoryItem);
   const fnListInventory = useServerFn(listInventory);
 
   const [pending, setPending] = useState<PendingScan | null>(null);
@@ -145,6 +147,12 @@ function KitchenPage() {
     if (!pending) return;
     setBusy(true);
     try {
+      // Snapshot the inventory row BEFORE consuming so undo can restore it.
+      const snapshot = (inventory as any[]).find((it) =>
+        pending.itemId ? it.id === pending.itemId : pending.ean && it.ean === pending.ean,
+      );
+      const preSnapshot = snapshot ? { ...snapshot } : null;
+
       const res: any = pending.itemId
         ? await doConsumeById({ data: { id: pending.itemId, qty: pending.qty } })
         : await doConsume({ data: { ean: pending.ean!, qty: pending.qty } });
@@ -176,6 +184,17 @@ function KitchenPage() {
       setSearch("");
       if (res.ask_add_to_shopping && eanForAdd) {
         setConfirmAdd({ ean: eanForAdd, name: nameForAdd });
+      }
+      // Offer undo when we actually modified the inventory (matched or removed).
+      if (preSnapshot && (res.matched || res.removed_from_inventory)) {
+        undoableToast({
+          message: `Consumo de "${res.product_name}" registrado`,
+          undo: async () => {
+            await doRestoreInv({ data: { row: preSnapshot } });
+            qc.invalidateQueries({ queryKey: ["inventory"] });
+            qc.invalidateQueries({ queryKey: ["shopping"] });
+          },
+        });
       }
     } catch (e: any) {
       toast.error(e.message);

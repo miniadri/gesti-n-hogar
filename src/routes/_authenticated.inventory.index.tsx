@@ -27,8 +27,9 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listInventory, createInventoryItem, deleteInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
-import { listMedicines, createMedicine, updateMedicine, deleteMedicine } from "@/lib/medicines.functions";
+import { listInventory, createInventoryItem, deleteInventoryItem, restoreInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
+import { listMedicines, createMedicine, updateMedicine, deleteMedicine, restoreMedicine } from "@/lib/medicines.functions";
+import { undoableToast } from "@/hooks/use-undoable";
 import { INVENTORY_LOCATIONS, suggestLocation, type InventoryLocation } from "@/lib/inventory-locations";
 import { toast } from "sonner";
 
@@ -93,6 +94,7 @@ function InventoryPage() {
 
   const doCreate = useServerFn(createInventoryItem);
   const doDelete = useServerFn(deleteInventoryItem);
+  const doRestore = useServerFn(restoreInventoryItem);
   const doUpdate = useServerFn(updateInventoryItem);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -366,8 +368,16 @@ function InventoryPage() {
                               </button>
                               <button
                                 onClick={async () => {
+                                  const snapshot = { ...item };
                                   await doDelete({ data: { id: item.id } });
                                   refresh();
+                                  undoableToast({
+                                    message: `"${item.name}" eliminado del inventario`,
+                                    undo: async () => {
+                                      await doRestore({ data: { row: snapshot } });
+                                      refresh();
+                                    },
+                                  });
                                 }}
                                 className="text-muted-foreground hover:text-destructive"
                               >
@@ -556,6 +566,7 @@ function MedicinesSection() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const doDelete = useServerFn(deleteMedicine);
+  const doRestore = useServerFn(restoreMedicine);
   const doUpdate = useServerFn(updateMedicine);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["medicines"] });
@@ -571,12 +582,20 @@ function MedicinesSection() {
     }
   };
 
-  const remove = async (id: string) => {
+  const remove = async (m: any) => {
     try {
-      await doDelete({ data: { id } });
+      const snapshot = { ...m };
+      await doDelete({ data: { id: m.id } });
       refresh();
       queryClient.invalidateQueries({ queryKey: ["shopping"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      undoableToast({
+        message: `"${m.name}" eliminada`,
+        undo: async () => {
+          await doRestore({ data: { row: snapshot } });
+          refresh();
+        },
+      });
     } catch {
       toast.error("No se pudo eliminar");
     }
@@ -624,7 +643,7 @@ function MedicinesSection() {
                         )}
                         {m.note && <p className="text-xs text-muted-foreground line-clamp-2">{m.note}</p>}
                       </button>
-                      <button onClick={() => remove(m.id)} className="text-muted-foreground hover:text-destructive">
+                      <button onClick={() => remove(m)} className="text-muted-foreground hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>

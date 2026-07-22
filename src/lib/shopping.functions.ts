@@ -174,3 +174,20 @@ export const deleteShoppingItem = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+const RestoreShoppingItemInput = z.object({ row: z.record(z.string(), z.any()) });
+
+export const restoreShoppingItem = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => RestoreShoppingItemInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const payload: Record<string, any> = { ...data.row };
+    delete payload.updated_at;
+    const { data: row, error } = await context.supabase
+      .from("shopping_list_items")
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .single();
+    if (error) throw error;
+    return row;
+  });

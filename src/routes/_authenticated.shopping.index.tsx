@@ -51,7 +51,9 @@ import {
   createShoppingItem,
   toggleShoppingItem,
   deleteShoppingItem,
+  restoreShoppingItem,
 } from "@/lib/shopping.functions";
+import { undoableToast } from "@/hooks/use-undoable";
 import { listMedicines, updateMedicine } from "@/lib/medicines.functions";
 import { createInventoryItem } from "@/lib/inventory.functions";
 import { INVENTORY_LOCATIONS, suggestLocation } from "@/lib/inventory-locations";
@@ -297,6 +299,7 @@ function ShoppingItemCard({
 }) {
   const doToggle = useServerFn(toggleShoppingItem);
   const doDelete = useServerFn(deleteShoppingItem);
+  const doRestore = useServerFn(restoreShoppingItem);
   const doCreateInv = useServerFn(createInventoryItem);
   const [checked, setChecked] = useState(item.checked);
   const [locationOpen, setLocationOpen] = useState(false);
@@ -348,9 +351,17 @@ function ShoppingItemCard({
 
   const handleDelete = async () => {
     try {
+      const snapshot = { ...item };
+      delete (snapshot as any).shopping_list;
       await doDelete({ data: { id: item.id } });
       onChange();
-      toast.success("Producto eliminado");
+      undoableToast({
+        message: `"${item.name}" eliminado`,
+        undo: async () => {
+          await doRestore({ data: { row: snapshot } });
+          onChange();
+        },
+      });
     } catch {
       toast.error("No se pudo eliminar el producto");
     }
