@@ -57,7 +57,7 @@ export const es = {
     inventory: "Inventario",
     recipes: "Recetas",
     finances: "Finanzas",
-    devices: "Hogar",
+    devices: "Dispositivos Hogar",
     family: "Familia",
     appliances: "Electrodomésticos",
     settings: "Ajustes",

@@ -2,23 +2,15 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Plus, Lightbulb, Thermometer, Shield, Power, Trash2, RefreshCw, Activity, Settings2, Search, Eye, EyeOff, X } from "lucide-react";
+import { Lightbulb, Thermometer, Shield, Power, Trash2, RefreshCw, Activity, Settings2, Search, Eye, EyeOff, X } from "lucide-react";
 import { syncHomeAssistantEntities, callHomeAssistantService } from "@/lib/home-assistant.functions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listDevices, createDevice, updateDevice, deleteDevice, setDevicesHidden } from "@/lib/devices.functions";
+import { listDevices, updateDevice, deleteDevice, setDevicesHidden } from "@/lib/devices.functions";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -45,11 +37,6 @@ const deviceTypes = [
 function DevicesPage() {
   const queryClient = useQueryClient();
   const { data } = useSuspenseQuery(devicesQueryOptions);
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [type, setType] = useState("light");
-  const [room, setRoom] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -58,42 +45,18 @@ function DevicesPage() {
   const [showHidden, setShowHidden] = useState(false);
   const [manageHidden, setManageHidden] = useState(false);
 
-  const doCreate = useServerFn(createDevice);
   const doUpdate = useServerFn(updateDevice);
   const doDelete = useServerFn(deleteDevice);
   const doSetHidden = useServerFn(setDevicesHidden);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["devices"] });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setSubmitting(true);
-    try {
-      await doCreate({
-        data: {
-          name: name.trim(),
-          type,
-          room: room || undefined,
-        },
-      });
-      toast.success("Dispositivo añadido");
-      setName("");
-      setRoom("");
-      refresh();
-      setOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || "Error al añadir dispositivo");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const toggleDevice = async (device: any) => {
     const next = device.status === "on" ? "off" : "on";
     await doUpdate({ data: { id: device.id, status: next } });
     refresh();
   };
+
 
   const doSync = useServerFn(syncHomeAssistantEntities);
   const doCall = useServerFn(callHomeAssistantService);
@@ -192,11 +155,8 @@ function DevicesPage() {
               Home Assistant
             </Link>
           </Button>
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Dispositivo
-          </Button>
         </div>
+
       </div>
 
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-3">
@@ -357,44 +317,7 @@ function DevicesPage() {
           })}
         </div>
       )}
-
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nuevo dispositivo</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nombre</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2"
-              >
-                {deviceTypes.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Habitación</Label>
-              <Input value={room} onChange={(e) => setRoom(e.target.value)} placeholder="Ej. Salón" />
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={submitting || !name.trim()} className="w-full">
-                {submitting ? "Añadiendo..." : "Añadir dispositivo"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
+
