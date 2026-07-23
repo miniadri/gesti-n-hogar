@@ -111,8 +111,23 @@ export const saveHomeAssistantConnection = createServerFn({ method: "POST" })
       await haPing(data.base_url, data.token);
     } catch (err: any) {
       status = "unreachable";
-      last_error = err?.message ?? String(err);
-      throw new Error(`No se pudo conectar con Home Assistant: ${last_error}`);
+      const raw = err?.message ?? String(err);
+      last_error = raw;
+      let hint = raw;
+      if (/aborted|timeout/i.test(raw)) {
+        hint =
+          "Tiempo de espera agotado. Comprueba que la URL sea accesible desde internet (pruébala en el móvil con datos móviles, no en WiFi), que el puerto 443 esté redirigido al 8123 de Home Assistant y que el certificado SSL sea válido.";
+      } else if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET/i.test(raw)) {
+        hint =
+          "No se pudo conectar al dominio. Verifica que DuckDNS apunta a tu IP pública actual y que el router redirige el puerto 443 externo al 8123 de Home Assistant. Prueba abrir la URL desde el móvil con datos móviles para confirmar que es accesible desde fuera de tu red.";
+      } else if (/certificate|SSL|self.signed/i.test(raw)) {
+        hint =
+          "Problema con el certificado HTTPS. Asegúrate de tener un certificado válido de Let's Encrypt (el add-on DuckDNS de Home Assistant lo gestiona automáticamente).";
+      } else if (/401|403/.test(raw)) {
+        hint =
+          "Token rechazado por Home Assistant. Genera un token nuevo desde tu perfil de HA e inténtalo de nuevo.";
+      }
+      throw new Error(`No se pudo conectar con Home Assistant: ${hint}`);
     }
 
     const { error } = await supabaseAdmin
