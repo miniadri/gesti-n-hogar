@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listDevices, createDevice, updateDevice, deleteDevice } from "@/lib/devices.functions";
+import { listDevices, createDevice, updateDevice, deleteDevice, setDevicesHidden } from "@/lib/devices.functions";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
