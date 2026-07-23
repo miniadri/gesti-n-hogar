@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
 import { listDevices, updateDevice, deleteDevice, setDevicesHidden } from "@/lib/devices.functions";
+import { detectIntegration, INTEGRATION_LABELS, type IntegrationKey } from "@/lib/device-integration";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
