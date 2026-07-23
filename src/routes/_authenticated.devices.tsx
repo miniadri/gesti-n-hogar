@@ -98,15 +98,24 @@ function DevicesPage() {
     return Array.from(s).sort();
   }, [data]);
 
+  const devicesWithIntegration = useMemo(
+    () => (data as any[]).map((d) => ({ ...d, __integration: detectIntegration(d) as IntegrationKey })),
+    [data],
+  );
+
+  const integrationCounts = useMemo(() => {
+    const m = new Map<IntegrationKey, number>();
+    for (const d of devicesWithIntegration) m.set(d.__integration, (m.get(d.__integration) ?? 0) + 1);
+    return m;
+  }, [devicesWithIntegration]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return (data as any[]).filter((d) => {
+    return devicesWithIntegration.filter((d) => {
       if (!showHidden && d.hidden) return false;
-      if (showHidden && !manageHidden && !d.hidden) {
-        // when showing only-hidden view via manageHidden off, still show all
-      }
       if (typeFilter !== "all" && d.type !== typeFilter && d.domain !== typeFilter) return false;
       if (roomFilter !== "all" && (d.room || "") !== (roomFilter === "__none" ? "" : roomFilter)) return false;
+      if (integrationFilter !== "all" && d.__integration !== integrationFilter) return false;
       if (statusFilter !== "all") {
         const isSensor = d.type === "sensor" || d.domain === "sensor" || d.domain === "binary_sensor";
         if (statusFilter === "sensor" && !isSensor) return false;
@@ -114,12 +123,13 @@ function DevicesPage() {
         if (statusFilter === "off" && d.status !== "off") return false;
       }
       if (q) {
-        const hay = `${d.name ?? ""} ${d.room ?? ""} ${d.domain ?? ""} ${d.type ?? ""} ${d.external_id ?? ""}`.toLowerCase();
+        const hay = `${d.name ?? ""} ${d.room ?? ""} ${d.domain ?? ""} ${d.type ?? ""} ${d.external_id ?? ""} ${INTEGRATION_LABELS[d.__integration as IntegrationKey] ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [data, search, typeFilter, statusFilter, roomFilter, showHidden, manageHidden]);
+  }, [devicesWithIntegration, search, typeFilter, statusFilter, roomFilter, integrationFilter, showHidden]);
+
 
   const hiddenCount = (data as any[]).filter((d) => d.hidden).length;
 
