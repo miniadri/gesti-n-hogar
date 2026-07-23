@@ -302,6 +302,9 @@ function DevicesPage() {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {isHa ? `HA · ${device.domain ?? typeInfo.label}` : typeInfo.label} · {device.room || "Sin habitación"}
+                          {device.__integration && device.__integration !== "other" && (
+                            <span className="ml-1">· {INTEGRATION_LABELS[device.__integration as IntegrationKey]}</span>
+                          )}
                         </p>
                       </div>
                     </div>
