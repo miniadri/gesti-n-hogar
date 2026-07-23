@@ -19,6 +19,7 @@ import { Route as AuthenticatedDevicesRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated.calendar'
 import { Route as AuthenticatedShoppingIndexRouteImport } from './routes/_authenticated.shopping.index'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
 import { Route as AuthenticatedRecipesIndexRouteImport } from './routes/_authenticated.recipes.index'
 import { Route as AuthenticatedInventoryIndexRouteImport } from './routes/_authenticated.inventory.index'
 import { Route as AuthenticatedShoppingScanTicketRouteImport } from './routes/_authenticated.shopping.scan-ticket'
@@ -82,6 +83,12 @@ const AuthenticatedShoppingIndexRoute =
   AuthenticatedShoppingIndexRouteImport.update({
     id: '/shopping/',
     path: '/shopping/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/settings/',
+    path: '/settings/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedRecipesIndexRoute =
@@ -191,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
   '/inventory/': typeof AuthenticatedInventoryIndexRoute
   '/recipes/': typeof AuthenticatedRecipesIndexRoute
+  '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/shopping/': typeof AuthenticatedShoppingIndexRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
 }
@@ -216,6 +224,7 @@ export interface FileRoutesByTo {
   '/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
   '/inventory': typeof AuthenticatedInventoryIndexRoute
   '/recipes': typeof AuthenticatedRecipesIndexRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
   '/shopping': typeof AuthenticatedShoppingIndexRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
 }
@@ -243,6 +252,7 @@ export interface FileRoutesById {
   '/_authenticated/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
   '/_authenticated/inventory/': typeof AuthenticatedInventoryIndexRoute
   '/_authenticated/recipes/': typeof AuthenticatedRecipesIndexRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/shopping/': typeof AuthenticatedShoppingIndexRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
 }
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
     | '/shopping/scan-ticket'
     | '/inventory/'
     | '/recipes/'
+    | '/settings/'
     | '/shopping/'
     | '/api/public/hooks/push-scheduler'
   fileRoutesByTo: FileRoutesByTo
@@ -295,6 +306,7 @@ export interface FileRouteTypes {
     | '/shopping/scan-ticket'
     | '/inventory'
     | '/recipes'
+    | '/settings'
     | '/shopping'
     | '/api/public/hooks/push-scheduler'
   id:
@@ -321,6 +333,7 @@ export interface FileRouteTypes {
     | '/_authenticated/shopping/scan-ticket'
     | '/_authenticated/inventory/'
     | '/_authenticated/recipes/'
+    | '/_authenticated/settings/'
     | '/_authenticated/shopping/'
     | '/api/public/hooks/push-scheduler'
   fileRoutesById: FileRoutesById
@@ -402,6 +415,13 @@ declare module '@tanstack/react-router' {
       path: '/shopping'
       fullPath: '/shopping/'
       preLoaderRoute: typeof AuthenticatedShoppingIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/recipes/': {
@@ -524,6 +544,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedShoppingScanTicketRoute: typeof AuthenticatedShoppingScanTicketRoute
   AuthenticatedInventoryIndexRoute: typeof AuthenticatedInventoryIndexRoute
   AuthenticatedRecipesIndexRoute: typeof AuthenticatedRecipesIndexRoute
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedShoppingIndexRoute: typeof AuthenticatedShoppingIndexRoute
 }
 
@@ -549,6 +570,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedShoppingScanTicketRoute: AuthenticatedShoppingScanTicketRoute,
   AuthenticatedInventoryIndexRoute: AuthenticatedInventoryIndexRoute,
   AuthenticatedRecipesIndexRoute: AuthenticatedRecipesIndexRoute,
+  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
   AuthenticatedShoppingIndexRoute: AuthenticatedShoppingIndexRoute,
 }
 
