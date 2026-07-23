@@ -201,6 +201,7 @@ export type Database = {
           domain: string | null
           external_id: string | null
           external_source: string | null
+          hidden: boolean
           household_id: string
           id: string
           last_state_at: string | null
@@ -217,6 +218,7 @@ export type Database = {
           domain?: string | null
           external_id?: string | null
           external_source?: string | null
+          hidden?: boolean
           household_id: string
           id?: string
           last_state_at?: string | null
@@ -233,6 +235,7 @@ export type Database = {
           domain?: string | null
           external_id?: string | null
           external_source?: string | null
+          hidden?: boolean
           household_id?: string
           id?: string
           last_state_at?: string | null
