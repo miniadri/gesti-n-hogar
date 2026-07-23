@@ -187,8 +187,9 @@ function HomeAssistantSettingsPage() {
           <CardHeader>
             <CardTitle>Conectar Home Assistant</CardTitle>
             <CardDescription>
-              Necesitas la URL de tu instancia y un <em>Long-Lived Access Token</em> generado en tu perfil de HA
-              (Perfil → Tokens de acceso de larga duración).
+              Necesitas la URL pública de tu instancia y un{" "}
+              <em>Long-Lived Access Token</em> generado en tu perfil de HA (Perfil → Tokens de acceso de
+              larga duración).
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -198,15 +199,148 @@ function HomeAssistantSettingsPage() {
                 <Input
                   id="ha-url"
                   type="url"
-                  placeholder="https://homeassistant.local:8123"
+                  placeholder="https://tuha.duckdns.org:8123"
                   value={baseUrl}
-                  onChange={(e) => setBaseUrl(e.target.value)}
+                  onChange={(e) => {
+                    setBaseUrl(e.target.value);
+                    setSaveError(null);
+                  }}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Debe ser accesible desde internet (Nabu Casa Cloud, dominio propio con HTTPS, etc.).
+                  Debe ser una URL pública con HTTPS. HomeSync se ejecuta en la nube, por lo que no puede
+                  alcanzar direcciones privadas como 192.168.x.x o homeassistant.local.
                 </p>
               </div>
+
+              {(urlIsPrivate || urlIsHttp) && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Esta URL no será accesible desde HomeSync</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p>
+                      Has introducido una dirección {urlIsPrivate ? "privada/local" : "HTTP sin cifrar"}.
+                      El backend de HomeSync está en la nube y no puede llegar a redes locales. Necesitas
+                      exponer Home Assistant a internet con HTTPS.
+                    </p>
+                    <p className="font-medium">Nabu Casa Cloud es de pago (sólo 1 mes de prueba). Opciones 100% gratuitas:</p>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {(urlIsPrivate || urlIsHttp || saveError) && (
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="cloudflare">
+                    <AccordionTrigger>
+                      <span className="flex items-center gap-2">
+                        <Info className="h-4 w-4" /> Opción A: Cloudflare Tunnel (gratuito)
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-2 text-muted-foreground">
+                      <p>
+                        Crea un túnel seguro desde tu red local hasta internet sin abrir puertos ni tener IP
+                        pública fija.
+                      </p>
+                      <ol className="list-decimal pl-4 space-y-1">
+                        <li>
+                          Crea una cuenta gratuita en{" "}
+                          <a
+                            href="https://dash.cloudflare.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline"
+                          >
+                            Cloudflare
+                          </a>{" "}
+                          y añade un dominio (puedes usar uno gratuito como .workers.dev o comprar uno).
+                        </li>
+                        <li>
+                          En tu Home Assistant instala el add-on oficial{" "}
+                          <em>Cloudflare Tunnel</em> (o el paquete <code>cloudflared</code>).
+                        </li>
+                        <li>
+                          En Cloudflare Zero Trust → Access → Tunnels, crea un túnel y copia el token.
+                        </li>
+                        <li>
+                          Configura el túnel para apuntar a <code>http://homeassistant.local:8123</code> (o
+                          la IP interna de HA) con servicio HTTP.
+                        </li>
+                        <li>
+                          Asigna un hostname público, por ejemplo{" "}
+                          <code>ha-tucasa.dominio.com</code>. Cloudflare genera el certificado HTTPS
+                          automáticamente.
+                        </li>
+                        <li>Pega aquí la URL pública que empiece por https://.</li>
+                      </ol>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="duckdns">
+                    <AccordionTrigger>
+                      <span className="flex items-center gap-2">
+                        <Info className="h-4 w-4" /> Opción B: DuckDNS + Let's Encrypt (100% gratuito)
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-2 text-muted-foreground">
+                      <p>
+                        Si ya tienes cuenta en DuckDNS y quieres usar tu propio dominio (o uno de DuckDNS)
+                        con certificado gratuito de Let's Encrypt.
+                      </p>
+                      <ol className="list-decimal pl-4 space-y-1">
+                        <li>
+                          En{" "}
+                          <a
+                            href="https://www.duckdns.org"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline"
+                          >
+                            DuckDNS
+                          </a>{" "}
+                          crea un subdominio gratuito (p. ej. <code>tuha.duckdns.org</code>) y apúntalo a tu
+                          IP pública.
+                        </li>
+                        <li>
+                          En tu router redirige el puerto 443 de tu IP pública al puerto 8123 de Home
+                          Assistant (o al reverse proxy que uses).
+                        </li>
+                        <li>
+                          En Home Assistant, activa HTTPS con Let's Encrypt. Si usas Home Assistant OS:
+                          instala el add-on <em>Let's Encrypt</em> o configura el add-on{" "}
+                          <em>DuckDNS</em> (éste actualiza tu IP y obtiene el certificado en uno).
+                        </li>
+                        <li>
+                          Si prefieres hacerlo manualmente, usa un reverse proxy como Nginx Proxy Manager o
+                          Traefik con el certificado de Let's Encrypt y redirige a HA.
+                        </li>
+                        <li>
+                          Verifica que puedes abrir <code>https://tuha.duckdns.org:8123</code> desde el
+                          móvil fuera de casa.
+                        </li>
+                        <li>Pega aquí esa URL exacta.</li>
+                      </ol>
+                      <p className="text-xs">
+                        Let's Encrypt es 100% gratuito. Si ya tienes dominio propio, puedes usarlo en vez
+                        del subdominio de DuckDNS apuntando su DNS a tu IP y renovando el certificado con
+                        Let's Encrypt.
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              )}
+
+              {saveError && !urlIsPrivate && !urlIsHttp && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>No se pudo conectar</AlertTitle>
+                  <AlertDescription>
+                    {saveError}. Comprueba que la URL es pública, que usa HTTPS y que el token es válido. Si
+                    la URL es correcta pero sigue fallando, revisa que Home Assistant acepte conexiones desde
+                    internet.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="ha-token">Token de acceso</Label>
                 <Input
@@ -221,7 +355,7 @@ function HomeAssistantSettingsPage() {
                   El token se guarda cifrado y nunca se muestra de nuevo.
                 </p>
               </div>
-              <Button type="submit" disabled={busy || !baseUrl.trim() || !token.trim()}>
+              <Button type="submit" disabled={busy || !baseUrl.trim() || !token.trim() || urlIsPrivate}>
                 {busy ? "Probando..." : "Probar y guardar"}
               </Button>
             </form>
