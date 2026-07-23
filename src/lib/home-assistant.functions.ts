@@ -99,6 +99,7 @@ export const saveHomeAssistantConnection = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = await requireHouseholdId(context.supabase);
     await requireAdmin(context.supabase, context.userId);
+    assertReachableFromCloud(data.base_url);
 
     const { haPing } = await import("./home-assistant.server");
     const { encryptToken } = await import("./ha-crypto.server");
