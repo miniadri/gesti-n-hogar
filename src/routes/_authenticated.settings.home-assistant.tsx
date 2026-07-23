@@ -29,6 +29,29 @@ const haQueryOptions = queryOptions({
   queryFn: () => getHomeAssistantConnection(),
 });
 
+function isPrivateOrLocalUrl(url: string): boolean {
+  try {
+    const u = new URL(url.trim());
+    const h = u.hostname.toLowerCase();
+    if (h === "localhost" || h.endsWith(".local")) return true;
+    if (/^127\./.test(h)) return true;
+    if (/^10\./.test(h)) return true;
+    if (/^192\.168\./.test(h)) return true;
+    if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h)) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function isInsecureHttp(url: string): boolean {
+  try {
+    return new URL(url.trim()).protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 export const Route = createFileRoute("/_authenticated/settings/home-assistant")({
   loader: ({ context }) => context.queryClient.ensureQueryData(haQueryOptions),
   head: () => ({
