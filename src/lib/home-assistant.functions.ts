@@ -66,6 +66,33 @@ const SaveInput = z.object({
   token: z.string().min(20).max(4000),
 });
 
+function assertReachableFromCloud(baseUrl: string) {
+  try {
+    const u = new URL(baseUrl);
+    const h = u.hostname.toLowerCase();
+    const isPrivate =
+      h === "localhost" ||
+      h.endsWith(".local") ||
+      /^127\./.test(h) ||
+      /^10\./.test(h) ||
+      /^192\.168\./.test(h) ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h);
+    if (isPrivate) {
+      throw new Error(
+        "La URL apunta a una dirección privada o local. HomeSync se ejecuta en la nube, por lo que necesita una URL pública con HTTPS (Cloudflare Tunnel, DuckDNS + Let's Encrypt, etc.).",
+      );
+    }
+    if (u.protocol !== "https:") {
+      throw new Error(
+        "La URL debe usar HTTPS. Las conexiones HTTP no están permitidas por seguridad.",
+      );
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("URL pública")) throw err;
+    throw new Error("URL no válida");
+  }
+}
+
 export const saveHomeAssistantConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => SaveInput.parse(input))
