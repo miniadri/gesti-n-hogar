@@ -51,9 +51,17 @@ function DevicesPage() {
   const [room, setRoom] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [roomFilter, setRoomFilter] = useState<string>("all");
+  const [showHidden, setShowHidden] = useState(false);
+  const [manageHidden, setManageHidden] = useState(false);
+
   const doCreate = useServerFn(createDevice);
   const doUpdate = useServerFn(updateDevice);
   const doDelete = useServerFn(deleteDevice);
+  const doSetHidden = useServerFn(setDevicesHidden);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["devices"] });
 
