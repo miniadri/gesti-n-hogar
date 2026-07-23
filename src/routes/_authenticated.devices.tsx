@@ -220,6 +220,22 @@ function DevicesPage() {
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
+          <select
+            value={integrationFilter}
+            onChange={(e) => setIntegrationFilter(e.target.value)}
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+            title="Filtrar por aplicación/integración"
+          >
+            <option value="all">Todas las apps</option>
+            {(Object.keys(INTEGRATION_LABELS) as IntegrationKey[])
+              .filter((k) => (integrationCounts.get(k) ?? 0) > 0)
+              .sort((a, b) => INTEGRATION_LABELS[a].localeCompare(INTEGRATION_LABELS[b]))
+              .map((k) => (
+                <option key={k} value={k}>
+                  {INTEGRATION_LABELS[k]} ({integrationCounts.get(k)})
+                </option>
+              ))}
+          </select>
           <Button
             type="button"
             variant={showHidden ? "default" : "outline"}
