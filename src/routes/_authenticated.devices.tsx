@@ -145,9 +145,10 @@ function DevicesPage() {
     setTypeFilter("all");
     setStatusFilter("all");
     setRoomFilter("all");
+    setIntegrationFilter("all");
   };
 
-  const hasFilters = !!search || typeFilter !== "all" || statusFilter !== "all" || roomFilter !== "all";
+  const hasFilters = !!search || typeFilter !== "all" || statusFilter !== "all" || roomFilter !== "all" || integrationFilter !== "all";
 
   return (
     <div className="space-y-6">
