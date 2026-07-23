@@ -25,7 +25,7 @@ export async function haFetch(
 ): Promise<Response> {
   const url = `${normalizeBaseUrl(baseUrl)}${path}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const timeout = setTimeout(() => controller.abort(), 20_000);
   try {
     return await fetch(url, {
       ...init,
