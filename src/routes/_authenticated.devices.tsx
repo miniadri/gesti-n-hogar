@@ -353,45 +353,7 @@ function DevicesPage() {
             );
           })}
         </div>
-      )}
-
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nuevo dispositivo</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nombre</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2"
-              >
-                {deviceTypes.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Habitación</Label>
-              <Input value={room} onChange={(e) => setRoom(e.target.value)} placeholder="Ej. Salón" />
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={submitting || !name.trim()} className="w-full">
-                {submitting ? "Añadiendo..." : "Añadir dispositivo"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
+
