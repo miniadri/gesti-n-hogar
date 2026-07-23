@@ -59,7 +59,7 @@ export const en: Dict = {
     inventory: "Inventory",
     recipes: "Recipes",
     finances: "Finances",
-    devices: "Smart home",
+    devices: "Home devices",
     family: "Family",
     appliances: "Appliances",
     settings: "Settings",
