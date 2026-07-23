@@ -170,11 +170,6 @@ function TopBar({
             </Button>
           </Link>
 
-          <Avatar className="h-8 w-8 shrink-0 border border-border">
-            <AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">
-              {userName ? getInitials(userName) : "U"}
-            </AvatarFallback>
-          </Avatar>
         </div>
       </div>
     </header>
