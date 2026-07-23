@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Plus, Lightbulb, Thermometer, Shield, Power, Trash2, RefreshCw, Activity, Settings2, Search, Eye, EyeOff, X } from "lucide-react";
+import { Lightbulb, Thermometer, Shield, Power, Trash2, RefreshCw, Activity, Settings2, Search, Eye, EyeOff, X } from "lucide-react";
 import { syncHomeAssistantEntities, callHomeAssistantService } from "@/lib/home-assistant.functions";
 
 import { Button } from "@/components/ui/button";
