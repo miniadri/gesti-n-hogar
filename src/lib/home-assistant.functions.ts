@@ -197,6 +197,8 @@ export const syncHomeAssistantEntities = createServerFn({ method: "POST" })
 
     const nowIso = new Date().toISOString();
     let upserted = 0;
+    let failed = 0;
+    let lastError: string | null = null;
     for (const s of filtered) {
       const domain = domainOf(s.entity_id);
       const friendly = (s.attributes?.friendly_name as string) ?? s.entity_id;
@@ -228,15 +230,24 @@ export const syncHomeAssistantEntities = createServerFn({ method: "POST" })
         },
         { onConflict: "household_id,external_source,external_id" },
       );
-      if (!error) upserted += 1;
+      if (error) {
+        failed += 1;
+        lastError = error.message;
+      } else {
+        upserted += 1;
+      }
     }
 
     await supabaseAdmin
       .from("home_assistant_connections")
-      .update({ status: "connected", last_error: null, last_synced_at: nowIso })
+      .update({
+        status: "connected",
+        last_error: failed > 0 ? `${failed} fallos: ${lastError}` : null,
+        last_synced_at: nowIso,
+      })
       .eq("id", row.id);
 
-    return { ok: true, count: upserted };
+    return { ok: true, count: upserted, failed, total: filtered.length };
   });
 
 const ServiceInput = z.object({
