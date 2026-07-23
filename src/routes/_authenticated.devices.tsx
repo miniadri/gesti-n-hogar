@@ -353,6 +353,7 @@ function DevicesPage() {
             );
           })}
         </div>
+      )}
     </div>
   );
 }
