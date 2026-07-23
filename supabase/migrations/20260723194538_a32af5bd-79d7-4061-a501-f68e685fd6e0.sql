@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS devices_household_source_external_key ON public.devices (household_id, external_source, external_id) WHERE external_source IS NOT NULL AND external_id IS NOT NULL;
