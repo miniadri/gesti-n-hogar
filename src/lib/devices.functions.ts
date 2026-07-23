@@ -69,3 +69,15 @@ export const deleteDevice = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+export const setDevicesHidden = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => SetHiddenInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("devices")
+      .update({ hidden: data.hidden })
+      .in("id", data.ids);
+    if (error) throw error;
+    return { ok: true };
+  });
