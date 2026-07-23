@@ -8,10 +8,12 @@ const DeviceInput = z.object({
   room: z.string().optional(),
   status: z.enum(["on", "off"]).default("off"),
   next_maintenance: z.string().date().optional(),
+  hidden: z.boolean().optional(),
 });
 
 const UpdateDeviceInput = DeviceInput.partial().extend({ id: z.string().uuid() });
 const DeleteDeviceInput = z.object({ id: z.string().uuid() });
+const SetHiddenInput = z.object({ ids: z.array(z.string().uuid()).min(1), hidden: z.boolean() });
 
 export const listDevices = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
