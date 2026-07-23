@@ -192,11 +192,8 @@ function DevicesPage() {
               Home Assistant
             </Link>
           </Button>
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Dispositivo
-          </Button>
         </div>
+
       </div>
 
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-3">
