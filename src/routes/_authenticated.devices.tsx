@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
 import { listDevices, updateDevice, deleteDevice, setDevicesHidden } from "@/lib/devices.functions";
+import { detectIntegration, INTEGRATION_LABELS, type IntegrationKey } from "@/lib/device-integration";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -42,6 +43,7 @@ function DevicesPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [roomFilter, setRoomFilter] = useState<string>("all");
+  const [integrationFilter, setIntegrationFilter] = useState<string>("all");
   const [showHidden, setShowHidden] = useState(false);
   const [manageHidden, setManageHidden] = useState(false);
 
@@ -96,15 +98,24 @@ function DevicesPage() {
     return Array.from(s).sort();
   }, [data]);
 
+  const devicesWithIntegration = useMemo(
+    () => (data as any[]).map((d) => ({ ...d, __integration: detectIntegration(d) as IntegrationKey })),
+    [data],
+  );
+
+  const integrationCounts = useMemo(() => {
+    const m = new Map<IntegrationKey, number>();
+    for (const d of devicesWithIntegration) m.set(d.__integration, (m.get(d.__integration) ?? 0) + 1);
+    return m;
+  }, [devicesWithIntegration]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return (data as any[]).filter((d) => {
+    return devicesWithIntegration.filter((d) => {
       if (!showHidden && d.hidden) return false;
-      if (showHidden && !manageHidden && !d.hidden) {
-        // when showing only-hidden view via manageHidden off, still show all
-      }
       if (typeFilter !== "all" && d.type !== typeFilter && d.domain !== typeFilter) return false;
       if (roomFilter !== "all" && (d.room || "") !== (roomFilter === "__none" ? "" : roomFilter)) return false;
+      if (integrationFilter !== "all" && d.__integration !== integrationFilter) return false;
       if (statusFilter !== "all") {
         const isSensor = d.type === "sensor" || d.domain === "sensor" || d.domain === "binary_sensor";
         if (statusFilter === "sensor" && !isSensor) return false;
@@ -112,12 +123,13 @@ function DevicesPage() {
         if (statusFilter === "off" && d.status !== "off") return false;
       }
       if (q) {
-        const hay = `${d.name ?? ""} ${d.room ?? ""} ${d.domain ?? ""} ${d.type ?? ""} ${d.external_id ?? ""}`.toLowerCase();
+        const hay = `${d.name ?? ""} ${d.room ?? ""} ${d.domain ?? ""} ${d.type ?? ""} ${d.external_id ?? ""} ${INTEGRATION_LABELS[d.__integration as IntegrationKey] ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [data, search, typeFilter, statusFilter, roomFilter, showHidden, manageHidden]);
+  }, [devicesWithIntegration, search, typeFilter, statusFilter, roomFilter, integrationFilter, showHidden]);
+
 
   const hiddenCount = (data as any[]).filter((d) => d.hidden).length;
 
@@ -133,9 +145,10 @@ function DevicesPage() {
     setTypeFilter("all");
     setStatusFilter("all");
     setRoomFilter("all");
+    setIntegrationFilter("all");
   };
 
-  const hasFilters = !!search || typeFilter !== "all" || statusFilter !== "all" || roomFilter !== "all";
+  const hasFilters = !!search || typeFilter !== "all" || statusFilter !== "all" || roomFilter !== "all" || integrationFilter !== "all";
 
   return (
     <div className="space-y-6">
@@ -207,6 +220,22 @@ function DevicesPage() {
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
+          <select
+            value={integrationFilter}
+            onChange={(e) => setIntegrationFilter(e.target.value)}
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+            title="Filtrar por aplicación/integración"
+          >
+            <option value="all">Todas las apps</option>
+            {(Object.keys(INTEGRATION_LABELS) as IntegrationKey[])
+              .filter((k) => (integrationCounts.get(k) ?? 0) > 0)
+              .sort((a, b) => INTEGRATION_LABELS[a].localeCompare(INTEGRATION_LABELS[b]))
+              .map((k) => (
+                <option key={k} value={k}>
+                  {INTEGRATION_LABELS[k]} ({integrationCounts.get(k)})
+                </option>
+              ))}
+          </select>
           <Button
             type="button"
             variant={showHidden ? "default" : "outline"}
@@ -273,6 +302,9 @@ function DevicesPage() {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {isHa ? `HA · ${device.domain ?? typeInfo.label}` : typeInfo.label} · {device.room || "Sin habitación"}
+                          {device.__integration && device.__integration !== "other" && (
+                            <span className="ml-1">· {INTEGRATION_LABELS[device.__integration as IntegrationKey]}</span>
+                          )}
                         </p>
                       </div>
                     </div>

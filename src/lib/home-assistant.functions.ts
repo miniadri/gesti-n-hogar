@@ -223,6 +223,7 @@ export const syncHomeAssistantEntities = createServerFn({ method: "POST" })
               temperature: s.attributes?.temperature ?? null,
               hvac_modes: s.attributes?.hvac_modes ?? null,
               device_class: s.attributes?.device_class ?? null,
+              attribution: s.attributes?.attribution ?? null,
             }),
           ),
           last_state_at: nowIso,
