@@ -72,10 +72,14 @@ function HomeAssistantSettingsPage() {
   const [baseUrl, setBaseUrl] = useState("");
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const doSave = useServerFn(saveHomeAssistantConnection);
   const doDelete = useServerFn(deleteHomeAssistantConnection);
   const doSync = useServerFn(syncHomeAssistantEntities);
+
+  const urlIsPrivate = isPrivateOrLocalUrl(baseUrl);
+  const urlIsHttp = isInsecureHttp(baseUrl);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["home-assistant"] });
@@ -85,14 +89,18 @@ function HomeAssistantSettingsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!baseUrl.trim() || !token.trim()) return;
+    setSaveError(null);
     setBusy(true);
     try {
       await doSave({ data: { base_url: baseUrl.trim(), token: token.trim() } });
       toast.success("Home Assistant vinculado");
       setToken("");
+      setBaseUrl("");
       refresh();
     } catch (err: any) {
-      toast.error(err?.message ?? "Error al vincular");
+      const msg = err?.message ?? "Error al vincular";
+      setSaveError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
