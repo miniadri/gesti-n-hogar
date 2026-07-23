@@ -45,11 +45,6 @@ const deviceTypes = [
 function DevicesPage() {
   const queryClient = useQueryClient();
   const { data } = useSuspenseQuery(devicesQueryOptions);
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [type, setType] = useState("light");
-  const [room, setRoom] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -58,42 +53,18 @@ function DevicesPage() {
   const [showHidden, setShowHidden] = useState(false);
   const [manageHidden, setManageHidden] = useState(false);
 
-  const doCreate = useServerFn(createDevice);
   const doUpdate = useServerFn(updateDevice);
   const doDelete = useServerFn(deleteDevice);
   const doSetHidden = useServerFn(setDevicesHidden);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["devices"] });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setSubmitting(true);
-    try {
-      await doCreate({
-        data: {
-          name: name.trim(),
-          type,
-          room: room || undefined,
-        },
-      });
-      toast.success("Dispositivo añadido");
-      setName("");
-      setRoom("");
-      refresh();
-      setOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || "Error al añadir dispositivo");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const toggleDevice = async (device: any) => {
     const next = device.status === "on" ? "off" : "on";
     await doUpdate({ data: { id: device.id, status: next } });
     refresh();
   };
+
 
   const doSync = useServerFn(syncHomeAssistantEntities);
   const doCall = useServerFn(callHomeAssistantService);
