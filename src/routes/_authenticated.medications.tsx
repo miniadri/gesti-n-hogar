@@ -677,11 +677,14 @@ function MedicationDialog({
                   {s.frequency_type === "interval" && (
                     <Input
                       type="number"
+                      step="0.25"
+                      min="0.25"
                       value={s.interval_hours}
                       onChange={(e) => updateSchedule(idx, { interval_hours: Number(e.target.value) })}
                       className="w-24"
                       placeholder="h"
                     />
+
                   )}
                   <Button
                     type="button"
