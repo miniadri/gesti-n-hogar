@@ -1,0 +1,1 @@
+ALTER TABLE public.medications ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'UTC';
