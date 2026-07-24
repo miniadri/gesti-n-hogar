@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated.tasks'
+import { Route as AuthenticatedMedicationsRouteImport } from './routes/_authenticated.medications'
 import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated.finances'
 import { Route as AuthenticatedDevicesRouteImport } from './routes/_authenticated.devices'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
@@ -33,7 +34,9 @@ import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_auth
 import { Route as AuthenticatedRecipesRecipeIdRouteImport } from './routes/_authenticated.recipes.$recipeId'
 import { Route as AuthenticatedInventoryScanAddRouteImport } from './routes/_authenticated.inventory.scan-add'
 import { Route as AuthenticatedInventoryKitchenRouteImport } from './routes/_authenticated.inventory.kitchen'
+import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicHooksPushSchedulerRouteImport } from './routes/api/public/hooks/push-scheduler'
+import { Route as ApiPublicHooksMedicationRemindersRouteImport } from './routes/api/public/hooks/medication-reminders'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -59,6 +62,12 @@ const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMedicationsRoute =
+  AuthenticatedMedicationsRouteImport.update({
+    id: '/medications',
+    path: '/medications',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedFinancesRoute = AuthenticatedFinancesRouteImport.update({
   id: '/finances',
   path: '/finances',
@@ -169,10 +178,22 @@ const AuthenticatedInventoryKitchenRoute =
     path: '/inventory/kitchen',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicTelegramWebhookRoute =
+  ApiPublicTelegramWebhookRouteImport.update({
+    id: '/api/public/telegram/webhook',
+    path: '/api/public/telegram/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksPushSchedulerRoute =
   ApiPublicHooksPushSchedulerRouteImport.update({
     id: '/api/public/hooks/push-scheduler',
     path: '/api/public/hooks/push-scheduler',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksMedicationRemindersRoute =
+  ApiPublicHooksMedicationRemindersRouteImport.update({
+    id: '/api/public/hooks/medication-reminders',
+    path: '/api/public/hooks/medication-reminders',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -183,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/devices': typeof AuthenticatedDevicesRoute
   '/finances': typeof AuthenticatedFinancesRoute
+  '/medications': typeof AuthenticatedMedicationsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
@@ -200,7 +222,9 @@ export interface FileRoutesByFullPath {
   '/recipes/': typeof AuthenticatedRecipesIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/shopping/': typeof AuthenticatedShoppingIndexRoute
+  '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
+  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -209,6 +233,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/devices': typeof AuthenticatedDevicesRoute
   '/finances': typeof AuthenticatedFinancesRoute
+  '/medications': typeof AuthenticatedMedicationsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
@@ -226,7 +251,9 @@ export interface FileRoutesByTo {
   '/recipes': typeof AuthenticatedRecipesIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/shopping': typeof AuthenticatedShoppingIndexRoute
+  '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
+  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -237,6 +264,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/devices': typeof AuthenticatedDevicesRoute
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
+  '/_authenticated/medications': typeof AuthenticatedMedicationsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/_authenticated/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
@@ -254,7 +282,9 @@ export interface FileRoutesById {
   '/_authenticated/recipes/': typeof AuthenticatedRecipesIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/shopping/': typeof AuthenticatedShoppingIndexRoute
+  '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
+  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -265,6 +295,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/devices'
     | '/finances'
+    | '/medications'
     | '/tasks'
     | '/auth/callback'
     | '/inventory/kitchen'
@@ -282,7 +313,9 @@ export interface FileRouteTypes {
     | '/recipes/'
     | '/settings/'
     | '/shopping/'
+    | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/push-scheduler'
+    | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -291,6 +324,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/devices'
     | '/finances'
+    | '/medications'
     | '/tasks'
     | '/auth/callback'
     | '/inventory/kitchen'
@@ -308,7 +342,9 @@ export interface FileRouteTypes {
     | '/recipes'
     | '/settings'
     | '/shopping'
+    | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/push-scheduler'
+    | '/api/public/telegram/webhook'
   id:
     | '__root__'
     | '/'
@@ -318,6 +354,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/devices'
     | '/_authenticated/finances'
+    | '/_authenticated/medications'
     | '/_authenticated/tasks'
     | '/auth/callback'
     | '/_authenticated/inventory/kitchen'
@@ -335,14 +372,18 @@ export interface FileRouteTypes {
     | '/_authenticated/recipes/'
     | '/_authenticated/settings/'
     | '/_authenticated/shopping/'
+    | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/push-scheduler'
+    | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  ApiPublicHooksMedicationRemindersRoute: typeof ApiPublicHooksMedicationRemindersRoute
   ApiPublicHooksPushSchedulerRoute: typeof ApiPublicHooksPushSchedulerRoute
+  ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -380,6 +421,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof AuthenticatedTasksRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/medications': {
+      id: '/_authenticated/medications'
+      path: '/medications'
+      fullPath: '/medications'
+      preLoaderRoute: typeof AuthenticatedMedicationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/finances': {
@@ -515,11 +563,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventoryKitchenRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/telegram/webhook': {
+      id: '/api/public/telegram/webhook'
+      path: '/api/public/telegram/webhook'
+      fullPath: '/api/public/telegram/webhook'
+      preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/push-scheduler': {
       id: '/api/public/hooks/push-scheduler'
       path: '/api/public/hooks/push-scheduler'
       fullPath: '/api/public/hooks/push-scheduler'
       preLoaderRoute: typeof ApiPublicHooksPushSchedulerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/medication-reminders': {
+      id: '/api/public/hooks/medication-reminders'
+      path: '/api/public/hooks/medication-reminders'
+      fullPath: '/api/public/hooks/medication-reminders'
+      preLoaderRoute: typeof ApiPublicHooksMedicationRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -530,6 +592,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDevicesRoute: typeof AuthenticatedDevicesRoute
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
+  AuthenticatedMedicationsRoute: typeof AuthenticatedMedicationsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedInventoryKitchenRoute: typeof AuthenticatedInventoryKitchenRoute
   AuthenticatedInventoryScanAddRoute: typeof AuthenticatedInventoryScanAddRoute
@@ -553,6 +616,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDevicesRoute: AuthenticatedDevicesRoute,
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
+  AuthenticatedMedicationsRoute: AuthenticatedMedicationsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedInventoryKitchenRoute: AuthenticatedInventoryKitchenRoute,
   AuthenticatedInventoryScanAddRoute: AuthenticatedInventoryScanAddRoute,
@@ -592,18 +656,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  ApiPublicHooksMedicationRemindersRoute:
+    ApiPublicHooksMedicationRemindersRoute,
   ApiPublicHooksPushSchedulerRoute: ApiPublicHooksPushSchedulerRoute,
+  ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

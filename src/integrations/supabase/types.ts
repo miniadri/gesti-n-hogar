@@ -699,6 +699,176 @@ export type Database = {
           },
         ]
       }
+      medication_intakes: {
+        Row: {
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          last_reminder_sent_at: string | null
+          medication_id: string
+          reminder_count: number
+          schedule_id: string | null
+          scheduled_for: string
+          status: Database["public"]["Enums"]["medication_intake_status"]
+          taken_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          last_reminder_sent_at?: string | null
+          medication_id: string
+          reminder_count?: number
+          schedule_id?: string | null
+          scheduled_for: string
+          status?: Database["public"]["Enums"]["medication_intake_status"]
+          taken_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          last_reminder_sent_at?: string | null
+          medication_id?: string
+          reminder_count?: number
+          schedule_id?: string | null
+          scheduled_for?: string
+          status?: Database["public"]["Enums"]["medication_intake_status"]
+          taken_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_intakes_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_intakes_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "medication_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_schedules: {
+        Row: {
+          active: boolean
+          created_at: string
+          days_of_week: number[]
+          frequency_type: string
+          id: string
+          interval_hours: number | null
+          medication_id: string
+          time_of_day: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          days_of_week?: number[]
+          frequency_type?: string
+          id?: string
+          interval_hours?: number | null
+          medication_id: string
+          time_of_day: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          days_of_week?: number[]
+          frequency_type?: string
+          id?: string
+          interval_hours?: number | null
+          medication_id?: string
+          time_of_day?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_schedules_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medications: {
+        Row: {
+          created_at: string
+          created_by: string
+          current_quantity: number | null
+          dose_amount: number
+          form: Database["public"]["Enums"]["medication_form"]
+          household_id: string
+          id: string
+          low_stock_threshold: number | null
+          member_id: string
+          name: string
+          notes: string | null
+          reminders_enabled: boolean
+          total_quantity: number | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          current_quantity?: number | null
+          dose_amount?: number
+          form?: Database["public"]["Enums"]["medication_form"]
+          household_id: string
+          id?: string
+          low_stock_threshold?: number | null
+          member_id: string
+          name: string
+          notes?: string | null
+          reminders_enabled?: boolean
+          total_quantity?: number | null
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          current_quantity?: number | null
+          dose_amount?: number
+          form?: Database["public"]["Enums"]["medication_form"]
+          household_id?: string
+          id?: string
+          low_stock_threshold?: number | null
+          member_id?: string
+          name?: string
+          notes?: string | null
+          reminders_enabled?: boolean
+          total_quantity?: number | null
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medications_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medications_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medicines: {
         Row: {
           created_at: string
@@ -1508,6 +1678,48 @@ export type Database = {
           },
         ]
       }
+      telegram_pending_links: {
+        Row: {
+          chat_id: string
+          created_at: string
+          id: string
+          token: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          id?: string
+          token: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          id?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      telegram_profiles: {
+        Row: {
+          chat_id: string | null
+          created_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chat_id?: string | null
+          created_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chat_id?: string | null
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           household_id: string
@@ -1555,6 +1767,23 @@ export type Database = {
           member_id: string
         }[]
       }
+      get_medication_due_intakes: {
+        Args: { _from: string; _household_id: string; _to: string }
+        Returns: {
+          dose_amount: number
+          form: Database["public"]["Enums"]["medication_form"]
+          intake_id: string
+          last_reminder_sent_at: string
+          medication_id: string
+          member_id: string
+          name: string
+          reminder_count: number
+          schedule_id: string
+          scheduled_for: string
+          status: Database["public"]["Enums"]["medication_intake_status"]
+          unit: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1569,6 +1798,15 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "member" | "child"
+      medication_form:
+        | "pill"
+        | "ml"
+        | "drops"
+        | "inhaler"
+        | "patch"
+        | "injection"
+        | "other"
+      medication_intake_status: "pending" | "taken" | "skipped" | "missed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1697,6 +1935,16 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "member", "child"],
+      medication_form: [
+        "pill",
+        "ml",
+        "drops",
+        "inhaler",
+        "patch",
+        "injection",
+        "other",
+      ],
+      medication_intake_status: ["pending", "taken", "skipped", "missed"],
     },
   },
 } as const
