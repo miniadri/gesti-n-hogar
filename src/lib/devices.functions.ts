@@ -82,3 +82,15 @@ export const setDevicesHidden = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+export const setDeviceQuickAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => SetQuickAccessInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("devices")
+      .update({ quick_access: data.quick_access })
+      .eq("id", data.id);
+    if (error) throw error;
+    return { ok: true };
+  });
