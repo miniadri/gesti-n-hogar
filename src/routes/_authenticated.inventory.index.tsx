@@ -717,6 +717,7 @@ function MedicinesSection() {
         editing={editing}
         onSaved={() => {
           refresh();
+          queryClient.invalidateQueries({ queryKey: ["medications"] });
           queryClient.invalidateQueries({ queryKey: ["shopping"] });
           queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         }}
