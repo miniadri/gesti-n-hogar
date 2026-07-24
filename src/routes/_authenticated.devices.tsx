@@ -202,6 +202,10 @@ function DevicesPage() {
           <p className="text-muted-foreground">Control de dispositivos y mantenimiento</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={enterPanelFullscreen}>
+            {isFullscreen ? <Minimize className="mr-2 h-4 w-4" /> : <Maximize className="mr-2 h-4 w-4" />}
+            {isFullscreen ? "Salir" : "Panel"}
+          </Button>
           <Button variant="outline" onClick={handleSync} disabled={syncing}>
             <RefreshCw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
             Sincronizar HA
@@ -213,6 +217,7 @@ function DevicesPage() {
             </Link>
           </Button>
         </div>
+
 
       </div>
 
