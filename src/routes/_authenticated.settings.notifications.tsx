@@ -179,7 +179,7 @@ function NotificationsSettingsPage() {
               asChild
             >
               <a
-                href="https://t.me/HomeSyncBot?start=homesync"
+                href="https://t.me/HogarSync_bot?start=homesync"
                 target="_blank"
                 rel="noopener noreferrer"
               >
