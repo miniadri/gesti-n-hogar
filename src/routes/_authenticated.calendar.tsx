@@ -58,6 +58,7 @@ function CalendarPage() {
 
   const doCreate = useServerFn(createEvent);
   const doDelete = useServerFn(deleteEvent);
+  const doRestore = useServerFn(restoreEvent);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["calendar"] });
 
