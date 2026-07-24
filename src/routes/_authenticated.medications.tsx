@@ -501,6 +501,12 @@ function MedicationDialog({
       setMemberId(editing.member_id);
       setReminders(editing.reminders_enabled);
       setNotes(editing.notes || "");
+      // Prefill expiry from matching medicine in inventory
+      const match = (medicines ?? []).find(
+        (m: any) => m.name.toLowerCase() === (editing.name || "").toLowerCase(),
+      );
+      setExpiryMonth(match?.expiry_month != null ? String(match.expiry_month) : "");
+      setExpiryYear(match?.expiry_year != null ? String(match.expiry_year) : "");
       setSchedules(
         (editing.medication_schedules ?? []).map((s: any) => ({
           id: s.id,
@@ -522,9 +528,11 @@ function MedicationDialog({
       setMemberId(members[0]?.id || "");
       setReminders(true);
       setNotes("");
+      setExpiryMonth("");
+      setExpiryYear("");
       setSchedules([{ time_of_day: "09:00", days_of_week: [1, 2, 3, 4, 5, 6, 0], frequency_type: "daily", interval_hours: 8, active: true }]);
     }
-  }, [editing, members]);
+  }, [editing, members, medicines]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
