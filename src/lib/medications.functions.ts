@@ -271,9 +271,42 @@ export const updateMedication = createServerFn({ method: "POST" })
       }
     }
 
+    // Purge future pending intakes so timezone/schedule changes regenerate correctly.
+    await context.supabase
+      .from("medication_intakes")
+      .delete()
+      .eq("medication_id", id)
+      .eq("status", "pending")
+      .gte("scheduled_for", new Date().toISOString());
+
     await generateUpcomingIntakes(context.supabase, id, householdId.data);
     return { ok: true };
   });
+
+export const snoozeIntake = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => SnoozeIntakeInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: intake, error: fetchError } = await context.supabase
+      .from("medication_intakes")
+      .select("scheduled_for")
+      .eq("id", data.intake_id)
+      .single();
+    if (fetchError || !intake) throw fetchError || new Error("Intake not found");
+
+    const base = new Date(intake.scheduled_for);
+    const now = new Date();
+    const from = base > now ? base : now;
+    const next = new Date(from.getTime() + data.minutes * 60 * 1000).toISOString();
+
+    const { error } = await context.supabase
+      .from("medication_intakes")
+      .update({ scheduled_for: next, status: "pending", last_reminder_sent_at: null })
+      .eq("id", data.intake_id);
+    if (error) throw error;
+    return { ok: true, scheduled_for: next };
+  });
+
 
 export const deleteMedication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
