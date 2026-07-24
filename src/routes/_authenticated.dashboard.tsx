@@ -152,6 +152,81 @@ function DashboardPage() {
   const totalExpenses = data.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const urgentTasks = data.tasks.filter((t) => t.priority === "high");
 
+  // Nearest pending medication intake per member (only next one per person)
+  const nowMs = Date.now();
+  const nextIntakePerMember = new Map<string, any>();
+  for (const med of (medications ?? []) as any[]) {
+    const memberId: string | undefined = med.member_id;
+    if (!memberId) continue;
+    for (const intake of (med.medication_intakes ?? []) as any[]) {
+      if (intake.status !== "pending") continue;
+      const t = new Date(intake.scheduled_for).getTime();
+      // include past-due pending as well (they are the most urgent)
+      const enriched = { ...intake, medication: med };
+      const current = nextIntakePerMember.get(memberId);
+      if (!current || t < new Date(current.scheduled_for).getTime()) {
+        nextIntakePerMember.set(memberId, enriched);
+      }
+      // We keep the earliest scheduled_for; a past-due entry (smallest t) wins naturally.
+      // Limit lookahead — ignore intakes scheduled more than 24h from now.
+      if (t - nowMs > 24 * 60 * 60 * 1000) {
+        // still allow tracking, but if a closer one exists it will replace it above
+      }
+    }
+  }
+  const nextIntakes = Array.from(nextIntakePerMember.values())
+    .filter((i: any) => new Date(i.scheduled_for).getTime() - nowMs < 24 * 60 * 60 * 1000)
+    .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
+
+  // Low-stock inventory items (only when a min_stock is set)
+  const lowStockItems = (inventory as any[])
+    .filter((i) => Number(i.min_stock) > 0 && Number(i.quantity) <= Number(i.min_stock))
+    .sort((a, b) => Number(a.quantity) - Number(b.quantity));
+
+  // Quick-access devices (pinned)
+  const quickDevices = (devices as any[])
+    .filter((d) => d.quick_access && !d.hidden)
+    .slice(0, 5);
+
+  const handleRecord = async (intake: any, status: string) => {
+    try {
+      await doRecord({ data: { intake_id: intake.id, status } });
+      toast.success(status === "taken" ? "Toma confirmada" : "Toma omitida");
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+    } catch (err: any) {
+      toast.error(err.message || "Error al registrar");
+    }
+  };
+  const handleSnooze = async (intake: any, minutes = 10) => {
+    try {
+      await doSnooze({ data: { intake_id: intake.id, minutes } });
+      toast.success(`Pospuesto ${minutes} min`);
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+    } catch (err: any) {
+      toast.error(err.message || "Error al posponer");
+    }
+  };
+
+  const toggleQuickDevice = async (device: any) => {
+    const nextStatus = device.status === "on" ? "off" : "on";
+    try {
+      if (device.external_source === "home_assistant") {
+        const domain = device.domain ?? String(device.external_id ?? "").split(".")[0];
+        const turnOn = device.status !== "on";
+        let service = turnOn ? "turn_on" : "turn_off";
+        if (domain === "cover") service = turnOn ? "open_cover" : "close_cover";
+        if (domain === "media_player") service = turnOn ? "media_play" : "media_pause";
+        await doCallHa({ data: { entity_id: device.external_id, service } });
+      } else {
+        await doUpdateDevice({ data: { id: device.id, status: nextStatus } });
+      }
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Error al enviar comando");
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       <section>
