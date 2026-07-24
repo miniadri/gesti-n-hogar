@@ -50,6 +50,34 @@ function FamilySettingsPage() {
   const doJoin = useServerFn(joinHousehold);
   const doCreateChild = useServerFn(createChildMember);
   const doUpdateHousehold = useServerFn(updateHousehold);
+  const doRenameMember = useServerFn(renameMember);
+
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [memberName, setMemberName] = useState("");
+  const [savingMember, setSavingMember] = useState(false);
+
+  const startEditMember = (m: any) => {
+    setEditingMemberId(m.id);
+    setMemberName(m.display_name);
+  };
+  const saveMember = async (id: string, original: string) => {
+    const name = memberName.trim();
+    if (!name || name === original) {
+      setEditingMemberId(null);
+      return;
+    }
+    setSavingMember(true);
+    try {
+      await doRenameMember({ data: { member_id: id, display_name: name } });
+      toast.success("Nombre actualizado");
+      refresh();
+      setEditingMemberId(null);
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo actualizar");
+    } finally {
+      setSavingMember(false);
+    }
+  };
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["household"] });
 
