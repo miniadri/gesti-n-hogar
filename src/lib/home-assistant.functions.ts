@@ -282,10 +282,27 @@ export const callHomeAssistantService = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const token = decryptToken(row.token_ciphertext);
 
-    await haCallService(row.base_url, token, domain, data.service, {
-      entity_id: data.entity_id,
-      ...(data.data ?? {}),
-    });
+    try {
+      await haCallService(row.base_url, token, domain, data.service, {
+        entity_id: data.entity_id,
+        ...(data.data ?? {}),
+      });
+    } catch (err: any) {
+      const raw = err?.message ?? String(err);
+      let hint = raw;
+      if (/aborted|timeout/i.test(raw)) {
+        hint = "Home Assistant no respondió a tiempo. Verifica que sea accesible desde internet.";
+      } else if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET/i.test(raw)) {
+        hint = "No se pudo conectar con Home Assistant. Comprueba la URL pública y el reenvío de puertos.";
+      } else if (/401|403/.test(raw)) {
+        hint = "Token rechazado por Home Assistant. Genera uno nuevo desde tu perfil.";
+      }
+      await supabaseAdmin
+        .from("home_assistant_connections")
+        .update({ status: "unreachable", last_error: raw })
+        .eq("id", row.id);
+      throw new Error(hint);
+    }
 
     // Refresh state from HA and update local mirror
     try {
