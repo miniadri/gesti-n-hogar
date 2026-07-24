@@ -485,6 +485,8 @@ function MedicationDialog({
   const [memberId, setMemberId] = useState("");
   const [reminders, setReminders] = useState(true);
   const [notes, setNotes] = useState("");
+  const [expiryMonth, setExpiryMonth] = useState("");
+  const [expiryYear, setExpiryYear] = useState("");
   const [schedules, setSchedules] = useState<any[]>([{ time_of_day: "09:00", days_of_week: [1, 2, 3, 4, 5, 6, 0], frequency_type: "daily", interval_hours: 8, active: true }]);
 
   useEffect(() => {
@@ -499,6 +501,12 @@ function MedicationDialog({
       setMemberId(editing.member_id);
       setReminders(editing.reminders_enabled);
       setNotes(editing.notes || "");
+      // Prefill expiry from matching medicine in inventory
+      const match = (medicines ?? []).find(
+        (m: any) => m.name.toLowerCase() === (editing.name || "").toLowerCase(),
+      );
+      setExpiryMonth(match?.expiry_month != null ? String(match.expiry_month) : "");
+      setExpiryYear(match?.expiry_year != null ? String(match.expiry_year) : "");
       setSchedules(
         (editing.medication_schedules ?? []).map((s: any) => ({
           id: s.id,
@@ -520,9 +528,11 @@ function MedicationDialog({
       setMemberId(members[0]?.id || "");
       setReminders(true);
       setNotes("");
+      setExpiryMonth("");
+      setExpiryYear("");
       setSchedules([{ time_of_day: "09:00", days_of_week: [1, 2, 3, 4, 5, 6, 0], frequency_type: "daily", interval_hours: 8, active: true }]);
     }
-  }, [editing, members]);
+  }, [editing, members, medicines]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -537,6 +547,8 @@ function MedicationDialog({
       low_stock_threshold: threshold ? Number(threshold) : undefined,
       reminders_enabled: reminders,
       notes,
+      expiry_month: expiryMonth ? Number(expiryMonth) : null,
+      expiry_year: expiryYear ? Number(expiryYear) : null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       schedules,
     });
@@ -603,10 +615,8 @@ function MedicationDialog({
                 }}
                 onPickMedicine={(m: any) => {
                   setName(m.name);
-                  const exp = m.expiry_month && m.expiry_year
-                    ? `Caduca ${String(m.expiry_month).padStart(2, "0")}/${m.expiry_year}`
-                    : "";
-                  if (exp) setNotes((prev) => (prev ? `${prev}\n${exp}` : exp));
+                  if (m.expiry_month != null) setExpiryMonth(String(m.expiry_month));
+                  if (m.expiry_year != null) setExpiryYear(String(m.expiry_year));
                 }}
               />
             </div>
@@ -653,10 +663,36 @@ function MedicationDialog({
             </div>
           </div>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Caducidad (mes)</Label>
+              <Input
+                type="number"
+                min="1"
+                max="12"
+                placeholder="MM"
+                value={expiryMonth}
+                onChange={(e) => setExpiryMonth(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Caducidad (año)</Label>
+              <Input
+                type="number"
+                min="2000"
+                max="2100"
+                placeholder="AAAA"
+                value={expiryYear}
+                onChange={(e) => setExpiryYear(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>{t("medications.notes")}</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
+
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <Label htmlFor="reminders" className="cursor-pointer">

@@ -26,6 +26,8 @@ const CreateMedicationInput = z.object({
   low_stock_threshold: z.number().nonnegative().optional(),
   reminders_enabled: z.boolean().default(true),
   notes: z.string().max(1000).optional(),
+  expiry_month: z.number().int().min(1).max(12).nullable().optional(),
+  expiry_year: z.number().int().min(2000).max(2100).nullable().optional(),
   timezone: z.string().min(1).max(64).default("UTC"),
   schedules: z.array(ScheduleInput).min(1),
 });
@@ -42,6 +44,8 @@ const UpdateMedicationInput = z.object({
   low_stock_threshold: z.number().nonnegative().optional(),
   reminders_enabled: z.boolean().default(true),
   notes: z.string().max(1000).optional(),
+  expiry_month: z.number().int().min(1).max(12).nullable().optional(),
+  expiry_year: z.number().int().min(2000).max(2100).nullable().optional(),
   timezone: z.string().min(1).max(64).default("UTC"),
   schedules: z.array(ScheduleInput).min(1),
 });
@@ -206,7 +210,7 @@ export const createMedication = createServerFn({ method: "POST" })
     const householdId = await context.supabase.rpc("current_household");
     if (!householdId.data) throw new Error("No household");
 
-    const { schedules, ...medPayload } = data;
+    const { schedules, expiry_month, expiry_year, ...medPayload } = data;
 
     const { data: med, error } = await context.supabase
       .from("medications")
@@ -231,18 +235,28 @@ export const createMedication = createServerFn({ method: "POST" })
     const { error: schedError } = await context.supabase.from("medication_schedules").insert(scheduleRows);
     if (schedError) throw schedError;
 
-    // Ensure a matching row exists in the medicines inventory so it appears there too.
+    // Sync inventory (medicines): upsert matching row with expiry info.
     const { data: existingMedicine } = await context.supabase
       .from("medicines")
       .select("id")
       .eq("household_id", householdId.data)
       .ilike("name", med.name)
       .maybeSingle();
-    if (!existingMedicine) {
+    if (existingMedicine) {
+      await context.supabase
+        .from("medicines")
+        .update({
+          expiry_month: expiry_month ?? null,
+          expiry_year: expiry_year ?? null,
+        })
+        .eq("id", existingMedicine.id);
+    } else {
       await context.supabase.from("medicines").insert({
         household_id: householdId.data,
         name: med.name,
         needs_purchase: false,
+        expiry_month: expiry_month ?? null,
+        expiry_year: expiry_year ?? null,
       });
     }
 
@@ -258,7 +272,7 @@ export const updateMedication = createServerFn({ method: "POST" })
     const householdId = await context.supabase.rpc("current_household");
     if (!householdId.data) throw new Error("No household");
 
-    const { id, schedules, ...medPayload } = data;
+    const { id, schedules, expiry_month, expiry_year, ...medPayload } = data;
 
     const { error } = await context.supabase
       .from("medications")
@@ -266,6 +280,38 @@ export const updateMedication = createServerFn({ method: "POST" })
       .eq("id", id)
       .eq("household_id", householdId.data);
     if (error) throw error;
+
+    // Sync inventory (medicines) with expiry from this medication.
+    const { data: medRow } = await context.supabase
+      .from("medications")
+      .select("name")
+      .eq("id", id)
+      .single();
+    if (medRow?.name) {
+      const { data: existingMedicine } = await context.supabase
+        .from("medicines")
+        .select("id")
+        .eq("household_id", householdId.data)
+        .ilike("name", medRow.name)
+        .maybeSingle();
+      if (existingMedicine) {
+        await context.supabase
+          .from("medicines")
+          .update({
+            expiry_month: expiry_month ?? null,
+            expiry_year: expiry_year ?? null,
+          })
+          .eq("id", existingMedicine.id);
+      } else {
+        await context.supabase.from("medicines").insert({
+          household_id: householdId.data,
+          name: medRow.name,
+          needs_purchase: false,
+          expiry_month: expiry_month ?? null,
+          expiry_year: expiry_year ?? null,
+        });
+      }
+    }
 
     const keptIds = schedules.map((s) => s.id).filter(Boolean) as string[];
     await context.supabase.from("medication_schedules").delete().eq("medication_id", id).not("id", "in", `(${keptIds.join(",")})`);
