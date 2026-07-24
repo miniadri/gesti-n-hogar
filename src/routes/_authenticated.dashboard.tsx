@@ -353,8 +353,9 @@ function DashboardPage() {
                 <Link to="/devices" search={{ panel: 1 } as any}>Panel</Link>
               </Button>
               <Button variant="ghost" size="sm" asChild>
-                <Link to="/devices">Gestionar</Link>
+                <Link to="/devices" search={{ panel: 0 }}>Gestionar</Link>
               </Button>
+
             </div>
           </CardHeader>
           <CardContent>
