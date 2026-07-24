@@ -823,3 +823,107 @@ function EmptyState({
     </div>
   );
 }
+
+function MedicineNameSearch({
+  value,
+  onChange,
+  medicines,
+  medications,
+  disabled,
+  onPickMedicine,
+  onPickMedication,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  medicines: any[];
+  medications: any[];
+  disabled?: boolean;
+  onPickMedicine: (m: any) => void;
+  onPickMedication: (m: any) => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  const q = value.trim().toLowerCase();
+
+  // Unique medications by name (keep first occurrence with stock info).
+  const medsByName = new Map<string, any>();
+  for (const m of medications ?? []) {
+    const k = (m.name || "").toLowerCase();
+    if (k && !medsByName.has(k)) medsByName.set(k, m);
+  }
+
+  const matchedMedications = q
+    ? Array.from(medsByName.values()).filter((m) => m.name.toLowerCase().includes(q)).slice(0, 5)
+    : [];
+  const takenNames = new Set(matchedMedications.map((m) => m.name.toLowerCase()));
+  const matchedMedicines = q
+    ? (medicines ?? [])
+        .filter((m: any) => m.name.toLowerCase().includes(q) && !takenNames.has(m.name.toLowerCase()))
+        .slice(0, 5)
+    : [];
+
+  const showList = focused && !disabled && (matchedMedications.length > 0 || matchedMedicines.length > 0);
+
+  return (
+    <div className="relative">
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        placeholder="Buscar en inventario o escribir…"
+        disabled={disabled}
+        required
+      />
+      {showList && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
+          {matchedMedications.length > 0 && (
+            <div className="p-1">
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Ya en control de tomas</div>
+              {matchedMedications.map((m) => (
+                <button
+                  key={`med-${m.id}`}
+                  type="button"
+                  className="flex w-full flex-col items-start rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onPickMedication(m);
+                  }}
+                >
+                  <span className="font-medium">{m.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {m.dose_amount} {m.unit}
+                    {m.current_quantity != null ? ` · stock ${m.current_quantity}` : ""}
+                    {m.total_quantity != null ? `/${m.total_quantity}` : ""}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {matchedMedicines.length > 0 && (
+            <div className="border-t p-1">
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Inventario de medicinas</div>
+              {matchedMedicines.map((m: any) => (
+                <button
+                  key={`inv-${m.id}`}
+                  type="button"
+                  className="flex w-full flex-col items-start rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onPickMedicine(m);
+                  }}
+                >
+                  <span className="font-medium">{m.name}</span>
+                  {m.expiry_month && m.expiry_year && (
+                    <span className="text-xs text-muted-foreground">
+                      Caduca {String(m.expiry_month).padStart(2, "0")}/{m.expiry_year}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
