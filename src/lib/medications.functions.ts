@@ -272,7 +272,7 @@ export const updateMedication = createServerFn({ method: "POST" })
     const householdId = await context.supabase.rpc("current_household");
     if (!householdId.data) throw new Error("No household");
 
-    const { id, schedules, ...medPayload } = data;
+    const { id, schedules, expiry_month, expiry_year, ...medPayload } = data;
 
     const { error } = await context.supabase
       .from("medications")
@@ -280,6 +280,38 @@ export const updateMedication = createServerFn({ method: "POST" })
       .eq("id", id)
       .eq("household_id", householdId.data);
     if (error) throw error;
+
+    // Sync inventory (medicines) with expiry from this medication.
+    const { data: medRow } = await context.supabase
+      .from("medications")
+      .select("name")
+      .eq("id", id)
+      .single();
+    if (medRow?.name) {
+      const { data: existingMedicine } = await context.supabase
+        .from("medicines")
+        .select("id")
+        .eq("household_id", householdId.data)
+        .ilike("name", medRow.name)
+        .maybeSingle();
+      if (existingMedicine) {
+        await context.supabase
+          .from("medicines")
+          .update({
+            expiry_month: expiry_month ?? null,
+            expiry_year: expiry_year ?? null,
+          })
+          .eq("id", existingMedicine.id);
+      } else {
+        await context.supabase.from("medicines").insert({
+          household_id: householdId.data,
+          name: medRow.name,
+          needs_purchase: false,
+          expiry_month: expiry_month ?? null,
+          expiry_year: expiry_year ?? null,
+        });
+      }
+    }
 
     const keptIds = schedules.map((s) => s.id).filter(Boolean) as string[];
     await context.supabase.from("medication_schedules").delete().eq("medication_id", id).not("id", "in", `(${keptIds.join(",")})`);
