@@ -134,15 +134,16 @@ export async function generateUpcomingIntakes(
   );
 
   const inserts: any[] = [];
+  const tz: string = med.timezone || "UTC";
 
   for (const schedule of med.medication_schedules ?? []) {
     if (!schedule.active) continue;
     const daysSet = new Set(schedule.days_of_week ?? [0, 1, 2, 3, 4, 5, 6]);
 
     if (schedule.frequency_type === "interval" && schedule.interval_hours) {
-      let cursor = parseTime(schedule.time_of_day, now);
+      let cursor = parseTime(schedule.time_of_day, now, tz);
       while (cursor <= until) {
-        if (daysSet.has(getWeekday(cursor))) {
+        if (daysSet.has(weekdayInTz(cursor, tz))) {
           const iso = cursor.toISOString();
           const key = `${schedule.id}_${iso}`;
           if (!existingKeys.has(key)) {
@@ -158,8 +159,9 @@ export async function generateUpcomingIntakes(
       }
     } else {
       for (let d = new Date(now); d <= until; d = addDays(d, 1)) {
-        if (!daysSet.has(getWeekday(d))) continue;
-        const scheduled = parseTime(schedule.time_of_day, d);
+        if (!daysSet.has(weekdayInTz(d, tz))) continue;
+        const scheduled = parseTime(schedule.time_of_day, d, tz);
+        if (scheduled < now) continue;
         const iso = scheduled.toISOString();
         const key = `${schedule.id}_${iso}`;
         if (!existingKeys.has(key)) {
@@ -173,6 +175,7 @@ export async function generateUpcomingIntakes(
       }
     }
   }
+
 
   if (inserts.length) {
     const { error: insertError } = await supabase.from("medication_intakes").insert(inserts);
