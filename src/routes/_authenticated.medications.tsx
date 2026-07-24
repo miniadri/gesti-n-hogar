@@ -135,6 +135,9 @@ function MedicationsPage() {
         toast.success("Medicación añadida");
       }
       queryClient.invalidateQueries({ queryKey: ["medications"] });
+      queryClient.invalidateQueries({ queryKey: ["medicines"] });
+      queryClient.invalidateQueries({ queryKey: ["shopping"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setDialogOpen(false);
       setEditing(null);
     } catch (err: any) {
@@ -157,6 +160,9 @@ function MedicationsPage() {
       await doRecord({ data: { intake_id: intake.id, status } });
       toast.success(status === "taken" ? "Toma confirmada" : "Toma omitida");
       queryClient.invalidateQueries({ queryKey: ["medications"] });
+      queryClient.invalidateQueries({ queryKey: ["medicines"] });
+      queryClient.invalidateQueries({ queryKey: ["shopping"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     } catch (err: any) {
       toast.error(err.message || "Error al registrar");
     }
@@ -615,6 +621,13 @@ function MedicationDialog({
                 }}
                 onPickMedicine={(m: any) => {
                   setName(m.name);
+                  setForm(m.form ?? "pill");
+                  setDose(m.dose_amount != null ? String(m.dose_amount) : "1");
+                  setUnit(m.unit ?? "pastilla");
+                  setTotalQty(m.total_quantity != null ? String(m.total_quantity) : "");
+                  setCurrentQty(m.current_quantity != null ? String(m.current_quantity) : "");
+                  setThreshold(m.low_stock_threshold != null ? String(m.low_stock_threshold) : "");
+                  setNotes(m.notes ?? m.note ?? "");
                   if (m.expiry_month != null) setExpiryMonth(String(m.expiry_month));
                   if (m.expiry_year != null) setExpiryYear(String(m.expiry_year));
                 }}
@@ -949,11 +962,12 @@ function MedicineNameSearch({
                   }}
                 >
                   <span className="font-medium">{m.name}</span>
-                  {m.expiry_month && m.expiry_year && (
-                    <span className="text-xs text-muted-foreground">
-                      Caduca {String(m.expiry_month).padStart(2, "0")}/{m.expiry_year}
-                    </span>
-                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {m.dose_amount != null && m.unit ? `${m.dose_amount} ${m.unit}` : "Sin dosis"}
+                    {m.current_quantity != null ? ` · stock ${m.current_quantity}` : ""}
+                    {m.total_quantity != null ? `/${m.total_quantity}` : ""}
+                    {m.expiry_month && m.expiry_year ? ` · caduca ${String(m.expiry_month).padStart(2, "0")}/${m.expiry_year}` : ""}
+                  </span>
                 </button>
               ))}
             </div>
