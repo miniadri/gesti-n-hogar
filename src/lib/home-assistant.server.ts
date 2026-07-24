@@ -9,6 +9,15 @@ export const HA_DOMAINS = [
   "cover",
   "media_player",
   "vacuum",
+  "fan",
+  "humidifier",
+  "lock",
+  "siren",
+  "valve",
+  "input_boolean",
+  "scene",
+  "script",
+  "button",
 ] as const;
 
 export type HaDomain = (typeof HA_DOMAINS)[number];
