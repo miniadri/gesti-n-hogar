@@ -26,6 +26,8 @@ const CreateMedicationInput = z.object({
   low_stock_threshold: z.number().nonnegative().optional(),
   reminders_enabled: z.boolean().default(true),
   notes: z.string().max(1000).optional(),
+  expiry_month: z.number().int().min(1).max(12).nullable().optional(),
+  expiry_year: z.number().int().min(2000).max(2100).nullable().optional(),
   timezone: z.string().min(1).max(64).default("UTC"),
   schedules: z.array(ScheduleInput).min(1),
 });
@@ -42,6 +44,8 @@ const UpdateMedicationInput = z.object({
   low_stock_threshold: z.number().nonnegative().optional(),
   reminders_enabled: z.boolean().default(true),
   notes: z.string().max(1000).optional(),
+  expiry_month: z.number().int().min(1).max(12).nullable().optional(),
+  expiry_year: z.number().int().min(2000).max(2100).nullable().optional(),
   timezone: z.string().min(1).max(64).default("UTC"),
   schedules: z.array(ScheduleInput).min(1),
 });
