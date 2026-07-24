@@ -663,10 +663,36 @@ function MedicationDialog({
             </div>
           </div>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Caducidad (mes)</Label>
+              <Input
+                type="number"
+                min="1"
+                max="12"
+                placeholder="MM"
+                value={expiryMonth}
+                onChange={(e) => setExpiryMonth(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Caducidad (año)</Label>
+              <Input
+                type="number"
+                min="2000"
+                max="2100"
+                placeholder="AAAA"
+                value={expiryYear}
+                onChange={(e) => setExpiryYear(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>{t("medications.notes")}</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
+
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <Label htmlFor="reminders" className="cursor-pointer">
