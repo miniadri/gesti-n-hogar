@@ -40,7 +40,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         const text = message.text ?? "";
         const chatId = String(message.chat.id);
 
-        if (text.trim() === "/start") {
+        if (text.trim().startsWith("/start")) {
           const supabase = createClient(
             process.env.SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!,
