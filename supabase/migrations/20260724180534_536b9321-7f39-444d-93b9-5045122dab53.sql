@@ -1,0 +1,2 @@
+DELETE FROM public.push_subscriptions a USING public.push_subscriptions b WHERE a.ctid < b.ctid AND a.endpoint = b.endpoint;
+CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_key ON public.push_subscriptions (endpoint);
