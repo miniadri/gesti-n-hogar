@@ -528,8 +528,10 @@ function MedicationDialog({
       low_stock_threshold: threshold ? Number(threshold) : undefined,
       reminders_enabled: reminders,
       notes,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       schedules,
     });
+
   };
 
   const updateSchedule = (idx: number, patch: any) => {
