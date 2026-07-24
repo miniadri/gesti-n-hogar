@@ -530,16 +530,55 @@ function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Inventario bajo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Revisa productos con stock mínimo.</p>
-            <Button className="mt-4 w-full" variant="outline" asChild>
-              <Link to="/inventory">Ir al inventario</Link>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/inventory">Ver</Link>
             </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {lowStockItems.length === 0 && expiringFoods.length === 0 && (
+              <p className="text-sm text-muted-foreground">Todo en orden por ahora.</p>
+            )}
+            {lowStockItems.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <PackageOpen className="h-3.5 w-3.5" />
+                  Stock mínimo ({lowStockItems.length})
+                </p>
+                <div className="space-y-1.5">
+                  {lowStockItems.slice(0, 5).map((i: any) => (
+                    <div key={i.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+                      <span className="truncate">{i.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {Number(i.quantity)}/{Number(i.min_stock)} {i.unit || "ud."}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {expiringFoods.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                  Caducidad próxima ({expiringFoods.length})
+                </p>
+                <div className="space-y-1.5">
+                  {expiringFoods.slice(0, 5).map((i: any) => (
+                    <div key={i.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+                      <span className="truncate">{i.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {i._expiry.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
+
 
         <Card>
           <CardHeader>
