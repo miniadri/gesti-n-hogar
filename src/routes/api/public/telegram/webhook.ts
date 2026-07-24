@@ -205,8 +205,23 @@ async function handleCallbackQuery(
       .eq("id", intakeId);
 
     if (action === "taken" && med?.dose_amount) {
-      const newQty = Math.max(0, (med.current_quantity ?? 0) - med.dose_amount);
+      const prevQty = med.current_quantity ?? 0;
+      const newQty = Math.max(0, prevQty - med.dose_amount);
       await supabase.from("medications").update({ current_quantity: newQty }).eq("id", (intake as any).medication_id);
+
+      const threshold = med.low_stock_threshold;
+      if (threshold != null && newQty <= threshold && prevQty > threshold) {
+        const { addMedicationToShoppingList, sendPushToUsers, sendTelegramToUsers, resolveHouseholdUserIds } =
+          await import("@/lib/notify.server");
+        const added = await addMedicationToShoppingList(supabase, med.household_id, med.name);
+        if (added) {
+          const users = await resolveHouseholdUserIds(supabase, med.household_id);
+          const title = "💊 Stock bajo de medicación";
+          const body = `${med.name}: quedan ${newQty} (umbral ${threshold}). Añadido a la lista de la compra.`;
+          await sendPushToUsers(supabase, users, { title, body, url: "/shopping" });
+          await sendTelegramToUsers(supabase, users, `${title}\n${body}`);
+        }
+      }
     }
 
     await answerCallback(
