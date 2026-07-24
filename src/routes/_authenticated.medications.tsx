@@ -338,6 +338,7 @@ function MedicationsPage() {
         onOpenChange={setDialogOpen}
         editing={editing}
         members={members}
+        medications={medications}
         onSave={handleSave}
       />
     </div>
