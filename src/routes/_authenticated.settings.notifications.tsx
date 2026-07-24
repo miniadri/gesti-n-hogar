@@ -37,11 +37,19 @@ function NotificationsSettingsPage() {
   const { data: telegramProfile } = useSuspenseQuery(telegramQueryOptions);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator && "PushManager" in window) {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.pushManager.getSubscription().then((sub) => setSubscribed(!!sub));
-      });
-    }
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    (async () => {
+      try {
+        const existing = await navigator.serviceWorker.getRegistration("/sw.js");
+        const reg = existing ?? (await navigator.serviceWorker.register("/sw.js"));
+        await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        setSubscribed(!!sub);
+        void reg;
+      } catch (err) {
+        console.error("SW register failed", err);
+      }
+    })();
   }, []);
 
   const doSubscribe = useServerFn(subscribePush);
