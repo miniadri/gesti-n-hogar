@@ -155,7 +155,7 @@ async function handleCallbackQuery(
 
   const { data: intake } = await supabase
     .from("medication_intakes")
-    .select("id, scheduled_for, status, medication_id, medications(household_id, name, dose_amount, current_quantity)")
+    .select("id, scheduled_for, status, medication_id, medications(household_id, name, dose_amount, current_quantity, low_stock_threshold)")
     .eq("id", intakeId)
     .single();
   if (!intake) {
