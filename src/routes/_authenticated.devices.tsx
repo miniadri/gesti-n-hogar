@@ -358,6 +358,16 @@ function DevicesPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => toggleQuick(device)}
+                        className={cn(
+                          "hover:text-amber-500",
+                          device.quick_access ? "text-amber-500" : "text-muted-foreground",
+                        )}
+                        title={device.quick_access ? "Quitar de accesos rápidos" : "Añadir a accesos rápidos"}
+                      >
+                        <Star className={cn("h-4 w-4", device.quick_access && "fill-current")} />
+                      </button>
                       {(manageHidden || device.hidden) && (
                         <button
                           onClick={() => toggleHidden(device)}
@@ -379,6 +389,7 @@ function DevicesPage() {
                         </button>
                       )}
                     </div>
+
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <Badge variant={device.status === "on" ? "default" : "secondary"}>{stateLabel}</Badge>
