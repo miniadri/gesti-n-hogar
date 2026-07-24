@@ -547,6 +547,8 @@ function MedicationDialog({
       low_stock_threshold: threshold ? Number(threshold) : undefined,
       reminders_enabled: reminders,
       notes,
+      expiry_month: expiryMonth ? Number(expiryMonth) : null,
+      expiry_year: expiryYear ? Number(expiryYear) : null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       schedules,
     });
