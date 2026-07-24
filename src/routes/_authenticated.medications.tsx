@@ -349,13 +349,16 @@ function MedicationCard({
   onEdit,
   onDelete,
   onRecord,
+  onSnooze,
 }: {
   med: any;
   member: any;
   onEdit: () => void;
   onDelete: () => void;
   onRecord: (intake: any, status: string) => void;
+  onSnooze: (intake: any, minutes?: number) => void;
 }) {
+
   const today = new Date().toISOString().split("T")[0];
   const todayIntakes = (med.medication_intakes ?? [])
     .filter((i: any) => i.scheduled_for.startsWith(today))
