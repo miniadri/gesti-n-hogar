@@ -78,6 +78,17 @@ function NotificationsSettingsPage() {
     }
     setLoading(true);
     try {
+      if (window.top !== window.self) {
+        toast.warning("Abre la vista previa en una pestaña nueva para poder activar las notificaciones (el iframe bloquea el permiso).");
+      }
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        throw new Error(
+          perm === "denied"
+            ? "Permiso denegado. Actívalo en el candado de la barra de direcciones para este sitio."
+            : "Permiso no concedido",
+        );
+      }
       const { publicKey } = await getKey();
       if (!publicKey) throw new Error("VAPID key no configurada");
       const existing = await navigator.serviceWorker.getRegistration("/sw.js");
