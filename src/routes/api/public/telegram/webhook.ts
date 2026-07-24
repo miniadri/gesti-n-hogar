@@ -184,12 +184,12 @@ async function handleCallbackQuery(
       .from("medication_intakes")
       .update({ scheduled_for: next, status: "pending", last_reminder_sent_at: null, reminder_count: 0 })
       .eq("id", intakeId);
-    await answerCallback(telegramApiKey, callbackId, "Pospuesto 10 min");
+    await answerCallback(telegramApiKey, callbackId, "✅ Opción registrada: pospuesto 10 min");
     await editMessage(
       telegramApiKey,
       chatId,
       messageId,
-      `⏰ Pospuesto 10 minutos — ${med?.name ?? ""}`,
+      `⏰ Opción registrada — Pospuesto 10 minutos — ${med?.name ?? ""}`,
     );
     return;
   }
@@ -209,12 +209,18 @@ async function handleCallbackQuery(
       await supabase.from("medications").update({ current_quantity: newQty }).eq("id", (intake as any).medication_id);
     }
 
-    await answerCallback(telegramApiKey, callbackId, action === "taken" ? "Marcada como tomada" : "Omitida");
+    await answerCallback(
+      telegramApiKey,
+      callbackId,
+      action === "taken" ? "✅ Opción registrada: marcada como tomada" : "✅ Opción registrada: omitida",
+    );
     await editMessage(
       telegramApiKey,
       chatId,
       messageId,
-      action === "taken" ? `✅ Tomada — ${med?.name ?? ""}` : `⏭️ Omitida — ${med?.name ?? ""}`,
+      action === "taken"
+        ? `✅ Opción registrada — Tomada — ${med?.name ?? ""}`
+        : `⏭️ Opción registrada — Omitida — ${med?.name ?? ""}`,
     );
     return;
   }
