@@ -85,57 +85,26 @@ export async function addMedicationToShoppingList(
   householdId: string,
   medicationName: string,
 ): Promise<boolean> {
-  let storeId: string | null = null;
-  const { data: defaultStore } = await supabase
-    .from("stores")
-    .select("id")
+  // Medications go to the "Farmacia" section, backed by the `medicines` table
+  // with needs_purchase=true (rendered by PharmacySection on the shopping page).
+  const { data: existing } = await supabase
+    .from("medicines")
+    .select("id, needs_purchase")
     .eq("household_id", householdId)
-    .eq("is_default", true)
-    .maybeSingle();
-  storeId = defaultStore?.id ?? null;
-  if (!storeId) {
-    const { data: created } = await supabase
-      .from("stores")
-      .insert({ household_id: householdId, name: "Sin tienda", is_default: true })
-      .select("id")
-      .single();
-    storeId = created?.id ?? null;
-  }
-  if (!storeId) return false;
-
-  let listId: string | null = null;
-  const { data: list } = await supabase
-    .from("shopping_lists")
-    .select("id")
-    .eq("household_id", householdId)
-    .eq("store_id", storeId)
-    .eq("is_archived", false)
-    .maybeSingle();
-  if (list) listId = list.id;
-  else {
-    const { data: newList } = await supabase
-      .from("shopping_lists")
-      .insert({ household_id: householdId, store_id: storeId, name: "Sin tienda" })
-      .select("id")
-      .single();
-    listId = newList?.id ?? null;
-  }
-  if (!listId) return false;
-
-  const { data: dup } = await supabase
-    .from("shopping_list_items")
-    .select("id")
-    .eq("shopping_list_id", listId)
-    .eq("checked", false)
     .ilike("name", medicationName)
     .maybeSingle();
-  if (dup) return false;
 
-  await supabase.from("shopping_list_items").insert({
-    shopping_list_id: listId,
-    name: medicationName,
-    quantity: 1,
-    category: "Medicación",
-  });
-  return true;
+  if (existing) {
+    if (existing.needs_purchase) return false;
+    const { error } = await supabase
+      .from("medicines")
+      .update({ needs_purchase: true })
+      .eq("id", existing.id);
+    return !error;
+  }
+
+  const { error } = await supabase
+    .from("medicines")
+    .insert({ household_id: householdId, name: medicationName, needs_purchase: true });
+  return !error;
 }
