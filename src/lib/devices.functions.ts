@@ -14,6 +14,7 @@ const DeviceInput = z.object({
 const UpdateDeviceInput = DeviceInput.partial().extend({ id: z.string().uuid() });
 const DeleteDeviceInput = z.object({ id: z.string().uuid() });
 const SetHiddenInput = z.object({ ids: z.array(z.string().uuid()).min(1), hidden: z.boolean() });
+const SetQuickAccessInput = z.object({ id: z.string().uuid(), quick_access: z.boolean() });
 
 export const listDevices = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -78,6 +79,18 @@ export const setDevicesHidden = createServerFn({ method: "POST" })
       .from("devices")
       .update({ hidden: data.hidden })
       .in("id", data.ids);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const setDeviceQuickAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => SetQuickAccessInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("devices")
+      .update({ quick_access: data.quick_access })
+      .eq("id", data.id);
     if (error) throw error;
     return { ok: true };
   });

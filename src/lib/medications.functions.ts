@@ -192,7 +192,7 @@ export const listMedications = createServerFn({ method: "GET" })
 
     const { data, error } = await context.supabase
       .from("medications")
-      .select("*, medication_schedules(*), medication_intakes(*)")
+      .select("*, medication_schedules(*), medication_intakes(*), household_members(*)")
       .eq("household_id", householdId.data)
       .order("name");
     if (error) throw error;

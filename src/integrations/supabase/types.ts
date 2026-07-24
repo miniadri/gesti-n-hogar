@@ -207,6 +207,7 @@ export type Database = {
           last_state_at: string | null
           name: string
           next_maintenance: string | null
+          quick_access: boolean
           room: string | null
           status: string
           type: string
@@ -224,6 +225,7 @@ export type Database = {
           last_state_at?: string | null
           name: string
           next_maintenance?: string | null
+          quick_access?: boolean
           room?: string | null
           status?: string
           type: string
@@ -241,6 +243,7 @@ export type Database = {
           last_state_at?: string | null
           name?: string
           next_maintenance?: string | null
+          quick_access?: boolean
           room?: string | null
           status?: string
           type?: string

@@ -1,17 +1,28 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ShoppingCart,
   ListTodo,
   Calendar,
   Wallet,
-  ChefHat,
   ArrowRight,
   Sparkles,
   Pill,
   AlertTriangle,
+  Check,
+  Clock3,
+  X,
+  Lightbulb,
+  Thermometer,
+  Shield,
+  Power,
+  Activity,
+  Star,
+  PackageOpen,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +32,10 @@ import { Badge } from "@/components/ui/badge";
 import { getPrepAheadForTomorrow } from "@/lib/meal-plan.functions";
 import { listMedicines } from "@/lib/medicines.functions";
 import { listInventory } from "@/lib/inventory.functions";
+import { listMedications, recordIntake, snoozeIntake } from "@/lib/medications.functions";
+import { listDevices, updateDevice } from "@/lib/devices.functions";
+import { callHomeAssistantService } from "@/lib/home-assistant.functions";
+import { cn } from "@/lib/utils";
 
 
 const MONTHLY_BUDGET = 1000;
@@ -73,6 +88,16 @@ const inventoryQO = queryOptions({
   queryFn: () => listInventory(),
 });
 
+const medicationsQO = queryOptions({
+  queryKey: ["medications"],
+  queryFn: () => listMedications(),
+});
+
+const devicesQO = queryOptions({
+  queryKey: ["devices"],
+  queryFn: () => listDevices(),
+});
+
 export const Route = createFileRoute("/_authenticated/dashboard")({
   loader: ({ context }) =>
     Promise.all([
@@ -80,6 +105,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       context.queryClient.ensureQueryData(prepAheadQO),
       context.queryClient.ensureQueryData(medicinesQO),
       context.queryClient.ensureQueryData(inventoryQO),
+      context.queryClient.ensureQueryData(medicationsQO),
+      context.queryClient.ensureQueryData(devicesQO),
     ]),
   head: () => ({
     meta: [{ title: "Dashboard - HomeSync" }],
@@ -92,7 +119,15 @@ function DashboardPage() {
   const { data: prepAhead } = useSuspenseQuery(prepAheadQO);
   const { data: medicines } = useSuspenseQuery(medicinesQO);
   const { data: inventory } = useSuspenseQuery(inventoryQO);
+  const { data: medications } = useSuspenseQuery(medicationsQO);
+  const { data: devices } = useSuspenseQuery(devicesQO);
+  const queryClient = useQueryClient();
+  const doRecord = useServerFn(recordIntake);
+  const doSnooze = useServerFn(snoozeIntake);
+  const doUpdateDevice = useServerFn(updateDevice);
+  const doCallHa = useServerFn(callHomeAssistantService);
   const pharmacyToBuy = medicines.filter((m: any) => m.needs_purchase);
+
 
   const today = new Date();
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -116,6 +151,81 @@ function DashboardPage() {
 
   const totalExpenses = data.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const urgentTasks = data.tasks.filter((t) => t.priority === "high");
+
+  // Nearest pending medication intake per member (only next one per person)
+  const nowMs = Date.now();
+  const nextIntakePerMember = new Map<string, any>();
+  for (const med of (medications ?? []) as any[]) {
+    const memberId: string | undefined = med.member_id;
+    if (!memberId) continue;
+    for (const intake of (med.medication_intakes ?? []) as any[]) {
+      if (intake.status !== "pending") continue;
+      const t = new Date(intake.scheduled_for).getTime();
+      // include past-due pending as well (they are the most urgent)
+      const enriched = { ...intake, medication: med };
+      const current = nextIntakePerMember.get(memberId);
+      if (!current || t < new Date(current.scheduled_for).getTime()) {
+        nextIntakePerMember.set(memberId, enriched);
+      }
+      // We keep the earliest scheduled_for; a past-due entry (smallest t) wins naturally.
+      // Limit lookahead — ignore intakes scheduled more than 24h from now.
+      if (t - nowMs > 24 * 60 * 60 * 1000) {
+        // still allow tracking, but if a closer one exists it will replace it above
+      }
+    }
+  }
+  const nextIntakes = Array.from(nextIntakePerMember.values())
+    .filter((i: any) => new Date(i.scheduled_for).getTime() - nowMs < 24 * 60 * 60 * 1000)
+    .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
+
+  // Low-stock inventory items (only when a min_stock is set)
+  const lowStockItems = (inventory as any[])
+    .filter((i) => Number(i.min_stock) > 0 && Number(i.quantity) <= Number(i.min_stock))
+    .sort((a, b) => Number(a.quantity) - Number(b.quantity));
+
+  // Quick-access devices (pinned)
+  const quickDevices = (devices as any[])
+    .filter((d) => d.quick_access && !d.hidden)
+    .slice(0, 5);
+
+  const handleRecord = async (intake: any, status: string) => {
+    try {
+      await doRecord({ data: { intake_id: intake.id, status } });
+      toast.success(status === "taken" ? "Toma confirmada" : "Toma omitida");
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+    } catch (err: any) {
+      toast.error(err.message || "Error al registrar");
+    }
+  };
+  const handleSnooze = async (intake: any, minutes = 10) => {
+    try {
+      await doSnooze({ data: { intake_id: intake.id, minutes } });
+      toast.success(`Pospuesto ${minutes} min`);
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+    } catch (err: any) {
+      toast.error(err.message || "Error al posponer");
+    }
+  };
+
+  const toggleQuickDevice = async (device: any) => {
+    const nextStatus = device.status === "on" ? "off" : "on";
+    try {
+      if (device.external_source === "home_assistant") {
+        const domain = device.domain ?? String(device.external_id ?? "").split(".")[0];
+        const turnOn = device.status !== "on";
+        let service = turnOn ? "turn_on" : "turn_off";
+        if (domain === "cover") service = turnOn ? "open_cover" : "close_cover";
+        if (domain === "media_player") service = turnOn ? "media_play" : "media_pause";
+        await doCallHa({ data: { entity_id: device.external_id, service } });
+      } else {
+        await doUpdateDevice({ data: { id: device.id, status: nextStatus } });
+      }
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Error al enviar comando");
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -179,6 +289,122 @@ function DashboardPage() {
           </Card>
         </Link>
       </div>
+      {nextIntakes.length > 0 && (
+        <Card className="border-primary/30">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Pill className="h-4 w-4 text-primary" />
+              Próxima toma
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/medications">Ver medicación</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {nextIntakes.map((intake: any) => {
+              const when = new Date(intake.scheduled_for);
+              const overdue = when.getTime() < nowMs;
+              const memberName = intake.medication.household_members?.display_name ?? "Miembro";
+              return (
+                <div
+                  key={intake.id}
+                  className={cn(
+                    "flex items-center justify-between gap-3 rounded-lg border bg-card p-3",
+                    overdue && "border-amber-500/50 bg-amber-500/5",
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">
+                      {memberName} · {intake.medication.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {intake.medication.dose_amount} {intake.medication.unit} ·{" "}
+                      {when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {overdue && " · vencida"}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
+                      <Clock3 className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="outline" title="Omitir" onClick={() => handleRecord(intake, "skipped")}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" title="Confirmar" onClick={() => handleRecord(intake, "taken")}>
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {quickDevices.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Star className="h-4 w-4 text-amber-500" />
+              Accesos rápidos
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/devices" search={{ panel: 1 } as any}>Panel</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/devices" search={{ panel: 0 }}>Gestionar</Link>
+              </Button>
+
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {quickDevices.map((d: any) => {
+                const isSensor = d.type === "sensor" || d.domain === "sensor" || d.domain === "binary_sensor";
+                const Icon = isSensor
+                  ? Activity
+                  : d.type === "light"
+                    ? Lightbulb
+                    : d.type === "thermostat"
+                      ? Thermometer
+                      : d.type === "security"
+                        ? Shield
+                        : Power;
+                const attrs = d.attributes ?? {};
+                const stateLabel = isSensor
+                  ? `${attrs.state ?? "-"}${attrs.unit_of_measurement ? ` ${attrs.unit_of_measurement}` : ""}`
+                  : d.status === "on"
+                    ? "Encendido"
+                    : "Apagado";
+                return (
+                  <div key={d.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className={cn(
+                          "grid h-10 w-10 shrink-0 place-items-center rounded-2xl",
+                          d.status === "on" ? "bg-primary text-primary-foreground" : "bg-secondary",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{d.name}</p>
+                        <p className="text-xs text-muted-foreground">{stateLabel}</p>
+                      </div>
+                    </div>
+                    {!isSensor && (
+                      <Button size="sm" variant="outline" onClick={() => toggleQuickDevice(d)}>
+                        {d.status === "on" ? "Apagar" : "Encender"}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {pharmacyToBuy.length > 0 && (
         <Card className="border-primary/30">
@@ -305,16 +531,55 @@ function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Inventario bajo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Revisa productos con stock mínimo.</p>
-            <Button className="mt-4 w-full" variant="outline" asChild>
-              <Link to="/inventory">Ir al inventario</Link>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/inventory">Ver</Link>
             </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {lowStockItems.length === 0 && expiringFoods.length === 0 && (
+              <p className="text-sm text-muted-foreground">Todo en orden por ahora.</p>
+            )}
+            {lowStockItems.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <PackageOpen className="h-3.5 w-3.5" />
+                  Stock mínimo ({lowStockItems.length})
+                </p>
+                <div className="space-y-1.5">
+                  {lowStockItems.slice(0, 5).map((i: any) => (
+                    <div key={i.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+                      <span className="truncate">{i.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {Number(i.quantity)}/{Number(i.min_stock)} {i.unit || "ud."}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {expiringFoods.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                  Caducidad próxima ({expiringFoods.length})
+                </p>
+                <div className="space-y-1.5">
+                  {expiringFoods.slice(0, 5).map((i: any) => (
+                    <div key={i.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+                      <span className="truncate">{i.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {i._expiry.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
+
 
         <Card>
           <CardHeader>

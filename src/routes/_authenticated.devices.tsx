@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { Lightbulb, Thermometer, Shield, Power, Trash2, RefreshCw, Activity, Settings2, Search, Eye, EyeOff, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Lightbulb, Thermometer, Shield, Power, Trash2, RefreshCw, Activity, Settings2, Search, Eye, EyeOff, X, Star, Maximize, Minimize } from "lucide-react";
 import { syncHomeAssistantEntities, callHomeAssistantService } from "@/lib/home-assistant.functions";
 
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listDevices, updateDevice, deleteDevice, setDevicesHidden } from "@/lib/devices.functions";
+import { listDevices, updateDevice, deleteDevice, setDevicesHidden, setDeviceQuickAccess } from "@/lib/devices.functions";
 import { detectIntegration, INTEGRATION_LABELS, type IntegrationKey } from "@/lib/device-integration";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
 
 const devicesQueryOptions = queryOptions({
   queryKey: ["devices"],
@@ -21,12 +22,16 @@ const devicesQueryOptions = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/devices")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    panel: search.panel === "1" || search.panel === 1 || search.panel === true ? 1 : 0,
+  }),
   loader: ({ context }) => context.queryClient.ensureQueryData(devicesQueryOptions),
   head: () => ({
     meta: [{ title: "Hogar inteligente - HomeSync" }],
   }),
   component: DevicesPage,
 });
+
 
 const deviceTypes = [
   { value: "light", label: "Luz", icon: Lightbulb },
@@ -38,6 +43,7 @@ const deviceTypes = [
 function DevicesPage() {
   const queryClient = useQueryClient();
   const { data } = useSuspenseQuery(devicesQueryOptions);
+  const { panel } = Route.useSearch();
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -46,10 +52,13 @@ function DevicesPage() {
   const [integrationFilter, setIntegrationFilter] = useState<string>("all");
   const [showHidden, setShowHidden] = useState(false);
   const [manageHidden, setManageHidden] = useState(false);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const doUpdate = useServerFn(updateDevice);
   const doDelete = useServerFn(deleteDevice);
   const doSetHidden = useServerFn(setDevicesHidden);
+  const doSetQuick = useServerFn(setDeviceQuickAccess);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["devices"] });
 
@@ -58,6 +67,41 @@ function DevicesPage() {
     await doUpdate({ data: { id: device.id, status: next } });
     refresh();
   };
+
+  const toggleQuick = async (device: any) => {
+    const next = !device.quick_access;
+    await doSetQuick({ data: { id: device.id, quick_access: next } });
+    toast.success(next ? "Añadido a accesos rápidos" : "Quitado de accesos rápidos");
+    refresh();
+  };
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const enterPanelFullscreen = async () => {
+    try {
+      if (panelRef.current && !document.fullscreenElement) {
+        await panelRef.current.requestFullscreen();
+      } else if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "No se pudo activar pantalla completa");
+    }
+  };
+
+  // If arriving with ?panel=1, auto-enter fullscreen panel view
+  useEffect(() => {
+    if (panel === 1 && panelRef.current && !document.fullscreenElement) {
+      panelRef.current.requestFullscreen().catch(() => { /* user gesture required */ });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
 
 
   const doSync = useServerFn(syncHomeAssistantEntities);
@@ -151,13 +195,18 @@ function DevicesPage() {
   const hasFilters = !!search || typeFilter !== "all" || statusFilter !== "all" || roomFilter !== "all" || integrationFilter !== "all";
 
   return (
-    <div className="space-y-6">
+    <div ref={panelRef} className={cn("space-y-6", isFullscreen && "min-h-screen overflow-auto bg-background p-6")}>
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Hogar inteligente</h2>
           <p className="text-muted-foreground">Control de dispositivos y mantenimiento</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={enterPanelFullscreen}>
+            {isFullscreen ? <Minimize className="mr-2 h-4 w-4" /> : <Maximize className="mr-2 h-4 w-4" />}
+            {isFullscreen ? "Salir" : "Panel"}
+          </Button>
           <Button variant="outline" onClick={handleSync} disabled={syncing}>
             <RefreshCw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
             Sincronizar HA
@@ -169,6 +218,7 @@ function DevicesPage() {
             </Link>
           </Button>
         </div>
+
 
       </div>
 
@@ -309,6 +359,16 @@ function DevicesPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => toggleQuick(device)}
+                        className={cn(
+                          "hover:text-amber-500",
+                          device.quick_access ? "text-amber-500" : "text-muted-foreground",
+                        )}
+                        title={device.quick_access ? "Quitar de accesos rápidos" : "Añadir a accesos rápidos"}
+                      >
+                        <Star className={cn("h-4 w-4", device.quick_access && "fill-current")} />
+                      </button>
                       {(manageHidden || device.hidden) && (
                         <button
                           onClick={() => toggleHidden(device)}
@@ -330,6 +390,7 @@ function DevicesPage() {
                         </button>
                       )}
                     </div>
+
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <Badge variant={device.status === "on" ? "default" : "secondary"}>{stateLabel}</Badge>
