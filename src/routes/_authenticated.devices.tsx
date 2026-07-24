@@ -124,10 +124,15 @@ function DevicesPage() {
   const toggleHa = async (device: any) => {
     const domain = device.domain ?? String(device.external_id ?? "").split(".")[0];
     const turnOn = device.status !== "on";
-    // media_player uses media_play/pause; cover uses open/close. Everything else uses turn_on/off.
+    // Map domain -> service. Most domains use turn_on/turn_off.
     let service = turnOn ? "turn_on" : "turn_off";
     if (domain === "cover") service = turnOn ? "open_cover" : "close_cover";
-    if (domain === "media_player") service = turnOn ? "media_play" : "media_pause";
+    else if (domain === "media_player") service = turnOn ? "media_play" : "media_pause";
+    else if (domain === "lock") service = turnOn ? "unlock" : "lock";
+    else if (domain === "valve") service = turnOn ? "open_valve" : "close_valve";
+    else if (domain === "scene") service = "turn_on"; // scenes only activate
+    else if (domain === "script") service = "turn_on";
+    else if (domain === "button") service = "press";
     try {
       await doCall({ data: { entity_id: device.external_id, service } });
       refresh();
