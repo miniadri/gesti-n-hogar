@@ -426,13 +426,17 @@ function MedicationCard({
                   {new Date(intake.scheduled_for).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   {intake.status === "pending" ? (
                     <>
-                      <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => onRecord(intake, "taken")}>
+                      <Button size="icon" variant="ghost" className="h-5 w-5" title="Confirmar" onClick={() => onRecord(intake, "taken")}>
                         <Check className="h-3 w-3" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => onRecord(intake, "skipped")}>
+                      <Button size="icon" variant="ghost" className="h-5 w-5" title="Posponer 10 min" onClick={() => onSnooze(intake, 10)}>
+                        <Clock3 className="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-5 w-5" title="Omitir" onClick={() => onRecord(intake, "skipped")}>
                         <X className="h-3 w-3" />
                       </Button>
                     </>
+
                   ) : intake.status === "taken" ? (
                     <Check className="h-3 w-3 text-emerald-500" />
                   ) : (
