@@ -1,17 +1,28 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ShoppingCart,
   ListTodo,
   Calendar,
   Wallet,
-  ChefHat,
   ArrowRight,
   Sparkles,
   Pill,
   AlertTriangle,
+  Check,
+  Clock3,
+  X,
+  Lightbulb,
+  Thermometer,
+  Shield,
+  Power,
+  Activity,
+  Star,
+  PackageOpen,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +32,10 @@ import { Badge } from "@/components/ui/badge";
 import { getPrepAheadForTomorrow } from "@/lib/meal-plan.functions";
 import { listMedicines } from "@/lib/medicines.functions";
 import { listInventory } from "@/lib/inventory.functions";
+import { listMedications, recordIntake, snoozeIntake } from "@/lib/medications.functions";
+import { listDevices, updateDevice } from "@/lib/devices.functions";
+import { callHomeAssistantService } from "@/lib/home-assistant.functions";
+import { cn } from "@/lib/utils";
 
 
 const MONTHLY_BUDGET = 1000;
@@ -73,6 +88,16 @@ const inventoryQO = queryOptions({
   queryFn: () => listInventory(),
 });
 
+const medicationsQO = queryOptions({
+  queryKey: ["medications"],
+  queryFn: () => listMedications(),
+});
+
+const devicesQO = queryOptions({
+  queryKey: ["devices"],
+  queryFn: () => listDevices(),
+});
+
 export const Route = createFileRoute("/_authenticated/dashboard")({
   loader: ({ context }) =>
     Promise.all([
@@ -80,6 +105,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       context.queryClient.ensureQueryData(prepAheadQO),
       context.queryClient.ensureQueryData(medicinesQO),
       context.queryClient.ensureQueryData(inventoryQO),
+      context.queryClient.ensureQueryData(medicationsQO),
+      context.queryClient.ensureQueryData(devicesQO),
     ]),
   head: () => ({
     meta: [{ title: "Dashboard - HomeSync" }],
@@ -92,7 +119,15 @@ function DashboardPage() {
   const { data: prepAhead } = useSuspenseQuery(prepAheadQO);
   const { data: medicines } = useSuspenseQuery(medicinesQO);
   const { data: inventory } = useSuspenseQuery(inventoryQO);
+  const { data: medications } = useSuspenseQuery(medicationsQO);
+  const { data: devices } = useSuspenseQuery(devicesQO);
+  const queryClient = useQueryClient();
+  const doRecord = useServerFn(recordIntake);
+  const doSnooze = useServerFn(snoozeIntake);
+  const doUpdateDevice = useServerFn(updateDevice);
+  const doCallHa = useServerFn(callHomeAssistantService);
   const pharmacyToBuy = medicines.filter((m: any) => m.needs_purchase);
+
 
   const today = new Date();
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
