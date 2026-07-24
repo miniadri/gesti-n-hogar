@@ -25,6 +25,7 @@ import { Route as AuthenticatedRecipesIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedInventoryIndexRouteImport } from './routes/_authenticated.inventory.index'
 import { Route as AuthenticatedShoppingScanTicketRouteImport } from './routes/_authenticated.shopping.scan-ticket'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated.settings.notifications'
+import { Route as AuthenticatedSettingsNavigationRouteImport } from './routes/_authenticated.settings.navigation'
 import { Route as AuthenticatedSettingsLocalizationRouteImport } from './routes/_authenticated.settings.localization'
 import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes/_authenticated.settings.home-assistant'
 import { Route as AuthenticatedSettingsFamilyRouteImport } from './routes/_authenticated.settings.family'
@@ -124,6 +125,12 @@ const AuthenticatedSettingsNotificationsRoute =
     path: '/settings/notifications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsNavigationRoute =
+  AuthenticatedSettingsNavigationRouteImport.update({
+    id: '/settings/navigation',
+    path: '/settings/navigation',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsLocalizationRoute =
   AuthenticatedSettingsLocalizationRouteImport.update({
     id: '/settings/localization',
@@ -216,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
   '/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
+  '/settings/navigation': typeof AuthenticatedSettingsNavigationRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
   '/inventory/': typeof AuthenticatedInventoryIndexRoute
@@ -245,6 +253,7 @@ export interface FileRoutesByTo {
   '/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
   '/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
+  '/settings/navigation': typeof AuthenticatedSettingsNavigationRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
   '/inventory': typeof AuthenticatedInventoryIndexRoute
@@ -276,6 +285,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/_authenticated/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
   '/_authenticated/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
+  '/_authenticated/settings/navigation': typeof AuthenticatedSettingsNavigationRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
   '/_authenticated/inventory/': typeof AuthenticatedInventoryIndexRoute
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/settings/family'
     | '/settings/home-assistant'
     | '/settings/localization'
+    | '/settings/navigation'
     | '/settings/notifications'
     | '/shopping/scan-ticket'
     | '/inventory/'
@@ -336,6 +347,7 @@ export interface FileRouteTypes {
     | '/settings/family'
     | '/settings/home-assistant'
     | '/settings/localization'
+    | '/settings/navigation'
     | '/settings/notifications'
     | '/shopping/scan-ticket'
     | '/inventory'
@@ -366,6 +378,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/family'
     | '/_authenticated/settings/home-assistant'
     | '/_authenticated/settings/localization'
+    | '/_authenticated/settings/navigation'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/shopping/scan-ticket'
     | '/_authenticated/inventory/'
@@ -500,6 +513,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/navigation': {
+      id: '/_authenticated/settings/navigation'
+      path: '/settings/navigation'
+      fullPath: '/settings/navigation'
+      preLoaderRoute: typeof AuthenticatedSettingsNavigationRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/localization': {
       id: '/_authenticated/settings/localization'
       path: '/settings/localization'
@@ -603,6 +623,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsFamilyRoute: typeof AuthenticatedSettingsFamilyRoute
   AuthenticatedSettingsHomeAssistantRoute: typeof AuthenticatedSettingsHomeAssistantRoute
   AuthenticatedSettingsLocalizationRoute: typeof AuthenticatedSettingsLocalizationRoute
+  AuthenticatedSettingsNavigationRoute: typeof AuthenticatedSettingsNavigationRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedShoppingScanTicketRoute: typeof AuthenticatedShoppingScanTicketRoute
   AuthenticatedInventoryIndexRoute: typeof AuthenticatedInventoryIndexRoute
@@ -629,6 +650,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedSettingsHomeAssistantRoute,
   AuthenticatedSettingsLocalizationRoute:
     AuthenticatedSettingsLocalizationRoute,
+  AuthenticatedSettingsNavigationRoute: AuthenticatedSettingsNavigationRoute,
   AuthenticatedSettingsNotificationsRoute:
     AuthenticatedSettingsNotificationsRoute,
   AuthenticatedShoppingScanTicketRoute: AuthenticatedShoppingScanTicketRoute,
