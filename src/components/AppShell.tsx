@@ -25,32 +25,41 @@ import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useNavPreferences, type NavKey } from "@/lib/nav-preferences";
 
-function useBottomNav() {
+type NavEntry = { key: NavKey; to: string; label: string; icon: React.ComponentType<{ className?: string }> };
+
+function useNavCatalog(): Record<NavKey, NavEntry> {
   const { t } = useTranslation();
-  return [
-    { to: "/dashboard", label: t("nav.home"), icon: Home },
-    { to: "/tasks", label: t("nav.tasks"), icon: ListTodo },
-    { to: "/calendar", label: t("nav.calendar"), icon: Calendar },
-    { to: "/shopping", label: t("nav.shopping"), icon: ShoppingCart },
-    { to: "/medications", label: t("nav.medications"), icon: Pill },
-  ];
+  return {
+    dashboard: { key: "dashboard", to: "/dashboard", label: t("nav.dashboard"), icon: Home },
+    tasks: { key: "tasks", to: "/tasks", label: t("nav.tasks"), icon: ListTodo },
+    calendar: { key: "calendar", to: "/calendar", label: t("nav.calendar"), icon: Calendar },
+    shopping: { key: "shopping", to: "/shopping", label: t("nav.shoppingList"), icon: ShoppingCart },
+    inventory: { key: "inventory", to: "/inventory", label: t("nav.inventory"), icon: Package },
+    recipes: { key: "recipes", to: "/recipes", label: t("nav.recipes"), icon: ChefHat },
+    finances: { key: "finances", to: "/finances", label: t("nav.finances"), icon: Wallet },
+    devices: { key: "devices", to: "/devices", label: t("nav.devices"), icon: Zap },
+    medications: { key: "medications", to: "/medications", label: t("nav.medications"), icon: Pill },
+  };
 }
 
-function useSidebarNav() {
-  const { t } = useTranslation();
-  return [
-    { to: "/dashboard", label: t("nav.dashboard"), icon: Home },
-    { to: "/tasks", label: t("nav.tasks"), icon: ListTodo },
-    { to: "/calendar", label: t("nav.calendar"), icon: Calendar },
-    { to: "/shopping", label: t("nav.shoppingList"), icon: ShoppingCart },
-    { to: "/inventory", label: t("nav.inventory"), icon: Package },
-    { to: "/recipes", label: t("nav.recipes"), icon: ChefHat },
-    { to: "/finances", label: t("nav.finances"), icon: Wallet },
-    { to: "/devices", label: t("nav.devices"), icon: Zap },
-    { to: "/medications", label: t("nav.medications"), icon: Pill },
-  ];
+function useVisibleNav(): NavEntry[] {
+  const catalog = useNavCatalog();
+  const { prefs } = useNavPreferences();
+  const hidden = new Set(prefs.hidden);
+  return prefs.order.filter((k) => !hidden.has(k)).map((k) => catalog[k]);
 }
+
+function useBottomNav(): NavEntry[] {
+  // Show the first 5 visible sidebar items in the mobile bottom bar
+  return useVisibleNav().slice(0, 5);
+}
+
+function useSidebarNav(): NavEntry[] {
+  return useVisibleNav();
+}
+
 
 interface AppShellProps {
   children: React.ReactNode;
