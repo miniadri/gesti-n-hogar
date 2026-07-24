@@ -43,6 +43,7 @@ const deviceTypes = [
 function DevicesPage() {
   const queryClient = useQueryClient();
   const { data } = useSuspenseQuery(devicesQueryOptions);
+  const { panel } = Route.useSearch();
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -51,10 +52,13 @@ function DevicesPage() {
   const [integrationFilter, setIntegrationFilter] = useState<string>("all");
   const [showHidden, setShowHidden] = useState(false);
   const [manageHidden, setManageHidden] = useState(false);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const doUpdate = useServerFn(updateDevice);
   const doDelete = useServerFn(deleteDevice);
   const doSetHidden = useServerFn(setDevicesHidden);
+  const doSetQuick = useServerFn(setDeviceQuickAccess);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["devices"] });
 
@@ -63,6 +67,41 @@ function DevicesPage() {
     await doUpdate({ data: { id: device.id, status: next } });
     refresh();
   };
+
+  const toggleQuick = async (device: any) => {
+    const next = !device.quick_access;
+    await doSetQuick({ data: { id: device.id, quick_access: next } });
+    toast.success(next ? "Añadido a accesos rápidos" : "Quitado de accesos rápidos");
+    refresh();
+  };
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const enterPanelFullscreen = async () => {
+    try {
+      if (panelRef.current && !document.fullscreenElement) {
+        await panelRef.current.requestFullscreen();
+      } else if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "No se pudo activar pantalla completa");
+    }
+  };
+
+  // If arriving with ?panel=1, auto-enter fullscreen panel view
+  useEffect(() => {
+    if (panel === 1 && panelRef.current && !document.fullscreenElement) {
+      panelRef.current.requestFullscreen().catch(() => { /* user gesture required */ });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
 
 
   const doSync = useServerFn(syncHomeAssistantEntities);
