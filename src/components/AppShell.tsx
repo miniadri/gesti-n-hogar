@@ -13,6 +13,7 @@ import {
   ChefHat,
   Package,
   Zap,
+  Pill,
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,7 +33,7 @@ function useBottomNav() {
     { to: "/tasks", label: t("nav.tasks"), icon: ListTodo },
     { to: "/calendar", label: t("nav.calendar"), icon: Calendar },
     { to: "/shopping", label: t("nav.shopping"), icon: ShoppingCart },
-    { to: "/finances", label: t("nav.finances"), icon: Wallet },
+    { to: "/medications", label: t("nav.medications"), icon: Pill },
   ];
 }
 
@@ -47,6 +48,7 @@ function useSidebarNav() {
     { to: "/recipes", label: t("nav.recipes"), icon: ChefHat },
     { to: "/finances", label: t("nav.finances"), icon: Wallet },
     { to: "/devices", label: t("nav.devices"), icon: Zap },
+    { to: "/medications", label: t("nav.medications"), icon: Pill },
   ];
 }
 
