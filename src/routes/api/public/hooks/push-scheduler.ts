@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import webPush from "web-push";
+import { sendTelegramToUsers } from "@/lib/notify.server";
 
 // Runs every few minutes via pg_cron. Sends push notifications for:
 // - pending tasks with due_date within the next 15 minutes (not yet notified)
@@ -130,5 +131,6 @@ async function sendTo(
       }
     }
   }
+  await sendTelegramToUsers(supabase, userIds, `<b>${payload.title}</b>\n${payload.body}`);
   return any;
 }
