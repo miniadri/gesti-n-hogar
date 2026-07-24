@@ -231,13 +231,17 @@ function MedicationsPage() {
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleRecord(intake, "skipped")}>
+                  <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
+                    <Clock3 className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" title="Omitir toma" onClick={() => handleRecord(intake, "skipped")}>
                     <X className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" onClick={() => handleRecord(intake, "taken")}>
+                  <Button size="sm" title="Confirmar toma" onClick={() => handleRecord(intake, "taken")}>
                     <Check className="h-4 w-4" />
                   </Button>
                 </div>
+
               </div>
             ))}
           </CardContent>
