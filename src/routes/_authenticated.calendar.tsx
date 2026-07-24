@@ -180,8 +180,16 @@ function CalendarPage() {
                 </Badge>
                 <button
                   onClick={async () => {
+                    const snapshot = { ...event };
                     await doDelete({ data: { id: event.id } });
                     refresh();
+                    undoableToast({
+                      message: `Evento "${event.title}" eliminado`,
+                      undo: async () => {
+                        await doRestore({ data: { row: snapshot } });
+                        refresh();
+                      },
+                    });
                   }}
                   className="text-muted-foreground hover:text-destructive"
                 >
