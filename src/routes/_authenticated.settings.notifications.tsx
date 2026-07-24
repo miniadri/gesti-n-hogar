@@ -204,6 +204,7 @@ function NotificationsSettingsPage() {
             { id: "inventory", label: "Stock bajo" },
             { id: "events", label: "Eventos del calendario" },
             { id: "budget", label: "Presupuesto excedido" },
+            { id: "medications", label: "Tomar medicación" },
           ].map((item) => (
             <div key={item.id} className="flex items-center justify-between">
               <Label htmlFor={item.id}>{item.label}</Label>
