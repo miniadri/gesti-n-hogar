@@ -1,0 +1,2 @@
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS quick_access boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_devices_quick_access ON public.devices (household_id) WHERE quick_access = true;
