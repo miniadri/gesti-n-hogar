@@ -32,6 +32,18 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         }
 
         const update = await request.json();
+        const supabase = createClient(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          { auth: { persistSession: false, autoRefreshToken: false } },
+        );
+
+        // Handle inline button callbacks (Tomada / Snooze / Omitir)
+        if (update.callback_query) {
+          await handleCallbackQuery(supabase, update.callback_query, TELEGRAM_API_KEY);
+          return Response.json({ ok: true });
+        }
+
         const message = update.message ?? update.edited_message;
         if (!message?.chat?.id || typeof update.update_id !== "number") {
           return Response.json({ ok: true, ignored: true });
