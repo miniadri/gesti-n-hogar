@@ -61,6 +61,29 @@ export const createChildMember = createServerFn({ method: "POST" })
     return member;
   });
 
+const RenameMemberInput = z.object({
+  member_id: z.string().uuid(),
+  display_name: z.string().trim().min(1).max(60),
+});
+
+export const renameMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => RenameMemberInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const { data: member, error } = await context.supabase
+      .from("household_members")
+      .update({ display_name: data.display_name })
+      .eq("id", data.member_id)
+      .eq("household_id", householdId)
+      .select()
+      .single();
+    if (error) throw error;
+    return member;
+  });
+
+
 
 export const getHousehold = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
