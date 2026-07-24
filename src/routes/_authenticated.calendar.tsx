@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listEvents, createEvent, deleteEvent } from "@/lib/calendar.functions";
+import { listEvents, createEvent, deleteEvent, restoreEvent } from "@/lib/calendar.functions";
+import { undoableToast } from "@/hooks/use-undoable";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -57,6 +58,7 @@ function CalendarPage() {
 
   const doCreate = useServerFn(createEvent);
   const doDelete = useServerFn(deleteEvent);
+  const doRestore = useServerFn(restoreEvent);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["calendar"] });
 
@@ -178,8 +180,16 @@ function CalendarPage() {
                 </Badge>
                 <button
                   onClick={async () => {
+                    const snapshot = { ...event };
                     await doDelete({ data: { id: event.id } });
                     refresh();
+                    undoableToast({
+                      message: `Evento "${event.title}" eliminado`,
+                      undo: async () => {
+                        await doRestore({ data: { row: snapshot } });
+                        refresh();
+                      },
+                    });
                   }}
                   className="text-muted-foreground hover:text-destructive"
                 >

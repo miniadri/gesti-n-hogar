@@ -68,3 +68,22 @@ export const deleteEvent = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+const RestoreEventInput = z.object({ row: z.record(z.string(), z.any()) });
+
+export const restoreEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => RestoreEventInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const payload: Record<string, any> = { ...data.row, household_id: householdId };
+    delete payload.updated_at;
+    const { data: row, error } = await context.supabase
+      .from("calendar_events")
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .single();
+    if (error) throw error;
+    return row;
+  });

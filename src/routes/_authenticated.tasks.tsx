@@ -194,7 +194,23 @@ function TasksPage() {
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground">Completadas</h3>
           {done.map((task: any) => (
-            <TaskCard key={task.id} task={task} done />
+            <TaskCard
+              key={task.id}
+              task={task}
+              done
+              onDelete={async () => {
+                const snapshot = { ...task };
+                await doDelete({ data: { id: task.id } });
+                refresh();
+                undoableToast({
+                  message: `Tarea "${task.title}" eliminada`,
+                  undo: async () => {
+                    await doRestore({ data: { row: snapshot } });
+                    refresh();
+                  },
+                });
+              }}
+            />
           ))}
         </div>
       )}
