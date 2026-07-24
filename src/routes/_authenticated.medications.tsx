@@ -16,6 +16,8 @@ import {
   ShoppingCart,
   History,
   Bell,
+  Clock3,
+
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,7 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake } from "@/lib/medications.functions";
+import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake, snoozeIntake } from "@/lib/medications.functions";
 import { createShoppingItem } from "@/lib/shopping.functions";
 
 const medicationsQueryOptions = queryOptions({
@@ -98,7 +100,9 @@ function MedicationsPage() {
   const doUpdate = useServerFn(updateMedication);
   const doDelete = useServerFn(deleteMedication);
   const doRecord = useServerFn(recordIntake);
+  const doSnooze = useServerFn(snoozeIntake);
   const doAddShopping = useServerFn(createShoppingItem);
+
 
   const members = (household?.household_members ?? []).sort((a: any, b: any) => (a.is_child === b.is_child ? 0 : a.is_child ? 1 : -1));
 
@@ -150,12 +154,23 @@ function MedicationsPage() {
   const handleRecord = async (intake: any, status: string) => {
     try {
       await doRecord({ data: { intake_id: intake.id, status } });
-      toast.success(status === "taken" ? "Toma confirmada" : "Toma registrada");
+      toast.success(status === "taken" ? "Toma confirmada" : "Toma omitida");
       queryClient.invalidateQueries({ queryKey: ["medications"] });
     } catch (err: any) {
       toast.error(err.message || "Error al registrar");
     }
   };
+
+  const handleSnooze = async (intake: any, minutes = 10) => {
+    try {
+      await doSnooze({ data: { intake_id: intake.id, minutes } });
+      toast.success(`Recordatorio pospuesto ${minutes} min`);
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+    } catch (err: any) {
+      toast.error(err.message || "Error al posponer");
+    }
+  };
+
 
   const handleAddToShopping = async (med: any) => {
     try {
@@ -216,13 +231,17 @@ function MedicationsPage() {
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleRecord(intake, "skipped")}>
+                  <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
+                    <Clock3 className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" title="Omitir toma" onClick={() => handleRecord(intake, "skipped")}>
                     <X className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" onClick={() => handleRecord(intake, "taken")}>
+                  <Button size="sm" title="Confirmar toma" onClick={() => handleRecord(intake, "taken")}>
                     <Check className="h-4 w-4" />
                   </Button>
                 </div>
+
               </div>
             ))}
           </CardContent>
@@ -272,6 +291,8 @@ function MedicationsPage() {
                     }}
                     onDelete={() => handleDelete(med)}
                     onRecord={handleRecord}
+                    onSnooze={handleSnooze}
+
                   />
                 ))}
               </div>
@@ -328,13 +349,16 @@ function MedicationCard({
   onEdit,
   onDelete,
   onRecord,
+  onSnooze,
 }: {
   med: any;
   member: any;
   onEdit: () => void;
   onDelete: () => void;
   onRecord: (intake: any, status: string) => void;
+  onSnooze: (intake: any, minutes?: number) => void;
 }) {
+
   const today = new Date().toISOString().split("T")[0];
   const todayIntakes = (med.medication_intakes ?? [])
     .filter((i: any) => i.scheduled_for.startsWith(today))
@@ -402,13 +426,17 @@ function MedicationCard({
                   {new Date(intake.scheduled_for).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   {intake.status === "pending" ? (
                     <>
-                      <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => onRecord(intake, "taken")}>
+                      <Button size="icon" variant="ghost" className="h-5 w-5" title="Confirmar" onClick={() => onRecord(intake, "taken")}>
                         <Check className="h-3 w-3" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => onRecord(intake, "skipped")}>
+                      <Button size="icon" variant="ghost" className="h-5 w-5" title="Posponer 10 min" onClick={() => onSnooze(intake, 10)}>
+                        <Clock3 className="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-5 w-5" title="Omitir" onClick={() => onRecord(intake, "skipped")}>
                         <X className="h-3 w-3" />
                       </Button>
                     </>
+
                   ) : intake.status === "taken" ? (
                     <Check className="h-3 w-3 text-emerald-500" />
                   ) : (
@@ -500,8 +528,10 @@ function MedicationDialog({
       low_stock_threshold: threshold ? Number(threshold) : undefined,
       reminders_enabled: reminders,
       notes,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       schedules,
     });
+
   };
 
   const updateSchedule = (idx: number, patch: any) => {

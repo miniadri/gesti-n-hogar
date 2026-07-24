@@ -26,6 +26,7 @@ const CreateMedicationInput = z.object({
   low_stock_threshold: z.number().nonnegative().optional(),
   reminders_enabled: z.boolean().default(true),
   notes: z.string().max(1000).optional(),
+  timezone: z.string().min(1).max(64).default("UTC"),
   schedules: z.array(ScheduleInput).min(1),
 });
 
@@ -41,13 +42,20 @@ const UpdateMedicationInput = z.object({
   low_stock_threshold: z.number().nonnegative().optional(),
   reminders_enabled: z.boolean().default(true),
   notes: z.string().max(1000).optional(),
+  timezone: z.string().min(1).max(64).default("UTC"),
   schedules: z.array(ScheduleInput).min(1),
 });
+
 
 const RecordIntakeInput = z.object({
   intake_id: z.string().uuid(),
   status: IntakeStatusEnum,
   taken_at: z.string().datetime().optional(),
+});
+
+const SnoozeIntakeInput = z.object({
+  intake_id: z.string().uuid(),
+  minutes: z.number().int().min(1).max(240).default(10),
 });
 
 function getWeekday(date: Date) {
@@ -64,12 +72,37 @@ function toISODate(date: Date) {
   return date.toISOString().split("T")[0];
 }
 
-function parseTime(time: string, base: Date) {
-  const [h, m] = time.split(":").map(Number);
-  const d = new Date(base);
-  d.setHours(h, m, 0, 0);
-  return d;
+// Build a UTC Date representing YYYY-MM-DD at HH:MM in the given IANA timezone.
+function zonedTimeToUtc(y: number, m: number, d: number, hh: number, mm: number, tz: string): Date {
+  // Start with the naive UTC guess.
+  const naive = new Date(Date.UTC(y, m, d, hh, mm, 0, 0));
+  // Find what that instant looks like in the target tz vs UTC, then correct.
+  const tzStr = naive.toLocaleString("en-US", { timeZone: tz });
+  const utcStr = naive.toLocaleString("en-US", { timeZone: "UTC" });
+  const diff = new Date(tzStr).getTime() - new Date(utcStr).getTime();
+  return new Date(naive.getTime() - diff);
 }
+
+function parseTime(time: string, base: Date, tz: string) {
+  const [h, m] = time.split(":").map(Number);
+  // Get the Y/M/D of `base` as seen in tz.
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(base);
+  const y = Number(parts.find((p) => p.type === "year")!.value);
+  const mo = Number(parts.find((p) => p.type === "month")!.value) - 1;
+  const d = Number(parts.find((p) => p.type === "day")!.value);
+  return zonedTimeToUtc(y, mo, d, h, m, tz);
+}
+
+function weekdayInTz(date: Date, tz: string): number {
+  const wd = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(date);
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd);
+}
+
 
 export async function generateUpcomingIntakes(
   supabase: any,
@@ -101,15 +134,16 @@ export async function generateUpcomingIntakes(
   );
 
   const inserts: any[] = [];
+  const tz: string = med.timezone || "UTC";
 
   for (const schedule of med.medication_schedules ?? []) {
     if (!schedule.active) continue;
     const daysSet = new Set(schedule.days_of_week ?? [0, 1, 2, 3, 4, 5, 6]);
 
     if (schedule.frequency_type === "interval" && schedule.interval_hours) {
-      let cursor = parseTime(schedule.time_of_day, now);
+      let cursor = parseTime(schedule.time_of_day, now, tz);
       while (cursor <= until) {
-        if (daysSet.has(getWeekday(cursor))) {
+        if (daysSet.has(weekdayInTz(cursor, tz))) {
           const iso = cursor.toISOString();
           const key = `${schedule.id}_${iso}`;
           if (!existingKeys.has(key)) {
@@ -125,8 +159,9 @@ export async function generateUpcomingIntakes(
       }
     } else {
       for (let d = new Date(now); d <= until; d = addDays(d, 1)) {
-        if (!daysSet.has(getWeekday(d))) continue;
-        const scheduled = parseTime(schedule.time_of_day, d);
+        if (!daysSet.has(weekdayInTz(d, tz))) continue;
+        const scheduled = parseTime(schedule.time_of_day, d, tz);
+        if (scheduled < now) continue;
         const iso = scheduled.toISOString();
         const key = `${schedule.id}_${iso}`;
         if (!existingKeys.has(key)) {
@@ -140,6 +175,7 @@ export async function generateUpcomingIntakes(
       }
     }
   }
+
 
   if (inserts.length) {
     const { error: insertError } = await supabase.from("medication_intakes").insert(inserts);
@@ -235,9 +271,42 @@ export const updateMedication = createServerFn({ method: "POST" })
       }
     }
 
+    // Purge future pending intakes so timezone/schedule changes regenerate correctly.
+    await context.supabase
+      .from("medication_intakes")
+      .delete()
+      .eq("medication_id", id)
+      .eq("status", "pending")
+      .gte("scheduled_for", new Date().toISOString());
+
     await generateUpcomingIntakes(context.supabase, id, householdId.data);
     return { ok: true };
   });
+
+export const snoozeIntake = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => SnoozeIntakeInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: intake, error: fetchError } = await context.supabase
+      .from("medication_intakes")
+      .select("scheduled_for")
+      .eq("id", data.intake_id)
+      .single();
+    if (fetchError || !intake) throw fetchError || new Error("Intake not found");
+
+    const base = new Date(intake.scheduled_for);
+    const now = new Date();
+    const from = base > now ? base : now;
+    const next = new Date(from.getTime() + data.minutes * 60 * 1000).toISOString();
+
+    const { error } = await context.supabase
+      .from("medication_intakes")
+      .update({ scheduled_for: next, status: "pending", last_reminder_sent_at: null })
+      .eq("id", data.intake_id);
+    if (error) throw error;
+    return { ok: true, scheduled_for: next };
+  });
+
 
 export const deleteMedication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -814,6 +814,7 @@ export type Database = {
           name: string
           notes: string | null
           reminders_enabled: boolean
+          timezone: string
           total_quantity: number | null
           unit: string
           updated_at: string
@@ -831,6 +832,7 @@ export type Database = {
           name: string
           notes?: string | null
           reminders_enabled?: boolean
+          timezone?: string
           total_quantity?: number | null
           unit?: string
           updated_at?: string
@@ -848,6 +850,7 @@ export type Database = {
           name?: string
           notes?: string | null
           reminders_enabled?: boolean
+          timezone?: string
           total_quantity?: number | null
           unit?: string
           updated_at?: string
