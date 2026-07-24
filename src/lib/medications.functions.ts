@@ -353,6 +353,25 @@ export const recordIntake = createServerFn({ method: "POST" })
         .from("medications")
         .update({ current_quantity: newQty })
         .eq("id", intake.medication_id);
+
+      const threshold = intake.medications.low_stock_threshold;
+      const prevQty = intake.medications.current_quantity ?? 0;
+      if (threshold != null && newQty <= threshold && prevQty > threshold) {
+        const { addMedicationToShoppingList, sendPushToUsers, sendTelegramToUsers, resolveHouseholdUserIds } =
+          await import("@/lib/notify.server");
+        const added = await addMedicationToShoppingList(
+          context.supabase,
+          intake.medications.household_id,
+          intake.medications.name,
+        );
+        if (added) {
+          const users = await resolveHouseholdUserIds(context.supabase, intake.medications.household_id);
+          const title = "💊 Stock bajo de medicación";
+          const body = `${intake.medications.name}: quedan ${newQty} (umbral ${threshold}). Añadido a la lista de la compra.`;
+          await sendPushToUsers(context.supabase, users, { title, body, url: "/shopping" });
+          await sendTelegramToUsers(context.supabase, users, `${title}\n${body}`);
+        }
+      }
     }
 
     return { ok: true };
