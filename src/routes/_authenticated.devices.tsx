@@ -22,12 +22,16 @@ const devicesQueryOptions = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/devices")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    panel: search.panel === "1" || search.panel === 1 || search.panel === true ? 1 : 0,
+  }),
   loader: ({ context }) => context.queryClient.ensureQueryData(devicesQueryOptions),
   head: () => ({
     meta: [{ title: "Hogar inteligente - HomeSync" }],
   }),
   component: DevicesPage,
 });
+
 
 const deviceTypes = [
   { value: "light", label: "Luz", icon: Lightbulb },
