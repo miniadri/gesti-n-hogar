@@ -14,6 +14,7 @@ const DeviceInput = z.object({
 const UpdateDeviceInput = DeviceInput.partial().extend({ id: z.string().uuid() });
 const DeleteDeviceInput = z.object({ id: z.string().uuid() });
 const SetHiddenInput = z.object({ ids: z.array(z.string().uuid()).min(1), hidden: z.boolean() });
+const SetQuickAccessInput = z.object({ id: z.string().uuid(), quick_access: z.boolean() });
 
 export const listDevices = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
