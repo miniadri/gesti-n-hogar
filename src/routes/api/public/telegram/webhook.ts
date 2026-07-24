@@ -127,7 +127,7 @@ async function editMessage(
 }
 
 async function handleCallbackQuery(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   cq: any,
   telegramApiKey: string,
 ) {
