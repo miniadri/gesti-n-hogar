@@ -85,11 +85,11 @@ export const updateMedicine = createServerFn({ method: "POST" })
       .eq("id", id)
       .single();
 
-    const payload = {
-      ...rest,
-      note: rest.note ?? rest.notes ?? null,
-      notes: rest.notes ?? rest.note ?? null,
-    };
+    const payload = { ...rest };
+    if ("note" in rest || "notes" in rest) {
+      payload.note = rest.note ?? rest.notes ?? null;
+      payload.notes = rest.notes ?? rest.note ?? null;
+    }
     const { data: item, error } = await context.supabase
       .from("medicines")
       .update(payload)
@@ -112,9 +112,9 @@ export const updateMedicine = createServerFn({ method: "POST" })
 
     const medicationPatch = {
       name: payload.name,
-      form: payload.form,
-      dose_amount: payload.dose_amount,
-      unit: payload.unit,
+      form: payload.form ?? undefined,
+      dose_amount: payload.dose_amount ?? undefined,
+      unit: payload.unit ?? undefined,
       total_quantity: payload.total_quantity,
       current_quantity: payload.current_quantity,
       low_stock_threshold: payload.low_stock_threshold,
