@@ -52,11 +52,16 @@ export const createMedicine = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
 
-    const medicationPatch: Record<string, any> = {};
-    for (const key of ["form", "dose_amount", "unit", "total_quantity", "current_quantity", "low_stock_threshold", "notes"] as const) {
-      if (payload[key] != null) medicationPatch[key] = payload[key];
-    }
-    if (Object.keys(medicationPatch).length > 0) {
+    const medicationPatch = {
+      form: payload.form ?? undefined,
+      dose_amount: payload.dose_amount ?? undefined,
+      unit: payload.unit ?? undefined,
+      total_quantity: payload.total_quantity ?? undefined,
+      current_quantity: payload.current_quantity ?? undefined,
+      low_stock_threshold: payload.low_stock_threshold ?? undefined,
+      notes: payload.notes ?? undefined,
+    };
+    if (Object.values(medicationPatch).some((value) => value !== undefined)) {
       await context.supabase
         .from("medications")
         .update(medicationPatch)
@@ -93,11 +98,29 @@ export const updateMedicine = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
 
-    const medicationPatch: Record<string, any> = {};
-    for (const key of ["name", "form", "dose_amount", "unit", "total_quantity", "current_quantity", "low_stock_threshold", "notes"] as const) {
-      if (key in payload) medicationPatch[key] = payload[key];
+    const currentQuantity = payload.current_quantity ?? item.current_quantity;
+    const lowStockThreshold = payload.low_stock_threshold ?? item.low_stock_threshold;
+    const needsPurchase = payload.needs_purchase ?? (
+      lowStockThreshold != null && currentQuantity != null && Number(currentQuantity) <= Number(lowStockThreshold)
+        ? true
+        : item.needs_purchase
+    );
+
+    if (needsPurchase !== item.needs_purchase) {
+      await context.supabase.from("medicines").update({ needs_purchase: needsPurchase }).eq("id", item.id);
     }
-    if (Object.keys(medicationPatch).length > 0) {
+
+    const medicationPatch = {
+      name: payload.name,
+      form: payload.form,
+      dose_amount: payload.dose_amount,
+      unit: payload.unit,
+      total_quantity: payload.total_quantity,
+      current_quantity: payload.current_quantity,
+      low_stock_threshold: payload.low_stock_threshold,
+      notes: payload.notes,
+    };
+    if (Object.values(medicationPatch).some((value) => value !== undefined)) {
       let query = context.supabase.from("medications").update(medicationPatch).eq("household_id", householdId);
       if (previous?.name && previous.name !== item.name) {
         query = query.or(`name.ilike.${previous.name},name.ilike.${item.name}`);
