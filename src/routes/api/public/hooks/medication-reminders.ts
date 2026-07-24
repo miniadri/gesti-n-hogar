@@ -123,10 +123,13 @@ async function sendPushToUsers(supabase: any, userIds: string[], title: string, 
   }
 }
 
-async function sendTelegramMessage(chatId: string, text: string) {
+async function sendTelegramMessage(chatId: string, text: string, replyMarkup?: unknown) {
   const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
   const TELEGRAM_API_KEY = process.env.TELEGRAM_API_KEY;
   if (!LOVABLE_API_KEY || !TELEGRAM_API_KEY) return;
+
+  const body: Record<string, unknown> = { chat_id: chatId, text, parse_mode: "HTML" };
+  if (replyMarkup) body.reply_markup = replyMarkup;
 
   try {
     const res = await fetch("https://connector-gateway.lovable.dev/telegram/sendMessage", {
@@ -136,7 +139,7 @@ async function sendTelegramMessage(chatId: string, text: string) {
         "X-Connection-Api-Key": TELEGRAM_API_KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) console.error("Telegram send failed", await res.text());
   } catch (err) {
