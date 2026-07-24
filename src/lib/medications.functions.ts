@@ -11,7 +11,7 @@ const ScheduleInput = z.object({
   time_of_day: z.string().regex(/^\d{2}:\d{2}$/),
   days_of_week: z.array(z.number().int().min(0).max(6)),
   frequency_type: z.enum(["daily", "interval"]),
-  interval_hours: z.number().int().min(1).optional(),
+  interval_hours: z.number().positive().min(0.25).optional(),
   active: z.boolean().default(true),
 });
 

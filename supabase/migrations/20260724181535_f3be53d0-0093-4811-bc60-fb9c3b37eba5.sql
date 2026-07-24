@@ -1,0 +1,1 @@
+ALTER TABLE public.medication_schedules ALTER COLUMN interval_hours TYPE numeric(6,2) USING interval_hours::numeric;
