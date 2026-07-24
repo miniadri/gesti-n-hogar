@@ -309,7 +309,7 @@ function MedicationsPage() {
             <EmptyState
               icon={AlertCircle}
               title="No hay medicamentos con stock bajo"
-              description="Los medicamentos con stock por debajo del umbral aparecerán aquí."
+              description="Los medicamentos que actualmente se estén tomando y que estén con stock por debajo del umbral aparecerán aquí."
             />
           ) : (
             lowStockMeds.map((med: any) => (
