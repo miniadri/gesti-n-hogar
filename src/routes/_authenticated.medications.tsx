@@ -154,12 +154,23 @@ function MedicationsPage() {
   const handleRecord = async (intake: any, status: string) => {
     try {
       await doRecord({ data: { intake_id: intake.id, status } });
-      toast.success(status === "taken" ? "Toma confirmada" : "Toma registrada");
+      toast.success(status === "taken" ? "Toma confirmada" : "Toma omitida");
       queryClient.invalidateQueries({ queryKey: ["medications"] });
     } catch (err: any) {
       toast.error(err.message || "Error al registrar");
     }
   };
+
+  const handleSnooze = async (intake: any, minutes = 10) => {
+    try {
+      await doSnooze({ data: { intake_id: intake.id, minutes } });
+      toast.success(`Recordatorio pospuesto ${minutes} min`);
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+    } catch (err: any) {
+      toast.error(err.message || "Error al posponer");
+    }
+  };
+
 
   const handleAddToShopping = async (med: any) => {
     try {
