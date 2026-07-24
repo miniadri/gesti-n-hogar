@@ -40,10 +40,15 @@ export const createMedicine = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    const shouldBuy =
+      data.low_stock_threshold != null &&
+      data.current_quantity != null &&
+      Number(data.current_quantity) <= Number(data.low_stock_threshold);
     const payload = {
       ...data,
       note: data.note ?? data.notes ?? null,
       notes: data.notes ?? data.note ?? null,
+      needs_purchase: data.needs_purchase || shouldBuy,
     };
     const { data: item, error } = await context.supabase
       .from("medicines")
