@@ -585,7 +585,30 @@ function MedicationDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>{t("medications.name")}</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} required />
+              <MedicineNameSearch
+                value={name}
+                onChange={setName}
+                medicines={medicines}
+                medications={medications}
+                disabled={!!editing}
+                onPickMedication={(m) => {
+                  setName(m.name);
+                  setForm(m.form);
+                  setDose(String(m.dose_amount));
+                  setUnit(m.unit);
+                  if (m.total_quantity != null) setTotalQty(String(m.total_quantity));
+                  if (m.current_quantity != null) setCurrentQty(String(m.current_quantity));
+                  if (m.low_stock_threshold != null) setThreshold(String(m.low_stock_threshold));
+                  if (m.notes) setNotes(m.notes);
+                }}
+                onPickMedicine={(m) => {
+                  setName(m.name);
+                  const exp = m.expiry_month && m.expiry_year
+                    ? `Caduca ${String(m.expiry_month).padStart(2, "0")}/${m.expiry_year}`
+                    : "";
+                  if (exp) setNotes((prev) => (prev ? `${prev}\n${exp}` : exp));
+                }}
+              />
             </div>
             <div className="space-y-2">
               <Label>{t("medications.form")}</Label>
