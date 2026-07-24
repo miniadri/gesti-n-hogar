@@ -195,7 +195,8 @@ function DevicesPage() {
   const hasFilters = !!search || typeFilter !== "all" || statusFilter !== "all" || roomFilter !== "all" || integrationFilter !== "all";
 
   return (
-    <div className="space-y-6">
+    <div ref={panelRef} className={cn("space-y-6", isFullscreen && "min-h-screen overflow-auto bg-background p-6")}>
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Hogar inteligente</h2>
