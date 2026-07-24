@@ -34,7 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake } from "@/lib/medications.functions";
+import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake, snoozeIntake } from "@/lib/medications.functions";
 import { createShoppingItem } from "@/lib/shopping.functions";
 
 const medicationsQueryOptions = queryOptions({
