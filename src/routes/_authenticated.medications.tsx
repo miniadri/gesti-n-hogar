@@ -615,10 +615,8 @@ function MedicationDialog({
                 }}
                 onPickMedicine={(m: any) => {
                   setName(m.name);
-                  const exp = m.expiry_month && m.expiry_year
-                    ? `Caduca ${String(m.expiry_month).padStart(2, "0")}/${m.expiry_year}`
-                    : "";
-                  if (exp) setNotes((prev) => (prev ? `${prev}\n${exp}` : exp));
+                  if (m.expiry_month != null) setExpiryMonth(String(m.expiry_month));
+                  if (m.expiry_year != null) setExpiryYear(String(m.expiry_year));
                 }}
               />
             </div>
