@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, ChefHat, Home, Globe, Bell, ChevronRight } from "lucide-react";
+import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -43,6 +43,12 @@ function SettingsHubPage() {
       label: t("common.notifications"),
       description: "Notificaciones push y alertas del hogar",
       icon: Bell,
+    },
+    {
+      to: "/settings/navigation",
+      label: "Navegación lateral",
+      description: "Reordena u oculta las secciones del menú",
+      icon: LayoutList,
     },
   ];
 
