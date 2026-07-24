@@ -291,6 +291,8 @@ function MedicationsPage() {
                     }}
                     onDelete={() => handleDelete(med)}
                     onRecord={handleRecord}
+                    onSnooze={handleSnooze}
+
                   />
                 ))}
               </div>
