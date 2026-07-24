@@ -289,6 +289,121 @@ function DashboardPage() {
           </Card>
         </Link>
       </div>
+      {nextIntakes.length > 0 && (
+        <Card className="border-primary/30">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Pill className="h-4 w-4 text-primary" />
+              Próxima toma
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/medications">Ver medicación</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {nextIntakes.map((intake: any) => {
+              const when = new Date(intake.scheduled_for);
+              const overdue = when.getTime() < nowMs;
+              const memberName = intake.medication.household_members?.display_name ?? "Miembro";
+              return (
+                <div
+                  key={intake.id}
+                  className={cn(
+                    "flex items-center justify-between gap-3 rounded-lg border bg-card p-3",
+                    overdue && "border-amber-500/50 bg-amber-500/5",
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">
+                      {memberName} · {intake.medication.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {intake.medication.dose_amount} {intake.medication.unit} ·{" "}
+                      {when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {overdue && " · vencida"}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
+                      <Clock3 className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="outline" title="Omitir" onClick={() => handleRecord(intake, "skipped")}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" title="Confirmar" onClick={() => handleRecord(intake, "taken")}>
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {quickDevices.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Star className="h-4 w-4 text-amber-500" />
+              Accesos rápidos
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/devices" search={{ panel: 1 } as any}>Panel</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/devices">Gestionar</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {quickDevices.map((d: any) => {
+                const isSensor = d.type === "sensor" || d.domain === "sensor" || d.domain === "binary_sensor";
+                const Icon = isSensor
+                  ? Activity
+                  : d.type === "light"
+                    ? Lightbulb
+                    : d.type === "thermostat"
+                      ? Thermometer
+                      : d.type === "security"
+                        ? Shield
+                        : Power;
+                const attrs = d.attributes ?? {};
+                const stateLabel = isSensor
+                  ? `${attrs.state ?? "-"}${attrs.unit_of_measurement ? ` ${attrs.unit_of_measurement}` : ""}`
+                  : d.status === "on"
+                    ? "Encendido"
+                    : "Apagado";
+                return (
+                  <div key={d.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className={cn(
+                          "grid h-10 w-10 shrink-0 place-items-center rounded-2xl",
+                          d.status === "on" ? "bg-primary text-primary-foreground" : "bg-secondary",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{d.name}</p>
+                        <p className="text-xs text-muted-foreground">{stateLabel}</p>
+                      </div>
+                    </div>
+                    {!isSensor && (
+                      <Button size="sm" variant="outline" onClick={() => toggleQuickDevice(d)}>
+                        {d.status === "on" ? "Apagar" : "Encender"}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {pharmacyToBuy.length > 0 && (
         <Card className="border-primary/30">
