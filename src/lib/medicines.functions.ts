@@ -4,9 +4,16 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const MedicineInput = z.object({
   name: z.string().min(1).max(200),
+  form: z.enum(["pill", "ml", "drops", "inhaler", "patch", "injection", "other"]).nullable().optional(),
+  dose_amount: z.number().positive().nullable().optional(),
+  unit: z.string().max(50).nullable().optional(),
+  total_quantity: z.number().nonnegative().nullable().optional(),
+  current_quantity: z.number().nonnegative().nullable().optional(),
+  low_stock_threshold: z.number().nonnegative().nullable().optional(),
   expiry_month: z.number().int().min(1).max(12).nullable().optional(),
   expiry_year: z.number().int().min(2000).max(2100).nullable().optional(),
   note: z.string().max(500).nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
   needs_purchase: z.boolean().default(false),
 });
 
@@ -33,12 +40,29 @@ export const createMedicine = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    const payload = {
+      ...data,
+      note: data.note ?? data.notes ?? null,
+      notes: data.notes ?? data.note ?? null,
+    };
     const { data: item, error } = await context.supabase
       .from("medicines")
-      .insert({ ...data, household_id: householdId })
+      .insert({ ...payload, household_id: householdId })
       .select()
       .single();
     if (error) throw error;
+
+    const medicationPatch: Record<string, any> = {};
+    for (const key of ["form", "dose_amount", "unit", "total_quantity", "current_quantity", "low_stock_threshold", "notes"] as const) {
+      if (payload[key] != null) medicationPatch[key] = payload[key];
+    }
+    if (Object.keys(medicationPatch).length > 0) {
+      await context.supabase
+        .from("medications")
+        .update(medicationPatch)
+        .eq("household_id", householdId)
+        .ilike("name", item.name);
+    }
     return item;
   });
 
@@ -47,13 +71,41 @@ export const updateMedicine = createServerFn({ method: "POST" })
   .inputValidator((input) => UpdateInput.parse(input))
   .handler(async ({ data, context }) => {
     const { id, ...rest } = data;
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data: previous } = await context.supabase
+      .from("medicines")
+      .select("name")
+      .eq("id", id)
+      .single();
+
+    const payload = {
+      ...rest,
+      note: rest.note ?? rest.notes ?? null,
+      notes: rest.notes ?? rest.note ?? null,
+    };
     const { data: item, error } = await context.supabase
       .from("medicines")
-      .update(rest)
+      .update(payload)
       .eq("id", id)
       .select()
       .single();
     if (error) throw error;
+
+    const medicationPatch: Record<string, any> = {};
+    for (const key of ["name", "form", "dose_amount", "unit", "total_quantity", "current_quantity", "low_stock_threshold", "notes"] as const) {
+      if (key in payload) medicationPatch[key] = payload[key];
+    }
+    if (Object.keys(medicationPatch).length > 0) {
+      let query = context.supabase.from("medications").update(medicationPatch).eq("household_id", householdId);
+      if (previous?.name && previous.name !== item.name) {
+        query = query.or(`name.ilike.${previous.name},name.ilike.${item.name}`);
+      } else {
+        query = query.ilike("name", item.name);
+      }
+      await query;
+    }
     return item;
   });
 
