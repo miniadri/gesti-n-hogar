@@ -131,5 +131,6 @@ async function sendTo(
       }
     }
   }
+  await sendTelegramToUsers(supabase, userIds, `<b>${payload.title}</b>\n${payload.body}`);
   return any;
 }
