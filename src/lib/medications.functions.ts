@@ -26,6 +26,7 @@ const CreateMedicationInput = z.object({
   low_stock_threshold: z.number().nonnegative().optional(),
   reminders_enabled: z.boolean().default(true),
   notes: z.string().max(1000).optional(),
+  timezone: z.string().min(1).max(64).default("UTC"),
   schedules: z.array(ScheduleInput).min(1),
 });
 
@@ -41,8 +42,10 @@ const UpdateMedicationInput = z.object({
   low_stock_threshold: z.number().nonnegative().optional(),
   reminders_enabled: z.boolean().default(true),
   notes: z.string().max(1000).optional(),
+  timezone: z.string().min(1).max(64).default("UTC"),
   schedules: z.array(ScheduleInput).min(1),
 });
+
 
 const RecordIntakeInput = z.object({
   intake_id: z.string().uuid(),
