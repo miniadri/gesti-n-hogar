@@ -459,15 +459,22 @@ function MedicationDialog({
   onOpenChange,
   editing,
   members,
+  medications,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   editing: any;
   members: any[];
+  medications: any[];
   onSave: (payload: any) => void;
 }) {
   const { t } = useTranslation();
+  const { data: medicines = [] } = useQuery({
+    queryKey: ["medicines"],
+    queryFn: () => listMedicines(),
+    enabled: open,
+  });
   const [name, setName] = useState("");
   const [form, setForm] = useState("pill");
   const [dose, setDose] = useState("1");
