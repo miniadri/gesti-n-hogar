@@ -100,7 +100,9 @@ function MedicationsPage() {
   const doUpdate = useServerFn(updateMedication);
   const doDelete = useServerFn(deleteMedication);
   const doRecord = useServerFn(recordIntake);
+  const doSnooze = useServerFn(snoozeIntake);
   const doAddShopping = useServerFn(createShoppingItem);
+
 
   const members = (household?.household_members ?? []).sort((a: any, b: any) => (a.is_child === b.is_child ? 0 : a.is_child ? 1 : -1));
 
