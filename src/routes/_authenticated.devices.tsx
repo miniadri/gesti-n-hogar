@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { Lightbulb, Thermometer, Shield, Power, Trash2, RefreshCw, Activity, Settings2, Search, Eye, EyeOff, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Lightbulb, Thermometer, Shield, Power, Trash2, RefreshCw, Activity, Settings2, Search, Eye, EyeOff, X, Star, Maximize, Minimize } from "lucide-react";
 import { syncHomeAssistantEntities, callHomeAssistantService } from "@/lib/home-assistant.functions";
 
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listDevices, updateDevice, deleteDevice, setDevicesHidden } from "@/lib/devices.functions";
+import { listDevices, updateDevice, deleteDevice, setDevicesHidden, setDeviceQuickAccess } from "@/lib/devices.functions";
 import { detectIntegration, INTEGRATION_LABELS, type IntegrationKey } from "@/lib/device-integration";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
 
 const devicesQueryOptions = queryOptions({
   queryKey: ["devices"],
