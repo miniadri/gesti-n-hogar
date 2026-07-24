@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { getHousehold, createInvite, joinHousehold, createChildMember, updateHousehold } from "@/lib/household.functions";
+import { getHousehold, createInvite, joinHousehold, createChildMember, updateHousehold, renameMember } from "@/lib/household.functions";
 import { toast } from "sonner";
 
 const householdQueryOptions = queryOptions({
@@ -50,6 +50,34 @@ function FamilySettingsPage() {
   const doJoin = useServerFn(joinHousehold);
   const doCreateChild = useServerFn(createChildMember);
   const doUpdateHousehold = useServerFn(updateHousehold);
+  const doRenameMember = useServerFn(renameMember);
+
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [memberName, setMemberName] = useState("");
+  const [savingMember, setSavingMember] = useState(false);
+
+  const startEditMember = (m: any) => {
+    setEditingMemberId(m.id);
+    setMemberName(m.display_name);
+  };
+  const saveMember = async (id: string, original: string) => {
+    const name = memberName.trim();
+    if (!name || name === original) {
+      setEditingMemberId(null);
+      return;
+    }
+    setSavingMember(true);
+    try {
+      await doRenameMember({ data: { member_id: id, display_name: name } });
+      toast.success("Nombre actualizado");
+      refresh();
+      setEditingMemberId(null);
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo actualizar");
+    } finally {
+      setSavingMember(false);
+    }
+  };
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["household"] });
 
@@ -163,12 +191,38 @@ function FamilySettingsPage() {
             .sort((a: any, b: any) => Number(a.is_child) - Number(b.is_child))
             .map((member: any) => (
             <div key={member.id} className="flex items-center justify-between rounded-lg border p-3">
-              <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-full bg-secondary">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="grid h-10 w-10 place-items-center rounded-full bg-secondary shrink-0">
                   <Users className="h-5 w-5" />
                 </div>
-                <div>
-                  <p className="font-medium">{member.display_name}</p>
+                <div className="min-w-0 flex-1">
+                  {editingMemberId === member.id ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={memberName}
+                        onChange={(e) => setMemberName(e.target.value)}
+                        autoFocus
+                        maxLength={60}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); saveMember(member.id, member.display_name); }
+                          if (e.key === "Escape") setEditingMemberId(null);
+                        }}
+                      />
+                      <Button size="icon" variant="ghost" onClick={() => saveMember(member.id, member.display_name)} disabled={savingMember} aria-label="Guardar">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => setEditingMemberId(null)} disabled={savingMember} aria-label="Cancelar">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium truncate">{member.display_name}</p>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEditMember(member)} aria-label="Renombrar miembro">
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     {member.is_child ? "Perfil infantil" : "Miembro adulto"}
                   </p>
