@@ -57,6 +57,16 @@ export const Route = createFileRoute("/_authenticated/inventory/")({
 
 const categories = ["Frutas", "Verduras", "Lácteos", "Carne", "Pescado", "Bebidas", "Congelados", "Limpieza", "Farmacia", "Otros"];
 
+const MEDICINE_FORMS = [
+  { value: "pill", label: "Pastilla(s)" },
+  { value: "ml", label: "Mililitros" },
+  { value: "drops", label: "Gotas" },
+  { value: "inhaler", label: "Inhalación" },
+  { value: "patch", label: "Parche" },
+  { value: "injection", label: "Inyección" },
+  { value: "other", label: "Otro" },
+];
+
 const locationIcons: Record<InventoryLocation, React.ComponentType<{ className?: string }>> = {
   Frigorífico: Refrigerator,
   Congelador: Snowflake,
@@ -666,12 +676,24 @@ function MedicinesSection() {
                     <div className="flex items-start justify-between gap-2">
                       <button onClick={() => openEdit(m)} className="text-left flex-1">
                         <p className="font-medium">{m.name}</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {m.form && <Badge variant="outline">{MEDICINE_FORMS.find((f) => f.value === m.form)?.label ?? m.form}</Badge>}
+                          {m.dose_amount != null && m.unit && <Badge variant="secondary">{m.dose_amount} {m.unit}</Badge>}
+                          {m.current_quantity != null && (
+                            <Badge variant={m.low_stock_threshold != null && m.current_quantity <= m.low_stock_threshold ? "destructive" : "outline"}>
+                              Stock {m.current_quantity}{m.total_quantity != null ? `/${m.total_quantity}` : ""}
+                            </Badge>
+                          )}
+                        </div>
                         {m.expiry_month && m.expiry_year && (
                           <p className="text-xs text-muted-foreground">
                             Caduca: {String(m.expiry_month).padStart(2, "0")}/{m.expiry_year}
                           </p>
                         )}
-                        {m.note && <p className="text-xs text-muted-foreground line-clamp-2">{m.note}</p>}
+                        {m.low_stock_threshold != null && (
+                          <p className="text-xs text-muted-foreground">Avisar cuando queden: {m.low_stock_threshold}</p>
+                        )}
+                        {(m.notes || m.note) && <p className="text-xs text-muted-foreground line-clamp-2">{m.notes || m.note}</p>}
                       </button>
                       <button onClick={() => remove(m)} className="text-muted-foreground hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
@@ -695,6 +717,7 @@ function MedicinesSection() {
         editing={editing}
         onSaved={() => {
           refresh();
+          queryClient.invalidateQueries({ queryKey: ["medications"] });
           queryClient.invalidateQueries({ queryKey: ["shopping"] });
           queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         }}
@@ -717,6 +740,12 @@ function MedicineDialog({
   const doCreate = useServerFn(createMedicine);
   const doUpdate = useServerFn(updateMedicine);
   const [name, setName] = useState("");
+  const [form, setForm] = useState("pill");
+  const [dose, setDose] = useState("");
+  const [unit, setUnit] = useState("");
+  const [totalQty, setTotalQty] = useState("");
+  const [currentQty, setCurrentQty] = useState("");
+  const [threshold, setThreshold] = useState("");
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
   const [note, setNote] = useState("");
@@ -729,9 +758,15 @@ function MedicineDialog({
   if (openRef !== lastKey) {
     setLastKey(openRef);
     setName(editing?.name ?? "");
+    setForm(editing?.form ?? "pill");
+    setDose(editing?.dose_amount != null ? String(editing.dose_amount) : "");
+    setUnit(editing?.unit ?? "");
+    setTotalQty(editing?.total_quantity != null ? String(editing.total_quantity) : "");
+    setCurrentQty(editing?.current_quantity != null ? String(editing.current_quantity) : "");
+    setThreshold(editing?.low_stock_threshold != null ? String(editing.low_stock_threshold) : "");
     setMonth(editing?.expiry_month ? String(editing.expiry_month) : "");
     setYear(editing?.expiry_year ? String(editing.expiry_year) : "");
-    setNote(editing?.note ?? "");
+    setNote(editing?.notes ?? editing?.note ?? "");
     setNeeds(editing?.needs_purchase ?? false);
   }
 
@@ -742,9 +777,16 @@ function MedicineDialog({
     try {
       const payload = {
         name: name.trim(),
+        form: form || null,
+        dose_amount: dose ? Number(dose) : null,
+        unit: unit.trim() || null,
+        total_quantity: totalQty ? Number(totalQty) : null,
+        current_quantity: currentQty ? Number(currentQty) : null,
+        low_stock_threshold: threshold ? Number(threshold) : null,
         expiry_month: month ? Number(month) : null,
         expiry_year: year ? Number(year) : null,
         note: note.trim() || null,
+        notes: note.trim() || null,
         needs_purchase: needs,
       };
       if (editing) {
@@ -766,7 +808,7 @@ function MedicineDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar medicina" : "Añadir medicina"}</DialogTitle>
         </DialogHeader>
@@ -774,6 +816,45 @@ function MedicineDialog({
           <div className="space-y-2">
             <Label>Nombre</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Paracetamol" autoFocus />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Formato</Label>
+              <Select value={form} onValueChange={setForm}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MEDICINE_FORMS.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Unidad</Label>
+              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="pastilla, ml..." />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Dosis por toma</Label>
+              <Input type="number" step="0.01" min="0" value={dose} onChange={(e) => setDose(e.target.value)} placeholder="1" />
+            </div>
+            <div className="space-y-2">
+              <Label>Stock total caja</Label>
+              <Input type="number" step="0.01" min="0" value={totalQty} onChange={(e) => setTotalQty(e.target.value)} placeholder="30" />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Stock actual</Label>
+              <Input type="number" step="0.01" min="0" value={currentQty} onChange={(e) => setCurrentQty(e.target.value)} placeholder="20" />
+            </div>
+            <div className="space-y-2">
+              <Label>Avisar cuando queden</Label>
+              <Input type="number" step="0.01" min="0" value={threshold} onChange={(e) => setThreshold(e.target.value)} placeholder="5" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

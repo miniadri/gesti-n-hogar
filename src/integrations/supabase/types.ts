@@ -878,35 +878,56 @@ export type Database = {
       medicines: {
         Row: {
           created_at: string
+          current_quantity: number | null
+          dose_amount: number | null
           expiry_month: number | null
           expiry_year: number | null
+          form: Database["public"]["Enums"]["medication_form"] | null
           household_id: string
           id: string
+          low_stock_threshold: number | null
           name: string
           needs_purchase: boolean
           note: string | null
+          notes: string | null
+          total_quantity: number | null
+          unit: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          current_quantity?: number | null
+          dose_amount?: number | null
           expiry_month?: number | null
           expiry_year?: number | null
+          form?: Database["public"]["Enums"]["medication_form"] | null
           household_id: string
           id?: string
+          low_stock_threshold?: number | null
           name: string
           needs_purchase?: boolean
           note?: string | null
+          notes?: string | null
+          total_quantity?: number | null
+          unit?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          current_quantity?: number | null
+          dose_amount?: number | null
           expiry_month?: number | null
           expiry_year?: number | null
+          form?: Database["public"]["Enums"]["medication_form"] | null
           household_id?: string
           id?: string
+          low_stock_threshold?: number | null
           name?: string
           needs_purchase?: boolean
           note?: string | null
+          notes?: string | null
+          total_quantity?: number | null
+          unit?: string | null
           updated_at?: string
         }
         Relationships: [

@@ -21,9 +21,9 @@ const CreateMedicationInput = z.object({
   form: MedicationFormEnum,
   dose_amount: z.number().positive(),
   unit: z.string().min(1).max(50),
-  total_quantity: z.number().nonnegative().optional(),
-  current_quantity: z.number().nonnegative().optional(),
-  low_stock_threshold: z.number().nonnegative().optional(),
+  total_quantity: z.number().nonnegative().nullable().optional(),
+  current_quantity: z.number().nonnegative().nullable().optional(),
+  low_stock_threshold: z.number().nonnegative().nullable().optional(),
   reminders_enabled: z.boolean().default(true),
   notes: z.string().max(1000).optional(),
   expiry_month: z.number().int().min(1).max(12).nullable().optional(),
@@ -39,9 +39,9 @@ const UpdateMedicationInput = z.object({
   form: MedicationFormEnum,
   dose_amount: z.number().positive(),
   unit: z.string().min(1).max(50),
-  total_quantity: z.number().nonnegative().optional(),
-  current_quantity: z.number().nonnegative().optional(),
-  low_stock_threshold: z.number().nonnegative().optional(),
+  total_quantity: z.number().nonnegative().nullable().optional(),
+  current_quantity: z.number().nonnegative().nullable().optional(),
+  low_stock_threshold: z.number().nonnegative().nullable().optional(),
   reminders_enabled: z.boolean().default(true),
   notes: z.string().max(1000).optional(),
   expiry_month: z.number().int().min(1).max(12).nullable().optional(),
@@ -235,7 +235,7 @@ export const createMedication = createServerFn({ method: "POST" })
     const { error: schedError } = await context.supabase.from("medication_schedules").insert(scheduleRows);
     if (schedError) throw schedError;
 
-    // Sync inventory (medicines): upsert matching row with expiry info.
+    // Sync inventory (medicines): shared medicine fields live in both sections.
     const { data: existingMedicine } = await context.supabase
       .from("medicines")
       .select("id")
@@ -246,6 +246,14 @@ export const createMedication = createServerFn({ method: "POST" })
       await context.supabase
         .from("medicines")
         .update({
+          form: med.form,
+          dose_amount: med.dose_amount,
+          unit: med.unit,
+          total_quantity: med.total_quantity ?? null,
+          current_quantity: med.current_quantity ?? null,
+          low_stock_threshold: med.low_stock_threshold ?? null,
+          note: med.notes ?? null,
+          notes: med.notes ?? null,
           expiry_month: expiry_month ?? null,
           expiry_year: expiry_year ?? null,
         })
@@ -254,6 +262,14 @@ export const createMedication = createServerFn({ method: "POST" })
       await context.supabase.from("medicines").insert({
         household_id: householdId.data,
         name: med.name,
+        form: med.form,
+        dose_amount: med.dose_amount,
+        unit: med.unit,
+        total_quantity: med.total_quantity ?? null,
+        current_quantity: med.current_quantity ?? null,
+        low_stock_threshold: med.low_stock_threshold ?? null,
+        note: med.notes ?? null,
+        notes: med.notes ?? null,
         needs_purchase: false,
         expiry_month: expiry_month ?? null,
         expiry_year: expiry_year ?? null,
@@ -281,12 +297,8 @@ export const updateMedication = createServerFn({ method: "POST" })
       .eq("household_id", householdId.data);
     if (error) throw error;
 
-    // Sync inventory (medicines) with expiry from this medication.
-    const { data: medRow } = await context.supabase
-      .from("medications")
-      .select("name")
-      .eq("id", id)
-      .single();
+    // Sync inventory (medicines): shared medicine fields live in both sections.
+    const medRow = { ...medPayload, id };
     if (medRow?.name) {
       const { data: existingMedicine } = await context.supabase
         .from("medicines")
@@ -298,6 +310,14 @@ export const updateMedication = createServerFn({ method: "POST" })
         await context.supabase
           .from("medicines")
           .update({
+            form: medRow.form,
+            dose_amount: medRow.dose_amount,
+            unit: medRow.unit,
+            total_quantity: medRow.total_quantity ?? null,
+            current_quantity: medRow.current_quantity ?? null,
+            low_stock_threshold: medRow.low_stock_threshold ?? null,
+            note: medRow.notes ?? null,
+            notes: medRow.notes ?? null,
             expiry_month: expiry_month ?? null,
             expiry_year: expiry_year ?? null,
           })
@@ -306,6 +326,14 @@ export const updateMedication = createServerFn({ method: "POST" })
         await context.supabase.from("medicines").insert({
           household_id: householdId.data,
           name: medRow.name,
+          form: medRow.form,
+          dose_amount: medRow.dose_amount,
+          unit: medRow.unit,
+          total_quantity: medRow.total_quantity ?? null,
+          current_quantity: medRow.current_quantity ?? null,
+          low_stock_threshold: medRow.low_stock_threshold ?? null,
+          note: medRow.notes ?? null,
+          notes: medRow.notes ?? null,
           needs_purchase: false,
           expiry_month: expiry_month ?? null,
           expiry_year: expiry_year ?? null,
@@ -414,6 +442,12 @@ export const recordIntake = createServerFn({ method: "POST" })
         .from("medications")
         .update({ current_quantity: newQty })
         .eq("id", intake.medication_id);
+
+      await context.supabase
+        .from("medicines")
+        .update({ current_quantity: newQty })
+        .eq("household_id", intake.medications.household_id)
+        .ilike("name", intake.medications.name);
 
       const threshold = intake.medications.low_stock_threshold;
       const prevQty = intake.medications.current_quantity ?? 0;
