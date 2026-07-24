@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
@@ -35,6 +35,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake, snoozeIntake } from "@/lib/medications.functions";
+import { listMedicines } from "@/lib/medicines.functions";
 import { createShoppingItem } from "@/lib/shopping.functions";
 
 const medicationsQueryOptions = queryOptions({
@@ -337,6 +338,7 @@ function MedicationsPage() {
         onOpenChange={setDialogOpen}
         editing={editing}
         members={members}
+        medications={medications}
         onSave={handleSave}
       />
     </div>
@@ -457,15 +459,22 @@ function MedicationDialog({
   onOpenChange,
   editing,
   members,
+  medications,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   editing: any;
   members: any[];
+  medications: any[];
   onSave: (payload: any) => void;
 }) {
   const { t } = useTranslation();
+  const { data: medicines = [] } = useQuery({
+    queryKey: ["medicines"],
+    queryFn: () => listMedicines(),
+    enabled: open,
+  });
   const [name, setName] = useState("");
   const [form, setForm] = useState("pill");
   const [dose, setDose] = useState("1");
@@ -576,7 +585,30 @@ function MedicationDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>{t("medications.name")}</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} required />
+              <MedicineNameSearch
+                value={name}
+                onChange={setName}
+                medicines={medicines}
+                medications={medications}
+                disabled={!!editing}
+                onPickMedication={(m: any) => {
+                  setName(m.name);
+                  setForm(m.form);
+                  setDose(String(m.dose_amount));
+                  setUnit(m.unit);
+                  if (m.total_quantity != null) setTotalQty(String(m.total_quantity));
+                  if (m.current_quantity != null) setCurrentQty(String(m.current_quantity));
+                  if (m.low_stock_threshold != null) setThreshold(String(m.low_stock_threshold));
+                  if (m.notes) setNotes(m.notes);
+                }}
+                onPickMedicine={(m: any) => {
+                  setName(m.name);
+                  const exp = m.expiry_month && m.expiry_year
+                    ? `Caduca ${String(m.expiry_month).padStart(2, "0")}/${m.expiry_year}`
+                    : "";
+                  if (exp) setNotes((prev) => (prev ? `${prev}\n${exp}` : exp));
+                }}
+              />
             </div>
             <div className="space-y-2">
               <Label>{t("medications.form")}</Label>
@@ -788,6 +820,110 @@ function EmptyState({
       <h3 className="text-lg font-semibold">{title}</h3>
       <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+function MedicineNameSearch({
+  value,
+  onChange,
+  medicines,
+  medications,
+  disabled,
+  onPickMedicine,
+  onPickMedication,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  medicines: any[];
+  medications: any[];
+  disabled?: boolean;
+  onPickMedicine: (m: any) => void;
+  onPickMedication: (m: any) => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  const q = value.trim().toLowerCase();
+
+  // Unique medications by name (keep first occurrence with stock info).
+  const medsByName = new Map<string, any>();
+  for (const m of medications ?? []) {
+    const k = (m.name || "").toLowerCase();
+    if (k && !medsByName.has(k)) medsByName.set(k, m);
+  }
+
+  const matchedMedications = q
+    ? Array.from(medsByName.values()).filter((m) => m.name.toLowerCase().includes(q)).slice(0, 5)
+    : [];
+  const takenNames = new Set(matchedMedications.map((m) => m.name.toLowerCase()));
+  const matchedMedicines = q
+    ? (medicines ?? [])
+        .filter((m: any) => m.name.toLowerCase().includes(q) && !takenNames.has(m.name.toLowerCase()))
+        .slice(0, 5)
+    : [];
+
+  const showList = focused && !disabled && (matchedMedications.length > 0 || matchedMedicines.length > 0);
+
+  return (
+    <div className="relative">
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        placeholder="Buscar en inventario o escribir…"
+        disabled={disabled}
+        required
+      />
+      {showList && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
+          {matchedMedications.length > 0 && (
+            <div className="p-1">
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Ya en control de tomas</div>
+              {matchedMedications.map((m) => (
+                <button
+                  key={`med-${m.id}`}
+                  type="button"
+                  className="flex w-full flex-col items-start rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onPickMedication(m);
+                  }}
+                >
+                  <span className="font-medium">{m.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {m.dose_amount} {m.unit}
+                    {m.current_quantity != null ? ` · stock ${m.current_quantity}` : ""}
+                    {m.total_quantity != null ? `/${m.total_quantity}` : ""}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {matchedMedicines.length > 0 && (
+            <div className="border-t p-1">
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Inventario de medicinas</div>
+              {matchedMedicines.map((m: any) => (
+                <button
+                  key={`inv-${m.id}`}
+                  type="button"
+                  className="flex w-full flex-col items-start rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onPickMedicine(m);
+                  }}
+                >
+                  <span className="font-medium">{m.name}</span>
+                  {m.expiry_month && m.expiry_year && (
+                    <span className="text-xs text-muted-foreground">
+                      Caduca {String(m.expiry_month).padStart(2, "0")}/{m.expiry_year}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

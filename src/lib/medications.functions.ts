@@ -231,6 +231,21 @@ export const createMedication = createServerFn({ method: "POST" })
     const { error: schedError } = await context.supabase.from("medication_schedules").insert(scheduleRows);
     if (schedError) throw schedError;
 
+    // Ensure a matching row exists in the medicines inventory so it appears there too.
+    const { data: existingMedicine } = await context.supabase
+      .from("medicines")
+      .select("id")
+      .eq("household_id", householdId.data)
+      .ilike("name", med.name)
+      .maybeSingle();
+    if (!existingMedicine) {
+      await context.supabase.from("medicines").insert({
+        household_id: householdId.data,
+        name: med.name,
+        needs_purchase: false,
+      });
+    }
+
     await generateUpcomingIntakes(context.supabase, med.id, householdId.data);
 
     return med;
