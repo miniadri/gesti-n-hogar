@@ -591,7 +591,7 @@ function MedicationDialog({
                 medicines={medicines}
                 medications={medications}
                 disabled={!!editing}
-                onPickMedication={(m) => {
+                onPickMedication={(m: any) => {
                   setName(m.name);
                   setForm(m.form);
                   setDose(String(m.dose_amount));
@@ -601,7 +601,7 @@ function MedicationDialog({
                   if (m.low_stock_threshold != null) setThreshold(String(m.low_stock_threshold));
                   if (m.notes) setNotes(m.notes);
                 }}
-                onPickMedicine={(m) => {
+                onPickMedicine={(m: any) => {
                   setName(m.name);
                   const exp = m.expiry_month && m.expiry_year
                     ? `Caduca ${String(m.expiry_month).padStart(2, "0")}/${m.expiry_year}`
