@@ -485,6 +485,8 @@ function MedicationDialog({
   const [memberId, setMemberId] = useState("");
   const [reminders, setReminders] = useState(true);
   const [notes, setNotes] = useState("");
+  const [expiryMonth, setExpiryMonth] = useState("");
+  const [expiryYear, setExpiryYear] = useState("");
   const [schedules, setSchedules] = useState<any[]>([{ time_of_day: "09:00", days_of_week: [1, 2, 3, 4, 5, 6, 0], frequency_type: "daily", interval_hours: 8, active: true }]);
 
   useEffect(() => {
