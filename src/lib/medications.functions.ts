@@ -53,6 +53,11 @@ const RecordIntakeInput = z.object({
   taken_at: z.string().datetime().optional(),
 });
 
+const SnoozeIntakeInput = z.object({
+  intake_id: z.string().uuid(),
+  minutes: z.number().int().min(1).max(240).default(10),
+});
+
 function getWeekday(date: Date) {
   return date.getDay();
 }
@@ -67,12 +72,37 @@ function toISODate(date: Date) {
   return date.toISOString().split("T")[0];
 }
 
-function parseTime(time: string, base: Date) {
-  const [h, m] = time.split(":").map(Number);
-  const d = new Date(base);
-  d.setHours(h, m, 0, 0);
-  return d;
+// Build a UTC Date representing YYYY-MM-DD at HH:MM in the given IANA timezone.
+function zonedTimeToUtc(y: number, m: number, d: number, hh: number, mm: number, tz: string): Date {
+  // Start with the naive UTC guess.
+  const naive = new Date(Date.UTC(y, m, d, hh, mm, 0, 0));
+  // Find what that instant looks like in the target tz vs UTC, then correct.
+  const tzStr = naive.toLocaleString("en-US", { timeZone: tz });
+  const utcStr = naive.toLocaleString("en-US", { timeZone: "UTC" });
+  const diff = new Date(tzStr).getTime() - new Date(utcStr).getTime();
+  return new Date(naive.getTime() - diff);
 }
+
+function parseTime(time: string, base: Date, tz: string) {
+  const [h, m] = time.split(":").map(Number);
+  // Get the Y/M/D of `base` as seen in tz.
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(base);
+  const y = Number(parts.find((p) => p.type === "year")!.value);
+  const mo = Number(parts.find((p) => p.type === "month")!.value) - 1;
+  const d = Number(parts.find((p) => p.type === "day")!.value);
+  return zonedTimeToUtc(y, mo, d, h, m, tz);
+}
+
+function weekdayInTz(date: Date, tz: string): number {
+  const wd = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(date);
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd);
+}
+
 
 export async function generateUpcomingIntakes(
   supabase: any,
