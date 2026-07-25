@@ -520,6 +520,7 @@ export type Database = {
           created_at: string
           ean: string | null
           expiry_date: string | null
+          expiry_notified_at: string | null
           household_id: string
           id: string
           image_url: string | null
@@ -536,6 +537,7 @@ export type Database = {
           created_at?: string
           ean?: string | null
           expiry_date?: string | null
+          expiry_notified_at?: string | null
           household_id: string
           id?: string
           image_url?: string | null
@@ -552,6 +554,7 @@ export type Database = {
           created_at?: string
           ean?: string | null
           expiry_date?: string | null
+          expiry_notified_at?: string | null
           household_id?: string
           id?: string
           image_url?: string | null
@@ -881,6 +884,7 @@ export type Database = {
           current_quantity: number | null
           dose_amount: number | null
           expiry_month: number | null
+          expiry_notified_at: string | null
           expiry_year: number | null
           form: Database["public"]["Enums"]["medication_form"] | null
           household_id: string
@@ -899,6 +903,7 @@ export type Database = {
           current_quantity?: number | null
           dose_amount?: number | null
           expiry_month?: number | null
+          expiry_notified_at?: string | null
           expiry_year?: number | null
           form?: Database["public"]["Enums"]["medication_form"] | null
           household_id: string
@@ -917,6 +922,7 @@ export type Database = {
           current_quantity?: number | null
           dose_amount?: number | null
           expiry_month?: number | null
+          expiry_notified_at?: string | null
           expiry_year?: number | null
           form?: Database["public"]["Enums"]["medication_form"] | null
           household_id?: string
