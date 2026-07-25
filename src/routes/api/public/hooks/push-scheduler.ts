@@ -77,9 +77,71 @@ export const Route = createFileRoute("/api/public/hooks/push-scheduler")({
             .eq("id", ev.id);
         }
 
+        // --- Inventory expiry (within 3 days or already expired) ---
+        const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+        const todayStr = now.toISOString().slice(0, 10);
+        const in3Str = in3Days.toISOString().slice(0, 10);
+        const { data: expiringItems } = await supabase
+          .from("inventory_items")
+          .select("id, name, household_id, expiry_date, expiry_notified_at")
+          .not("expiry_date", "is", null)
+          .lte("expiry_date", in3Str)
+          .is("expiry_notified_at", null);
+
+        for (const item of expiringItems ?? []) {
+          const userIds = await resolveUserIds(supabase, item.household_id, null);
+          const expired = item.expiry_date < todayStr;
+          const ok = await sendTo(supabase, userIds, {
+            title: expired ? "Alimento caducado" : "Alimento por caducar",
+            body: expired
+              ? `${item.name} ha caducado (${item.expiry_date})`
+              : `${item.name} caduca el ${item.expiry_date}`,
+            url: "/inventory",
+          });
+          if (ok) sent++;
+          await supabase
+            .from("inventory_items")
+            .update({ expiry_notified_at: new Date().toISOString() })
+            .eq("id", item.id);
+        }
+
+        // --- Medicines expiry (this month or already expired) ---
+        const curYear = now.getFullYear();
+        const curMonth = now.getMonth() + 1;
+        const { data: expiringMeds } = await supabase
+          .from("medicines")
+          .select("id, name, household_id, expiry_month, expiry_year, expiry_notified_at")
+          .not("expiry_year", "is", null)
+          .not("expiry_month", "is", null)
+          .is("expiry_notified_at", null);
+
+        for (const med of expiringMeds ?? []) {
+          // Notify if expiring this month or in the past
+          const isExpiringSoon =
+            med.expiry_year < curYear ||
+            (med.expiry_year === curYear && med.expiry_month <= curMonth);
+          if (!isExpiringSoon) continue;
+          const userIds = await resolveUserIds(supabase, med.household_id, null);
+          const expired =
+            med.expiry_year < curYear ||
+            (med.expiry_year === curYear && med.expiry_month < curMonth);
+          const mm = String(med.expiry_month).padStart(2, "0");
+          const ok = await sendTo(supabase, userIds, {
+            title: expired ? "Medicina caducada" : "Medicina por caducar",
+            body: `${med.name} · ${mm}/${med.expiry_year}`,
+            url: "/medications",
+          });
+          if (ok) sent++;
+          await supabase
+            .from("medicines")
+            .update({ expiry_notified_at: new Date().toISOString() })
+            .eq("id", med.id);
+        }
+
         return new Response(JSON.stringify({ ok: true, sent }), {
           headers: { "content-type": "application/json" },
         });
+
       },
     },
   },
