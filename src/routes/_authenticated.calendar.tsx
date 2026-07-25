@@ -188,44 +188,80 @@ function CalendarPage() {
       <div className="space-y-3">
         <h3 className="font-semibold">Próximos eventos</h3>
         {data.length === 0 && <p className="text-sm text-muted-foreground">No hay eventos programados.</p>}
-        {data.slice(0, 10).map((event) => (
-          <Card key={event.id}>
-            <CardContent className="flex items-center justify-between p-4">
-              <div>
-                <p className="font-medium">{event.title}</p>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  {format(parseISO(event.start_at), "dd/MM/yyyy HH:mm", { locale: es })}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant="secondary"
-                  className={categories.find((c) => c.value === event.category)?.color || "bg-muted"}
-                >
-                  {categories.find((c) => c.value === event.category)?.label || "Otro"}
-                </Badge>
-                <button
-                  onClick={async () => {
-                    const snapshot = { ...event };
-                    await doDelete({ data: { id: event.id } });
-                    refresh();
-                    undoableToast({
-                      message: `Evento "${event.title}" eliminado`,
-                      undo: async () => {
-                        await doRestore({ data: { row: snapshot } });
+        {data.slice(0, 10).map((event) => {
+          const isOwner = event.created_by === currentUserId;
+          const fromGoogle = event.source === "google_calendar";
+          return (
+            <Card key={event.id}>
+              <CardContent className="flex items-center justify-between p-4">
+                <div>
+                  <p className="flex items-center gap-2 font-medium">
+                    {event.title}
+                    {event.is_public ? (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        <Users className="h-3 w-3" /> Hogar
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        <Lock className="h-3 w-3" /> Privado
+                      </Badge>
+                    )}
+                    {fromGoogle && (
+                      <Badge variant="outline" className="text-xs">Google</Badge>
+                    )}
+                  </p>
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {format(parseISO(event.start_at), "dd/MM/yyyy HH:mm", { locale: es })}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="secondary"
+                    className={categories.find((c) => c.value === event.category)?.color || "bg-muted"}
+                  >
+                    {categories.find((c) => c.value === event.category)?.label || "Otro"}
+                  </Badge>
+                  {isOwner && (
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Switch
+                        checked={!!event.is_public}
+                        onCheckedChange={async (checked) => {
+                          try {
+                            await doTogglePublic({ data: { id: event.id, is_public: checked } });
+                            refresh();
+                          } catch (e: any) {
+                            toast.error(e?.message || "Error");
+                          }
+                        }}
+                      />
+                      Compartir
+                    </label>
+                  )}
+                  {isOwner && (
+                    <button
+                      onClick={async () => {
+                        const snapshot = { ...event };
+                        await doDelete({ data: { id: event.id } });
                         refresh();
-                      },
-                    });
-                  }}
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  ×
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                        undoableToast({
+                          message: `Evento "${event.title}" eliminado`,
+                          undo: async () => {
+                            await doRestore({ data: { row: snapshot } });
+                            refresh();
+                          },
+                        });
+                      }}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
