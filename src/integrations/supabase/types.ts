@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_user_connections: {
+        Row: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_key_ciphertext?: string
+          connector_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       appliances: {
         Row: {
           created_at: string
@@ -109,8 +139,11 @@ export type Database = {
           description: string | null
           end_at: string | null
           external_id: string | null
+          google_calendar_id: string | null
+          google_event_etag: string | null
           household_id: string
           id: string
+          is_public: boolean
           notified_at: string | null
           source: string
           start_at: string
@@ -125,8 +158,11 @@ export type Database = {
           description?: string | null
           end_at?: string | null
           external_id?: string | null
+          google_calendar_id?: string | null
+          google_event_etag?: string | null
           household_id: string
           id?: string
+          is_public?: boolean
           notified_at?: string | null
           source?: string
           start_at: string
@@ -141,8 +177,11 @@ export type Database = {
           description?: string | null
           end_at?: string | null
           external_id?: string | null
+          google_calendar_id?: string | null
+          google_event_etag?: string | null
           household_id?: string
           id?: string
+          is_public?: boolean
           notified_at?: string | null
           source?: string
           start_at?: string

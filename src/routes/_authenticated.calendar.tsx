@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Clock, Users, Lock, Settings } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -19,10 +20,12 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listEvents, createEvent, deleteEvent, restoreEvent } from "@/lib/calendar.functions";
+import { listEvents, createEvent, deleteEvent, restoreEvent, togglePublicEvent } from "@/lib/calendar.functions";
+import { getGoogleCalendarStatus } from "@/lib/google-calendar.functions";
 import { undoableToast } from "@/hooks/use-undoable";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const calendarQueryOptions = queryOptions({
   queryKey: ["calendar"],
@@ -54,11 +57,26 @@ function CalendarPage() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("12:00");
   const [category, setCategory] = useState("family");
+  const [isPublic, setIsPublic] = useState(false);
+  const [pushToGoogle, setPushToGoogle] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const doCreate = useServerFn(createEvent);
   const doDelete = useServerFn(deleteEvent);
   const doRestore = useServerFn(restoreEvent);
+  const doTogglePublic = useServerFn(togglePublicEvent);
+  const getGStatus = useServerFn(getGoogleCalendarStatus);
+
+  const { data: gStatus } = useQuery({
+    queryKey: ["google-calendar-status"],
+    queryFn: () => getGStatus(),
+  });
+
+  // Fetch current user id once
+  if (currentUserId === null) {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["calendar"] });
 
@@ -84,10 +102,14 @@ function CalendarPage() {
           title: title.trim(),
           start_at: start,
           category,
+          is_public: isPublic,
+          push_to_google: pushToGoogle && !!gStatus?.connected,
         },
       });
       toast.success("Evento añadido");
       setTitle("");
+      setIsPublic(false);
+      setPushToGoogle(false);
       refresh();
       setOpen(false);
     } catch (err: any) {
@@ -107,6 +129,11 @@ function CalendarPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="icon" asChild title="Google Calendar">
+            <Link to="/settings/google-calendar">
+              <Settings className="h-4 w-4" />
+            </Link>
+          </Button>
           <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
             Hoy
           </Button>
@@ -161,44 +188,80 @@ function CalendarPage() {
       <div className="space-y-3">
         <h3 className="font-semibold">Próximos eventos</h3>
         {data.length === 0 && <p className="text-sm text-muted-foreground">No hay eventos programados.</p>}
-        {data.slice(0, 10).map((event) => (
-          <Card key={event.id}>
-            <CardContent className="flex items-center justify-between p-4">
-              <div>
-                <p className="font-medium">{event.title}</p>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  {format(parseISO(event.start_at), "dd/MM/yyyy HH:mm", { locale: es })}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant="secondary"
-                  className={categories.find((c) => c.value === event.category)?.color || "bg-muted"}
-                >
-                  {categories.find((c) => c.value === event.category)?.label || "Otro"}
-                </Badge>
-                <button
-                  onClick={async () => {
-                    const snapshot = { ...event };
-                    await doDelete({ data: { id: event.id } });
-                    refresh();
-                    undoableToast({
-                      message: `Evento "${event.title}" eliminado`,
-                      undo: async () => {
-                        await doRestore({ data: { row: snapshot } });
+        {data.slice(0, 10).map((event) => {
+          const isOwner = event.created_by === currentUserId;
+          const fromGoogle = event.source === "google_calendar";
+          return (
+            <Card key={event.id}>
+              <CardContent className="flex items-center justify-between p-4">
+                <div>
+                  <p className="flex items-center gap-2 font-medium">
+                    {event.title}
+                    {event.is_public ? (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        <Users className="h-3 w-3" /> Hogar
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        <Lock className="h-3 w-3" /> Privado
+                      </Badge>
+                    )}
+                    {fromGoogle && (
+                      <Badge variant="outline" className="text-xs">Google</Badge>
+                    )}
+                  </p>
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {format(parseISO(event.start_at), "dd/MM/yyyy HH:mm", { locale: es })}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="secondary"
+                    className={categories.find((c) => c.value === event.category)?.color || "bg-muted"}
+                  >
+                    {categories.find((c) => c.value === event.category)?.label || "Otro"}
+                  </Badge>
+                  {isOwner && (
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Switch
+                        checked={!!event.is_public}
+                        onCheckedChange={async (checked) => {
+                          try {
+                            await doTogglePublic({ data: { id: event.id, is_public: checked } });
+                            refresh();
+                          } catch (e: any) {
+                            toast.error(e?.message || "Error");
+                          }
+                        }}
+                      />
+                      Compartir
+                    </label>
+                  )}
+                  {isOwner && (
+                    <button
+                      onClick={async () => {
+                        const snapshot = { ...event };
+                        await doDelete({ data: { id: event.id } });
                         refresh();
-                      },
-                    });
-                  }}
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  ×
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                        undoableToast({
+                          message: `Evento "${event.title}" eliminado`,
+                          undo: async () => {
+                            await doRestore({ data: { row: snapshot } });
+                            refresh();
+                          },
+                        });
+                      }}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -234,6 +297,37 @@ function CalendarPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="space-y-3 rounded-lg border p-3">
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Compartir con el hogar
+                  <span className="text-xs text-muted-foreground">(si no, solo tú lo verás)</span>
+                </span>
+                <Switch checked={isPublic} onCheckedChange={setIsPublic} />
+              </label>
+              <label
+                className={cn(
+                  "flex items-center justify-between gap-3 text-sm",
+                  !gStatus?.connected && "opacity-50",
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  Publicar en Google Calendar
+                  {!gStatus?.connected && (
+                    <Link to="/settings/google-calendar" className="text-xs text-primary underline">
+                      Conectar
+                    </Link>
+                  )}
+                </span>
+                <Switch
+                  checked={pushToGoogle && !!gStatus?.connected}
+                  onCheckedChange={setPushToGoogle}
+                  disabled={!gStatus?.connected}
+                />
+              </label>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={submitting || !title.trim()} className="w-full">
