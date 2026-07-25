@@ -226,6 +226,8 @@ function NotificationsSettingsPage() {
             { id: "events", label: "Eventos del calendario" },
             { id: "budget", label: "Presupuesto excedido" },
             { id: "medications", label: "Tomar medicación" },
+            { id: "food_expiry", label: "Alimentos próximos a caducar" },
+            { id: "medicine_expiry", label: "Medicinas próximas a caducar" },
           ].map((item) => (
             <div key={item.id} className="flex items-center justify-between">
               <Label htmlFor={item.id}>{item.label}</Label>
