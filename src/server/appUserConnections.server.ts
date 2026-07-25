@@ -13,7 +13,7 @@ export async function saveConnectionKeyForUser(
       user_id: userId,
       connector_id: connectorId,
       connection_key_ciphertext: encryptConnectionKey(connectionAPIKey),
-      metadata,
+      metadata: metadata as any,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id,connector_id" },
