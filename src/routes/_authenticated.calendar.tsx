@@ -298,6 +298,37 @@ function CalendarPage() {
                 ))}
               </select>
             </div>
+            <div className="space-y-3 rounded-lg border p-3">
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Compartir con el hogar
+                  <span className="text-xs text-muted-foreground">(si no, solo tú lo verás)</span>
+                </span>
+                <Switch checked={isPublic} onCheckedChange={setIsPublic} />
+              </label>
+              <label
+                className={cn(
+                  "flex items-center justify-between gap-3 text-sm",
+                  !gStatus?.connected && "opacity-50",
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  Publicar en Google Calendar
+                  {!gStatus?.connected && (
+                    <Link to="/settings/google-calendar" className="text-xs text-primary underline">
+                      Conectar
+                    </Link>
+                  )}
+                </span>
+                <Switch
+                  checked={pushToGoogle && !!gStatus?.connected}
+                  onCheckedChange={setPushToGoogle}
+                  disabled={!gStatus?.connected}
+                />
+              </label>
+            </div>
             <DialogFooter>
               <Button type="submit" disabled={submitting || !title.trim()} className="w-full">
                 {submitting ? "Añadiendo..." : "Añadir evento"}
