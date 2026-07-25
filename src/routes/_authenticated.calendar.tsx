@@ -129,6 +129,11 @@ function CalendarPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="icon" asChild title="Google Calendar">
+            <Link to="/settings/google-calendar">
+              <Settings className="h-4 w-4" />
+            </Link>
+          </Button>
           <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
             Hoy
           </Button>
