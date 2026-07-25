@@ -57,11 +57,26 @@ function CalendarPage() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("12:00");
   const [category, setCategory] = useState("family");
+  const [isPublic, setIsPublic] = useState(false);
+  const [pushToGoogle, setPushToGoogle] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const doCreate = useServerFn(createEvent);
   const doDelete = useServerFn(deleteEvent);
   const doRestore = useServerFn(restoreEvent);
+  const doTogglePublic = useServerFn(togglePublicEvent);
+  const getGStatus = useServerFn(getGoogleCalendarStatus);
+
+  const { data: gStatus } = useQuery({
+    queryKey: ["google-calendar-status"],
+    queryFn: () => getGStatus(),
+  });
+
+  // Fetch current user id once
+  if (currentUserId === null) {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["calendar"] });
 
@@ -87,10 +102,14 @@ function CalendarPage() {
           title: title.trim(),
           start_at: start,
           category,
+          is_public: isPublic,
+          push_to_google: pushToGoogle && !!gStatus?.connected,
         },
       });
       toast.success("Evento añadido");
       setTitle("");
+      setIsPublic(false);
+      setPushToGoogle(false);
       refresh();
       setOpen(false);
     } catch (err: any) {
