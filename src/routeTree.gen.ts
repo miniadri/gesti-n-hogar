@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated.tasks'
 import { Route as AuthenticatedMedicationsRouteImport } from './routes/_authenticated.medications'
+import { Route as AuthenticatedLoyaltyRouteImport } from './routes/_authenticated.loyalty'
 import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated.finances'
 import { Route as AuthenticatedDevicesRouteImport } from './routes/_authenticated.devices'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
@@ -71,6 +72,11 @@ const AuthenticatedMedicationsRoute =
     path: '/medications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedLoyaltyRoute = AuthenticatedLoyaltyRouteImport.update({
+  id: '/loyalty',
+  path: '/loyalty',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedFinancesRoute = AuthenticatedFinancesRouteImport.update({
   id: '/finances',
   path: '/finances',
@@ -225,6 +231,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/devices': typeof AuthenticatedDevicesRoute
   '/finances': typeof AuthenticatedFinancesRoute
+  '/loyalty': typeof AuthenticatedLoyaltyRoute
   '/medications': typeof AuthenticatedMedicationsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -257,6 +264,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/devices': typeof AuthenticatedDevicesRoute
   '/finances': typeof AuthenticatedFinancesRoute
+  '/loyalty': typeof AuthenticatedLoyaltyRoute
   '/medications': typeof AuthenticatedMedicationsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -291,6 +299,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/devices': typeof AuthenticatedDevicesRoute
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
+  '/_authenticated/loyalty': typeof AuthenticatedLoyaltyRoute
   '/_authenticated/medications': typeof AuthenticatedMedicationsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -325,6 +334,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/devices'
     | '/finances'
+    | '/loyalty'
     | '/medications'
     | '/tasks'
     | '/auth/callback'
@@ -357,6 +367,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/devices'
     | '/finances'
+    | '/loyalty'
     | '/medications'
     | '/tasks'
     | '/auth/callback'
@@ -390,6 +401,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/devices'
     | '/_authenticated/finances'
+    | '/_authenticated/loyalty'
     | '/_authenticated/medications'
     | '/_authenticated/tasks'
     | '/auth/callback'
@@ -468,6 +480,13 @@ declare module '@tanstack/react-router' {
       path: '/medications'
       fullPath: '/medications'
       preLoaderRoute: typeof AuthenticatedMedicationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/loyalty': {
+      id: '/_authenticated/loyalty'
+      path: '/loyalty'
+      fullPath: '/loyalty'
+      preLoaderRoute: typeof AuthenticatedLoyaltyRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/finances': {
@@ -653,6 +672,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDevicesRoute: typeof AuthenticatedDevicesRoute
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
+  AuthenticatedLoyaltyRoute: typeof AuthenticatedLoyaltyRoute
   AuthenticatedMedicationsRoute: typeof AuthenticatedMedicationsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedInventoryKitchenRoute: typeof AuthenticatedInventoryKitchenRoute
@@ -679,6 +699,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDevicesRoute: AuthenticatedDevicesRoute,
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
+  AuthenticatedLoyaltyRoute: AuthenticatedLoyaltyRoute,
   AuthenticatedMedicationsRoute: AuthenticatedMedicationsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedInventoryKitchenRoute: AuthenticatedInventoryKitchenRoute,

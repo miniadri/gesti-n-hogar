@@ -14,6 +14,7 @@ import {
   Package,
   Zap,
   Pill,
+  CreditCard,
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -41,6 +42,7 @@ function useNavCatalog(): Record<NavKey, NavEntry> {
     finances: { key: "finances", to: "/finances", label: t("nav.finances"), icon: Wallet },
     devices: { key: "devices", to: "/devices", label: t("nav.devices"), icon: Zap },
     medications: { key: "medications", to: "/medications", label: t("nav.medications"), icon: Pill },
+    loyalty: { key: "loyalty", to: "/loyalty", label: t("nav.loyalty"), icon: CreditCard },
   };
 }
 

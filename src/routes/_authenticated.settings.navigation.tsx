@@ -33,6 +33,7 @@ function NavigationSettingsPage() {
       finances: t("nav.finances"),
       devices: t("nav.devices"),
       medications: t("nav.medications"),
+      loyalty: t("nav.loyalty"),
     };
     return map[key];
   };

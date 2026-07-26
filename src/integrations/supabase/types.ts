@@ -666,6 +666,51 @@ export type Database = {
           },
         ]
       }
+      loyalty_cards: {
+        Row: {
+          back_image_url: string | null
+          barcode: string | null
+          barcode_format: string | null
+          card_number: string | null
+          color: string | null
+          created_at: string
+          front_image_url: string | null
+          id: string
+          merchant: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          back_image_url?: string | null
+          barcode?: string | null
+          barcode_format?: string | null
+          card_number?: string | null
+          color?: string | null
+          created_at?: string
+          front_image_url?: string | null
+          id?: string
+          merchant: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          back_image_url?: string | null
+          barcode?: string | null
+          barcode_format?: string | null
+          card_number?: string | null
+          color?: string | null
+          created_at?: string
+          front_image_url?: string | null
+          id?: string
+          merchant?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       meal_plan_days: {
         Row: {
           breakfast_recipe_id: string | null

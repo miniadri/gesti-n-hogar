@@ -62,6 +62,7 @@ export const es = {
     appliances: "Electrodomésticos",
     settings: "Ajustes",
     medications: "Medicación",
+    loyalty: "Tarjetas",
   },
   realtime: {
     live: "En vivo",
