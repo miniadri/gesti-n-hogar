@@ -577,6 +577,18 @@ function CardDialog({
               rows={2}
             />
           </div>
+
+          <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="shared" className="flex items-center gap-2">
+                <Users className="h-4 w-4" /> Compartir con el hogar
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Los miembros de tu hogar podrán ver y usar esta tarjeta, pero no editarla ni borrarla.
+              </p>
+            </div>
+            <Switch id="shared" checked={isShared} onCheckedChange={setIsShared} />
+          </div>
         </div>
 
         <DialogFooter>
