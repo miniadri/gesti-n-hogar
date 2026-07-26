@@ -35,13 +35,39 @@ function GoogleCalendarSettings() {
   const saveConn = useServerFn(saveGoogleCalendarConnection);
   const doDisconnect = useServerFn(disconnectGoogleCalendar);
   const doSync = useServerFn(syncGoogleCalendarImport);
+  const getHours = useServerFn(getGoogleSyncHours);
+  const saveHours = useServerFn(setGoogleSyncHours);
 
   const { data: status } = useQuery({
     queryKey: ["google-calendar-status"],
     queryFn: () => getStatus(),
   });
 
-  const [busy, setBusy] = useState<"connect" | "sync" | "disconnect" | null>(null);
+  const { data: hoursData } = useQuery({
+    queryKey: ["google-sync-hours"],
+    queryFn: () => getHours(),
+    enabled: !!status?.connected,
+  });
+
+  const [selectedHours, setSelectedHours] = useState<number[] | null>(null);
+  const hours = selectedHours ?? hoursData?.hours ?? [6, 15];
+
+  const toggleHour = (h: number) => {
+    const base = selectedHours ?? hoursData?.hours ?? [6, 15];
+    const next = base.includes(h) ? base.filter((x) => x !== h) : [...base, h].sort((a, b) => a - b);
+    setSelectedHours(next);
+  };
+
+  const handleSaveHours = async () => {
+    try {
+      const r = await saveHours({ data: { hours } });
+      setSelectedHours(null);
+      qc.setQueryData(["google-sync-hours"], { hours: r.hours });
+      toast.success("Horario de sincronización guardado");
+    } catch (e: any) {
+      toast.error(e?.message || "Error al guardar");
+    }
+  };
 
   const handleConnect = async () => {
     setBusy("connect");
