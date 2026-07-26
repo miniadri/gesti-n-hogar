@@ -259,6 +259,7 @@ function LoyaltyPage() {
 
       <ViewCardDialog
         card={viewing}
+        isOwner={!!(viewing && currentUserId && viewing.user_id === currentUserId)}
         onClose={() => setViewing(null)}
         onEdit={(c) => {
           setViewing(null);
