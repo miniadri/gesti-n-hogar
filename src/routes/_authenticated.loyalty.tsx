@@ -549,13 +549,20 @@ function CardDialog({
 
           <div className="space-y-1">
             <Label htmlFor="merchant">Comercio *</Label>
-            <Input
-              id="merchant"
+            <MerchantPicker
               value={merchant}
-              onChange={(e) => setMerchant(e.target.value)}
-              placeholder="Ej: Carrefour, Decathlon..."
+              onPick={(m) => {
+                setMerchant(m.name);
+                setColor(m.color);
+                if (!barcode) setFormat(m.defaultBarcodeFormat);
+              }}
+              onFreeText={setMerchant}
             />
+            <p className="text-xs text-muted-foreground">
+              Busca en el catálogo o escribe libremente si no aparece.
+            </p>
           </div>
+
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
