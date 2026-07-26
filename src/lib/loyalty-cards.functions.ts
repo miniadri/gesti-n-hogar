@@ -20,11 +20,14 @@ const CardInput = z.object({
 export const listLoyaltyCards = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const { data: householdId } = await context.supabase.rpc("current_household");
+    const query = context.supabase
       .from("loyalty_cards")
       .select("*")
-      .eq("user_id", context.userId)
       .order("merchant", { ascending: true });
+    const { data, error } = householdId
+      ? await query.or(`user_id.eq.${context.userId},and(is_shared.eq.true,household_id.eq.${householdId})`)
+      : await query.eq("user_id", context.userId);
     if (error) throw error;
     return data ?? [];
   });
@@ -33,6 +36,7 @@ export const upsertLoyaltyCard = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => CardInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { data: householdId } = await context.supabase.rpc("current_household");
     const payload = {
       user_id: context.userId,
       merchant: data.merchant,
@@ -43,6 +47,8 @@ export const upsertLoyaltyCard = createServerFn({ method: "POST" })
       color: data.color ?? null,
       front_image_url: data.front_image_url ?? null,
       back_image_url: data.back_image_url ?? null,
+      is_shared: data.is_shared ?? false,
+      household_id: householdId ?? null,
     };
     if (data.id) {
       const { data: row, error } = await context.supabase
