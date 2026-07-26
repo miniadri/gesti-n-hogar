@@ -62,6 +62,7 @@ export const Route = createFileRoute("/_authenticated/loyalty")({
 
 type LoyaltyCard = {
   id: string;
+  user_id: string;
   merchant: string;
   card_number: string | null;
   barcode: string | null;
@@ -70,6 +71,8 @@ type LoyaltyCard = {
   color: string | null;
   front_image_url: string | null;
   back_image_url: string | null;
+  is_shared?: boolean | null;
+  household_id?: string | null;
 };
 
 const BARCODE_FORMATS = [
