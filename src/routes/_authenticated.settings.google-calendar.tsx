@@ -50,6 +50,7 @@ function GoogleCalendarSettings() {
   });
 
   const [selectedHours, setSelectedHours] = useState<number[] | null>(null);
+  const [busy, setBusy] = useState<"connect" | "sync" | "disconnect" | null>(null);
   const hours = selectedHours ?? hoursData?.hours ?? [6, 15];
 
   const toggleHour = (h: number) => {
