@@ -230,9 +230,12 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section>
-        <h2 className="text-2xl font-bold tracking-tight">Buenos días</h2>
-        <p className="text-muted-foreground">Resumen de tu hogar hoy</p>
+      <section className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Buenos días</h2>
+          <p className="text-muted-foreground">Resumen de tu hogar hoy</p>
+        </div>
+        <SosButton variant="compact" />
       </section>
 
       {prepAhead.length > 0 && (
