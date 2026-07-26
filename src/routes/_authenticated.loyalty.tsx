@@ -312,6 +312,8 @@ function LoyaltyPage() {
           handleDelete(c);
         }}
       />
+
+      <SuggestMerchantDialog open={suggestOpen} onOpenChange={setSuggestOpen} />
     </div>
   );
 }
