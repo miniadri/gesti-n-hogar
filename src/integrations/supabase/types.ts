@@ -1144,6 +1144,7 @@ export type Database = {
           id: string
           preferred_currency: string
           preferred_language: string
+          timezone: string | null
           updated_at: string
         }
         Insert: {
@@ -1154,6 +1155,7 @@ export type Database = {
           id: string
           preferred_currency?: string
           preferred_language?: string
+          timezone?: string | null
           updated_at?: string
         }
         Update: {
@@ -1164,6 +1166,7 @@ export type Database = {
           id?: string
           preferred_currency?: string
           preferred_language?: string
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: []

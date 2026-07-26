@@ -139,7 +139,7 @@ export const Route = createFileRoute("/api/public/hooks/google-calendar-sync")({
         return new Response(
           JSON.stringify({
             ok: true,
-            hour: currentHour,
+            hour: getLocalHour("UTC"),
             usersProcessed,
             usersSkipped,
             totalInserted,
