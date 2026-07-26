@@ -440,6 +440,7 @@ function CardDialog({
           notes: notes.trim() || null,
           color,
           front_image_url: frontUrl,
+          is_shared: isShared,
         },
       });
       toast.success(editing ? "Tarjeta actualizada" : "Tarjeta añadida");
