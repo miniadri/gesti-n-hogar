@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { useState } from "react";
-import { Plus, Calendar as CalendarIcon, Clock, Users, Lock, Settings } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO } from "date-fns";
+import { useState, useEffect } from "react";
+import { Plus, Calendar as CalendarIcon, Clock, Users, Lock, Settings, ChevronLeft, ChevronRight, Palette } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO, addMonths, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
@@ -40,13 +40,36 @@ export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
 });
 
+const DEFAULT_CATEGORY_COLORS: Record<string, string> = {
+  family: "#3b82f6",
+  medical: "#ef4444",
+  school: "#f59e0b",
+  work: "#8b5cf6",
+  birthday: "#ec4899",
+  other: "#64748b",
+};
+
 const categories = [
-  { value: "family", label: "Familiar", color: "bg-chart-1" },
-  { value: "medical", label: "Médico", color: "bg-chart-4" },
-  { value: "school", label: "Escuela", color: "bg-chart-2" },
-  { value: "work", label: "Trabajo", color: "bg-chart-5" },
-  { value: "other", label: "Otro", color: "bg-muted" },
+  { value: "family", label: "Familiar" },
+  { value: "medical", label: "Médico" },
+  { value: "school", label: "Escuela" },
+  { value: "work", label: "Trabajo" },
+  { value: "birthday", label: "Cumpleaños" },
+  { value: "other", label: "Otro" },
 ];
+
+const COLOR_STORAGE_KEY = "homesync.calendar.categoryColors";
+const PALETTE = ["#3b82f6","#ef4444","#f59e0b","#10b981","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b","#0ea5e9","#a855f7","#eab308"];
+
+function loadColors(): Record<string, string> {
+  if (typeof window === "undefined") return DEFAULT_CATEGORY_COLORS;
+  try {
+    const raw = window.localStorage.getItem(COLOR_STORAGE_KEY);
+    return { ...DEFAULT_CATEGORY_COLORS, ...(raw ? JSON.parse(raw) : {}) };
+  } catch {
+    return DEFAULT_CATEGORY_COLORS;
+  }
+}
 
 function CalendarPage() {
   const queryClient = useQueryClient();
@@ -61,6 +84,16 @@ function CalendarPage() {
   const [pushToGoogle, setPushToGoogle] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [colors, setColors] = useState<Record<string, string>>(() => loadColors());
+  const [colorsOpen, setColorsOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COLOR_STORAGE_KEY, JSON.stringify(colors));
+    } catch {}
+  }, [colors]);
+
+  const colorFor = (value?: string | null) => colors[value ?? "other"] ?? colors.other;
 
   const doCreate = useServerFn(createEvent);
   const doDelete = useServerFn(deleteEvent);
@@ -128,20 +161,39 @@ function CalendarPage() {
             {format(currentDate, "MMMM yyyy", { locale: es })}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="icon" onClick={() => setCurrentDate((d) => subMonths(d, 1))} title="Mes anterior">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => setCurrentDate((d) => addMonths(d, 1))} title="Mes siguiente">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
+            Hoy
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => setColorsOpen(true)} title="Colores de categorías">
+            <Palette className="h-4 w-4" />
+          </Button>
           <Button variant="outline" size="icon" asChild title="Google Calendar">
             <Link to="/settings/google-calendar">
               <Settings className="h-4 w-4" />
             </Link>
-          </Button>
-          <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
-            Hoy
           </Button>
           <Button onClick={() => setOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Evento
           </Button>
         </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        {categories.map((c) => (
+          <div key={c.value} className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-full ring-1 ring-border" style={{ background: colorFor(c.value) }} />
+            <span className="text-muted-foreground">{c.label}</span>
+          </div>
+        ))}
       </div>
 
       <Card>
@@ -167,16 +219,18 @@ function CalendarPage() {
                   <span className={cn("font-medium", isToday(day) && "text-primary")}>
                     {format(day, "d")}
                   </span>
-                  <div className="mt-1 flex flex-wrap gap-0.5">
-                    {dayEvents.slice(0, 3).map((event) => (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {dayEvents.slice(0, 4).map((event) => (
                       <div
                         key={event.id}
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          categories.find((c) => c.value === event.category)?.color || "bg-muted",
-                        )}
+                        title={event.title}
+                        className="h-2.5 w-2.5 rounded-full ring-1 ring-background shadow-sm"
+                        style={{ background: colorFor(event.category) }}
                       />
                     ))}
+                    {dayEvents.length > 4 && (
+                      <span className="text-[10px] text-muted-foreground">+{dayEvents.length - 4}</span>
+                    )}
                   </div>
                 </div>
               );
@@ -218,7 +272,8 @@ function CalendarPage() {
                 <div className="flex items-center gap-2">
                   <Badge
                     variant="secondary"
-                    className={categories.find((c) => c.value === event.category)?.color || "bg-muted"}
+                    className="border-transparent text-white"
+                    style={{ background: colorFor(event.category) }}
                   >
                     {categories.find((c) => c.value === event.category)?.label || "Otro"}
                   </Badge>
@@ -335,6 +390,53 @@ function CalendarPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={colorsOpen} onOpenChange={setColorsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Colores de categorías</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {categories.map((c) => (
+              <div key={c.value} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <span className="inline-block h-4 w-4 rounded-full ring-1 ring-border" style={{ background: colorFor(c.value) }} />
+                    {c.label}
+                  </div>
+                  <input
+                    type="color"
+                    value={colorFor(c.value)}
+                    onChange={(e) => setColors((prev) => ({ ...prev, [c.value]: e.target.value }))}
+                    className="h-8 w-12 cursor-pointer rounded border bg-transparent"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {PALETTE.map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => setColors((prev) => ({ ...prev, [c.value]: hex }))}
+                      className={cn(
+                        "h-6 w-6 rounded-full ring-1 ring-border transition-transform hover:scale-110",
+                        colorFor(c.value).toLowerCase() === hex.toLowerCase() && "ring-2 ring-primary",
+                      )}
+                      style={{ background: hex }}
+                      aria-label={hex}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setColors(DEFAULT_CATEGORY_COLORS)}>
+              Restablecer
+            </Button>
+            <Button onClick={() => setColorsOpen(false)}>Listo</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
