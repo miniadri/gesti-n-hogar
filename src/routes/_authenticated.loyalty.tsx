@@ -379,6 +379,7 @@ function CardDialog({
       setNotes(editing.notes ?? "");
       setColor(editing.color || CARD_COLORS[0]);
       setFrontUrl(editing.front_image_url);
+      setIsShared(!!editing.is_shared);
     } else {
       setMerchant("");
       setCardNumber("");
@@ -387,6 +388,7 @@ function CardDialog({
       setNotes("");
       setColor(CARD_COLORS[Math.floor(Math.random() * CARD_COLORS.length)]);
       setFrontUrl(null);
+      setIsShared(false);
     }
   }, [open, editing]);
 
