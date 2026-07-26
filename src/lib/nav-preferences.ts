@@ -9,7 +9,8 @@ export type NavKey =
   | "recipes"
   | "finances"
   | "devices"
-  | "medications";
+  | "medications"
+  | "loyalty";
 
 export const DEFAULT_NAV_ORDER: NavKey[] = [
   "dashboard",
@@ -21,6 +22,7 @@ export const DEFAULT_NAV_ORDER: NavKey[] = [
   "finances",
   "devices",
   "medications",
+  "loyalty",
 ];
 
 export interface NavPreferences {
