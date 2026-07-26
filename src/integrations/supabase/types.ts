@@ -298,6 +298,47 @@ export type Database = {
           },
         ]
       }
+      emergency_contacts: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          telegram_chat_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          telegram_chat_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          telegram_chat_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emergency_contacts_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_categories: {
         Row: {
           color: string | null
@@ -496,6 +537,7 @@ export type Database = {
           household_id: string
           id: string
           is_child: boolean
+          is_emergency_contact: boolean
           user_id: string | null
         }
         Insert: {
@@ -505,6 +547,7 @@ export type Database = {
           household_id: string
           id?: string
           is_child?: boolean
+          is_emergency_contact?: boolean
           user_id?: string | null
         }
         Update: {
@@ -514,6 +557,7 @@ export type Database = {
           household_id?: string
           id?: string
           is_child?: boolean
+          is_emergency_contact?: boolean
           user_id?: string | null
         }
         Relationships: [
@@ -748,6 +792,7 @@ export type Database = {
         Row: {
           confirmed_by: string | null
           created_at: string
+          escalated_at: string | null
           id: string
           last_reminder_sent_at: string | null
           medication_id: string
@@ -761,6 +806,7 @@ export type Database = {
         Insert: {
           confirmed_by?: string | null
           created_at?: string
+          escalated_at?: string | null
           id?: string
           last_reminder_sent_at?: string | null
           medication_id: string
@@ -774,6 +820,7 @@ export type Database = {
         Update: {
           confirmed_by?: string | null
           created_at?: string
+          escalated_at?: string | null
           id?: string
           last_reminder_sent_at?: string | null
           medication_id?: string
@@ -851,6 +898,7 @@ export type Database = {
           created_by: string
           current_quantity: number | null
           dose_amount: number
+          escalation_after_minutes: number | null
           form: Database["public"]["Enums"]["medication_form"]
           household_id: string
           id: string
@@ -869,6 +917,7 @@ export type Database = {
           created_by: string
           current_quantity?: number | null
           dose_amount?: number
+          escalation_after_minutes?: number | null
           form?: Database["public"]["Enums"]["medication_form"]
           household_id: string
           id?: string
@@ -887,6 +936,7 @@ export type Database = {
           created_by?: string
           current_quantity?: number | null
           dose_amount?: number
+          escalation_after_minutes?: number | null
           form?: Database["public"]["Enums"]["medication_form"]
           household_id?: string
           id?: string
@@ -1636,6 +1686,50 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sos_events: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          latitude: number | null
+          location_accuracy: number | null
+          longitude: number | null
+          note: string | null
+          triggered_by: string | null
+          triggered_by_name: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          latitude?: number | null
+          location_accuracy?: number | null
+          longitude?: number | null
+          note?: string | null
+          triggered_by?: string | null
+          triggered_by_name: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          latitude?: number | null
+          location_accuracy?: number | null
+          longitude?: number | null
+          note?: string | null
+          triggered_by?: string | null
+          triggered_by_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sos_events_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
             referencedColumns: ["id"]
           },
         ]

@@ -36,6 +36,7 @@ import { listMedications, recordIntake, snoozeIntake } from "@/lib/medications.f
 import { listDevices, updateDevice } from "@/lib/devices.functions";
 import { callHomeAssistantService } from "@/lib/home-assistant.functions";
 import { cn } from "@/lib/utils";
+import { SosButton } from "@/components/SosButton";
 
 
 const MONTHLY_BUDGET = 1000;
@@ -229,9 +230,12 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section>
-        <h2 className="text-2xl font-bold tracking-tight">Buenos días</h2>
-        <p className="text-muted-foreground">Resumen de tu hogar hoy</p>
+      <section className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Buenos días</h2>
+          <p className="text-muted-foreground">Resumen de tu hogar hoy</p>
+        </div>
+        <SosButton variant="compact" />
       </section>
 
       {prepAhead.length > 0 && (
@@ -296,9 +300,12 @@ function DashboardPage() {
               <Pill className="h-4 w-4 text-primary" />
               Próxima toma
             </CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/medications">Ver medicación</Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <SosButton variant="compact" />
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/medications">Ver medicación</Link>
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-2">
             {nextIntakes.map((intake: any) => {
