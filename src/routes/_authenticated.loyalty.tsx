@@ -213,7 +213,17 @@ function LoyaltyPage() {
                     <span className="text-lg font-semibold leading-tight drop-shadow-sm">
                       {c.merchant}
                     </span>
-                    <CreditCard className="h-5 w-5 opacity-80" />
+                    <div className="flex items-center gap-1">
+                      {c.is_shared && (
+                        <span
+                          title="Compartida con el hogar"
+                          className="flex items-center gap-1 rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-medium backdrop-blur"
+                        >
+                          <Users className="h-3 w-3" /> Hogar
+                        </span>
+                      )}
+                      <CreditCard className="h-5 w-5 opacity-80" />
+                    </div>
                   </div>
                   <div>
                     {c.card_number && (
@@ -223,6 +233,11 @@ function LoyaltyPage() {
                     )}
                     {c.barcode && !c.card_number && (
                       <p className="truncate font-mono text-xs opacity-80">{c.barcode}</p>
+                    )}
+                    {currentUserId && c.user_id !== currentUserId && (
+                      <p className="mt-1 text-[10px] uppercase tracking-wide opacity-75">
+                        Compartida por otro miembro
+                      </p>
                     )}
                   </div>
                 </div>
