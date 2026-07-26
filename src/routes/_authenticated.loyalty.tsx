@@ -276,11 +276,13 @@ function LoyaltyPage() {
 
 function ViewCardDialog({
   card,
+  isOwner,
   onClose,
   onEdit,
   onDelete,
 }: {
   card: LoyaltyCard | null;
+  isOwner: boolean;
   onClose: () => void;
   onEdit: (c: LoyaltyCard) => void;
   onDelete: (c: LoyaltyCard) => void;
@@ -291,7 +293,14 @@ function ViewCardDialog({
         {card && (
           <>
             <DialogHeader>
-              <DialogTitle>{card.merchant}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                {card.merchant}
+                {card.is_shared && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                    <Users className="h-3 w-3" /> Hogar
+                  </span>
+                )}
+              </DialogTitle>
               {card.card_number && (
                 <DialogDescription className="font-mono">{card.card_number}</DialogDescription>
               )}
@@ -311,14 +320,21 @@ function ViewCardDialog({
             {card.notes && (
               <p className="whitespace-pre-wrap text-sm text-muted-foreground">{card.notes}</p>
             )}
-            <DialogFooter className="flex flex-row justify-between gap-2 sm:justify-between">
-              <Button variant="destructive" size="sm" onClick={() => onDelete(card)}>
-                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => onEdit(card)}>
-                <Pencil className="mr-2 h-4 w-4" /> Editar
-              </Button>
-            </DialogFooter>
+            {!isOwner && (
+              <p className="text-xs text-muted-foreground">
+                Esta tarjeta la ha compartido otro miembro del hogar. Solo su propietario puede editarla o borrarla.
+              </p>
+            )}
+            {isOwner && (
+              <DialogFooter className="flex flex-row justify-between gap-2 sm:justify-between">
+                <Button variant="destructive" size="sm" onClick={() => onDelete(card)}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => onEdit(card)}>
+                  <Pencil className="mr-2 h-4 w-4" /> Editar
+                </Button>
+              </DialogFooter>
+            )}
           </>
         )}
       </DialogContent>
