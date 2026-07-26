@@ -6,8 +6,20 @@ import {
   extractEndISO,
 } from "@/lib/google-calendar.server";
 
+function getLocalHour(tz: string): number {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz,
+    hour: "numeric",
+    hour12: false,
+  }).formatToParts(now);
+  const hourPart = parts.find((p) => p.type === "hour");
+  return hourPart ? parseInt(hourPart.value, 10) : now.getUTCHours();
+}
+
 // Runs hourly via pg_cron. For every user whose profile.google_sync_hours
-// contains the current UTC hour, import Google Calendar events into HomeSync.
+// contains the current LOCAL hour (in their stored timezone), import Google
+// Calendar events into HomeSync.
 export const Route = createFileRoute("/api/public/hooks/google-calendar-sync")({
   server: {
     handlers: {
@@ -24,11 +36,9 @@ export const Route = createFileRoute("/api/public/hooks/google-calendar-sync")({
           { auth: { persistSession: false, autoRefreshToken: false } },
         );
 
-        const currentHour = new Date().getUTCHours();
-
         const { data: profiles, error } = await supabase
           .from("profiles")
-          .select("id, google_sync_hours");
+          .select("id, google_sync_hours, timezone");
         if (error) {
           return new Response(JSON.stringify({ ok: false, error: error.message }), {
             status: 500,
@@ -36,9 +46,14 @@ export const Route = createFileRoute("/api/public/hooks/google-calendar-sync")({
           });
         }
 
-        const targets = (profiles ?? []).filter((p: any) =>
-          Array.isArray(p.google_sync_hours) && p.google_sync_hours.includes(currentHour),
-        );
+        const targets = (profiles ?? []).filter((p: any) => {
+          if (!Array.isArray(p.google_sync_hours) || p.google_sync_hours.length === 0) {
+            return false;
+          }
+          const tz = p.timezone || "UTC";
+          const localHour = getLocalHour(tz);
+          return p.google_sync_hours.includes(localHour);
+        });
 
         let usersProcessed = 0;
         let usersSkipped = 0;
@@ -124,7 +139,7 @@ export const Route = createFileRoute("/api/public/hooks/google-calendar-sync")({
         return new Response(
           JSON.stringify({
             ok: true,
-            hour: currentHour,
+            hour: getLocalHour("UTC"),
             usersProcessed,
             usersSkipped,
             totalInserted,
