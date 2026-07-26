@@ -343,6 +343,10 @@ function MedicationsPage() {
             ))
           )}
         </TabsContent>
+
+        <TabsContent value="emergency" className="space-y-4">
+          <EmergencyPanel members={members} />
+        </TabsContent>
       </Tabs>
 
       <MedicationDialog
