@@ -363,6 +363,7 @@ function CardDialog({
   const [notes, setNotes] = useState("");
   const [color, setColor] = useState<string>(CARD_COLORS[0]);
   const [frontUrl, setFrontUrl] = useState<string | null>(null);
+  const [isShared, setIsShared] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
