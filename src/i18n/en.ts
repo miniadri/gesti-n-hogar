@@ -64,6 +64,7 @@ export const en: Dict = {
     appliances: "Appliances",
     settings: "Settings",
     medications: "Medication",
+    loyalty: "Cards",
   },
   realtime: {
     live: "Live",
