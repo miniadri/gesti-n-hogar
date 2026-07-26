@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { useState } from "react";
-import { Plus, Calendar as CalendarIcon, Clock, Users, Lock, Settings } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO } from "date-fns";
+import { useState, useEffect } from "react";
+import { Plus, Calendar as CalendarIcon, Clock, Users, Lock, Settings, ChevronLeft, ChevronRight, Palette } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO, addMonths, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
@@ -40,13 +40,36 @@ export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
 });
 
+const DEFAULT_CATEGORY_COLORS: Record<string, string> = {
+  family: "#3b82f6",
+  medical: "#ef4444",
+  school: "#f59e0b",
+  work: "#8b5cf6",
+  birthday: "#ec4899",
+  other: "#64748b",
+};
+
 const categories = [
-  { value: "family", label: "Familiar", color: "bg-chart-1" },
-  { value: "medical", label: "Médico", color: "bg-chart-4" },
-  { value: "school", label: "Escuela", color: "bg-chart-2" },
-  { value: "work", label: "Trabajo", color: "bg-chart-5" },
-  { value: "other", label: "Otro", color: "bg-muted" },
+  { value: "family", label: "Familiar" },
+  { value: "medical", label: "Médico" },
+  { value: "school", label: "Escuela" },
+  { value: "work", label: "Trabajo" },
+  { value: "birthday", label: "Cumpleaños" },
+  { value: "other", label: "Otro" },
 ];
+
+const COLOR_STORAGE_KEY = "homesync.calendar.categoryColors";
+const PALETTE = ["#3b82f6","#ef4444","#f59e0b","#10b981","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b","#0ea5e9","#a855f7","#eab308"];
+
+function loadColors(): Record<string, string> {
+  if (typeof window === "undefined") return DEFAULT_CATEGORY_COLORS;
+  try {
+    const raw = window.localStorage.getItem(COLOR_STORAGE_KEY);
+    return { ...DEFAULT_CATEGORY_COLORS, ...(raw ? JSON.parse(raw) : {}) };
+  } catch {
+    return DEFAULT_CATEGORY_COLORS;
+  }
+}
 
 function CalendarPage() {
   const queryClient = useQueryClient();
