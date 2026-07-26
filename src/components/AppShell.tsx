@@ -14,7 +14,7 @@ import {
   Package,
   Zap,
   Pill,
-} from "lucide-react";
+  CreditCard,
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
