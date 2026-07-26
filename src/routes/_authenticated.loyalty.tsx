@@ -106,6 +106,11 @@ function LoyaltyPage() {
     queryFn: () => doList(),
   });
 
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }, []);
+
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<LoyaltyCard | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
