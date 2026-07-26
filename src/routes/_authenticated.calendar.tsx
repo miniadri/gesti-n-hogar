@@ -392,6 +392,53 @@ function CalendarPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={colorsOpen} onOpenChange={setColorsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Colores de categorías</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {categories.map((c) => (
+              <div key={c.value} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <span className="inline-block h-4 w-4 rounded-full ring-1 ring-border" style={{ background: colorFor(c.value) }} />
+                    {c.label}
+                  </div>
+                  <input
+                    type="color"
+                    value={colorFor(c.value)}
+                    onChange={(e) => setColors((prev) => ({ ...prev, [c.value]: e.target.value }))}
+                    className="h-8 w-12 cursor-pointer rounded border bg-transparent"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {PALETTE.map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => setColors((prev) => ({ ...prev, [c.value]: hex }))}
+                      className={cn(
+                        "h-6 w-6 rounded-full ring-1 ring-border transition-transform hover:scale-110",
+                        colorFor(c.value).toLowerCase() === hex.toLowerCase() && "ring-2 ring-primary",
+                      )}
+                      style={{ background: hex }}
+                      aria-label={hex}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setColors(DEFAULT_CATEGORY_COLORS)}>
+              Restablecer
+            </Button>
+            <Button onClick={() => setColorsOpen(false)}>Listo</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
