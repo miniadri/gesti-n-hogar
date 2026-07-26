@@ -84,6 +84,16 @@ function CalendarPage() {
   const [pushToGoogle, setPushToGoogle] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [colors, setColors] = useState<Record<string, string>>(() => loadColors());
+  const [colorsOpen, setColorsOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COLOR_STORAGE_KEY, JSON.stringify(colors));
+    } catch {}
+  }, [colors]);
+
+  const colorFor = (value?: string | null) => colors[value ?? "other"] ?? colors.other;
 
   const doCreate = useServerFn(createEvent);
   const doDelete = useServerFn(deleteEvent);
