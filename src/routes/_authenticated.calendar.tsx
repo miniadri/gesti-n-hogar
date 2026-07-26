@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Plus, Calendar as CalendarIcon, Clock, Users, Lock, Settings, ChevronLeft, ChevronRight, Palette } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Clock, Users, Lock, Settings, ChevronLeft, ChevronRight, Palette, Pencil } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO, addMonths, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 
