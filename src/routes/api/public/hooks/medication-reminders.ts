@@ -37,6 +37,7 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
         }
 
         const results = [];
+        const escalated = [];
         for (const intake of intakes ?? []) {
           const med = intake.medications;
           if (!med?.reminders_enabled) continue;
@@ -44,8 +45,7 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
           const lastSent = intake.last_reminder_sent_at ? new Date(intake.last_reminder_sent_at).getTime() : 0;
           const minutesSinceLast = (Date.now() - lastSent) / 60000;
           const reminderInterval = 5;
-
-          if (intake.reminder_count > 0 && minutesSinceLast < reminderInterval) continue;
+          const shouldRemind = intake.reminder_count === 0 || minutesSinceLast >= reminderInterval;
 
           const memberName = med?.household_members?.display_name || "familiar";
           const title = `💊 Toca medicación: ${med?.name}`;
@@ -60,44 +60,105 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
             .eq("household_id", householdId);
           const userIds = (members ?? []).map((m: any) => m.user_id).filter(Boolean);
 
-          await sendPushToUsers(supabase, userIds, title, body, "/medications");
-
-          const { data: profiles } = await supabase
-            .from("telegram_profiles")
-            .select("chat_id")
-            .in("user_id", userIds);
-
-          for (const profile of profiles ?? []) {
-            if (profile.chat_id) {
-              await sendTelegramMessage(
-                profile.chat_id,
-                `${title}\n${body}`,
-                {
-                  inline_keyboard: [
-                    [
-                      { text: "✅ Tomada", callback_data: `intake:taken:${intake.id}` },
-                      { text: "⏰ +10 min", callback_data: `intake:snooze:${intake.id}` },
-                      { text: "⏭️ Omitir", callback_data: `intake:skipped:${intake.id}` },
+          if (shouldRemind) {
+            await sendPushToUsers(supabase, userIds, title, body, "/medications");
+            const { data: profiles } = await supabase
+              .from("telegram_profiles")
+              .select("chat_id")
+              .in("user_id", userIds);
+            for (const profile of profiles ?? []) {
+              if (profile.chat_id) {
+                await sendTelegramMessage(
+                  profile.chat_id,
+                  `${title}\n${body}`,
+                  {
+                    inline_keyboard: [
+                      [
+                        { text: "✅ Tomada", callback_data: `intake:taken:${intake.id}` },
+                        { text: "⏰ +10 min", callback_data: `intake:snooze:${intake.id}` },
+                        { text: "⏭️ Omitir", callback_data: `intake:skipped:${intake.id}` },
+                      ],
+                      [{ text: "📱 Abrir HomeSync", url: openUrl }],
                     ],
-                    [{ text: "📱 Abrir HomeSync", url: openUrl }],
-                  ],
-                },
-              );
+                  },
+                );
+              }
             }
+            await supabase
+              .from("medication_intakes")
+              .update({
+                reminder_count: (intake.reminder_count ?? 0) + 1,
+                last_reminder_sent_at: new Date().toISOString(),
+              })
+              .eq("id", intake.id);
+            results.push(intake.id);
           }
 
-          await supabase
-            .from("medication_intakes")
-            .update({
-              reminder_count: (intake.reminder_count ?? 0) + 1,
-              last_reminder_sent_at: new Date().toISOString(),
-            })
-            .eq("id", intake.id);
+          // Escalation: notify adults + emergency contacts after N minutes past due.
+          const escalateAfter = med?.escalation_after_minutes;
+          const minutesLate = (Date.now() - new Date(intake.scheduled_for).getTime()) / 60000;
+          if (
+            !intake.escalated_at &&
+            escalateAfter != null &&
+            escalateAfter > 0 &&
+            minutesLate >= escalateAfter
+          ) {
+            const escTitle = `🚨 Toma retrasada: ${med?.name}`;
+            const escBody = `${memberName} lleva ${Math.round(minutesLate)} min sin tomar ${med?.name} (${med?.dose_amount} ${med?.unit}).`;
 
-          results.push(intake.id);
+            // Household adults marked as emergency contact (fallback: all adults),
+            // excluding the patient themselves so it actually escalates.
+            const { data: adults } = await supabase
+              .from("household_members")
+              .select("user_id, is_emergency_contact")
+              .eq("household_id", householdId)
+              .eq("is_child", false)
+              .not("user_id", "is", null);
+            const rows = (adults ?? []) as any[];
+            const flagged = rows.filter((r) => r.is_emergency_contact).map((r) => r.user_id);
+            const patientUserId = (
+              await supabase
+                .from("household_members")
+                .select("user_id")
+                .eq("id", med.member_id)
+                .maybeSingle()
+            ).data?.user_id;
+            const targetIds = (flagged.length ? flagged : rows.map((r) => r.user_id)).filter(
+              (id: string) => id && id !== patientUserId,
+            );
+
+            if (targetIds.length) {
+              await sendPushToUsers(supabase, targetIds, escTitle, escBody, "/medications");
+              const { data: escProfiles } = await supabase
+                .from("telegram_profiles")
+                .select("chat_id")
+                .in("user_id", targetIds);
+              for (const p of escProfiles ?? []) {
+                if (p.chat_id) await sendTelegramMessage(p.chat_id, `${escTitle}\n${escBody}`);
+              }
+            }
+
+            // External emergency contacts (Telegram chat IDs saved by the household).
+            const { data: externals } = await supabase
+              .from("emergency_contacts")
+              .select("telegram_chat_id")
+              .eq("household_id", householdId)
+              .not("telegram_chat_id", "is", null);
+            for (const ex of externals ?? []) {
+              if (ex.telegram_chat_id) {
+                await sendTelegramMessage(ex.telegram_chat_id, `${escTitle}\n${escBody}`);
+              }
+            }
+
+            await supabase
+              .from("medication_intakes")
+              .update({ escalated_at: new Date().toISOString() })
+              .eq("id", intake.id);
+            escalated.push(intake.id);
+          }
         }
 
-        return Response.json({ success: true, reminded: results.length });
+        return Response.json({ success: true, reminded: results.length, escalated: escalated.length });
       },
     },
   },
