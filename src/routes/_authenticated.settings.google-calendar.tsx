@@ -170,6 +170,52 @@ function GoogleCalendarSettings() {
         </CardContent>
       </Card>
 
+      {status?.connected && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" /> Sincronización automática
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Elige las horas del día (UTC) en las que HomeSync importará automáticamente los
+              eventos de tu Google Calendar. Por defecto: <strong>06:00</strong> y{" "}
+              <strong>15:00</strong>.
+            </p>
+            <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 md:grid-cols-12">
+              {Array.from({ length: 24 }, (_, h) => {
+                const active = hours.includes(h);
+                return (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => toggleHour(h)}
+                    className={`rounded-md border px-2 py-1.5 text-sm font-medium transition-colors ${
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background hover:bg-accent"
+                    }`}
+                  >
+                    {String(h).padStart(2, "0")}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Seleccionadas: {hours.length === 0 ? "ninguna (desactivado)" : hours.map((h) => `${String(h).padStart(2, "0")}:00`).join(", ")}
+              </p>
+              <Button size="sm" onClick={handleSaveHours} disabled={selectedHours === null}>
+                Guardar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
+
       <Card>
         <CardHeader>
           <CardTitle>Cómo funciona</CardTitle>
