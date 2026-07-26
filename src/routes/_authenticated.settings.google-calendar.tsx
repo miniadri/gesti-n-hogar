@@ -49,6 +49,8 @@ function GoogleCalendarSettings() {
     enabled: !!status?.connected,
   });
 
+  const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const savedTz = hoursData?.timezone;
   const [selectedHours, setSelectedHours] = useState<number[] | null>(null);
   const [busy, setBusy] = useState<"connect" | "sync" | "disconnect" | null>(null);
   const hours = selectedHours ?? hoursData?.hours ?? [6, 15];
@@ -61,9 +63,10 @@ function GoogleCalendarSettings() {
 
   const handleSaveHours = async () => {
     try {
-      const r = await saveHours({ data: { hours } });
+      const tz = savedTz || browserTz || "UTC";
+      const r = await saveHours({ data: { hours, timezone: tz } });
       setSelectedHours(null);
-      qc.setQueryData(["google-sync-hours"], { hours: r.hours });
+      qc.setQueryData(["google-sync-hours"], { hours: r.hours, timezone: r.timezone });
       toast.success("Horario de sincronización guardado");
     } catch (e: any) {
       toast.error(e?.message || "Error al guardar");
@@ -179,10 +182,17 @@ function GoogleCalendarSettings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Elige las horas del día (UTC) en las que HomeSync importará automáticamente los
-              eventos de tu Google Calendar. Por defecto: <strong>06:00</strong> y{" "}
-              <strong>15:00</strong>.
+              Elige las horas <strong>locales</strong> de tu dispositivo en las que HomeSync
+              importará automáticamente los eventos de tu Google Calendar. Por defecto:{" "}
+              <strong>06:00</strong> y <strong>15:00</strong>.
             </p>
+            <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Zona horaria detectada:</span>
+              <span>{savedTz || browserTz || "UTC"}</span>
+              {savedTz && savedTz !== browserTz && (
+                <span className="text-amber-600">(este dispositivo: {browserTz})</span>
+              )}
+            </div>
             <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 md:grid-cols-12">
               {Array.from({ length: 24 }, (_, h) => {
                 const active = hours.includes(h);
