@@ -302,6 +302,22 @@ function CalendarPage() {
                   )}
                   {isOwner && (
                     <button
+                      onClick={() => {
+                        const d = parseISO(event.start_at);
+                        setEditingEvent(event);
+                        setEditTitle(event.title);
+                        setEditDate(format(d, "yyyy-MM-dd"));
+                        setEditTime(format(d, "HH:mm"));
+                        setEditCategory(event.category ?? "other");
+                      }}
+                      className="text-muted-foreground hover:text-primary"
+                      title="Editar"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  )}
+                  {isOwner && (
+                    <button
                       onClick={async () => {
                         const snapshot = { ...event };
                         await doDelete({ data: { id: event.id } });
