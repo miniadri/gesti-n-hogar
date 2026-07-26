@@ -462,6 +462,77 @@ function CalendarPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!editingEvent} onOpenChange={(o) => !o && setEditingEvent(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar evento</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!editingEvent || !editTitle.trim() || !editDate) return;
+              setEditSubmitting(true);
+              try {
+                const start = new Date(`${editDate}T${editTime}`).toISOString();
+                await doUpdate({
+                  data: {
+                    id: editingEvent.id,
+                    title: editTitle.trim(),
+                    start_at: start,
+                    category: editCategory,
+                  },
+                });
+                toast.success("Evento actualizado");
+                setEditingEvent(null);
+                refresh();
+              } catch (err: any) {
+                toast.error(err.message || "Error al actualizar");
+              } finally {
+                setEditSubmitting(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label>Título</Label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Fecha</Label>
+                <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Hora</Label>
+                <Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Categoría</Label>
+              <select
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2"
+              >
+                {categories.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingEvent(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={editSubmitting || !editTitle.trim()}>
+                {editSubmitting ? "Guardando..." : "Guardar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
