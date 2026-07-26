@@ -1140,6 +1140,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           full_name: string | null
+          google_sync_hours: number[]
           id: string
           preferred_currency: string
           preferred_language: string
@@ -1149,6 +1150,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           full_name?: string | null
+          google_sync_hours?: number[]
           id: string
           preferred_currency?: string
           preferred_language?: string
@@ -1158,6 +1160,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           full_name?: string | null
+          google_sync_hours?: number[]
           id?: string
           preferred_currency?: string
           preferred_language?: string

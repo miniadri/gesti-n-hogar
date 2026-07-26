@@ -39,6 +39,7 @@ import { Route as AuthenticatedInventoryKitchenRouteImport } from './routes/_aut
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicHooksPushSchedulerRouteImport } from './routes/api/public/hooks/push-scheduler'
 import { Route as ApiPublicHooksMedicationRemindersRouteImport } from './routes/api/public/hooks/medication-reminders'
+import { Route as ApiPublicHooksGoogleCalendarSyncRouteImport } from './routes/api/public/hooks/google-calendar-sync'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -210,6 +211,12 @@ const ApiPublicHooksMedicationRemindersRoute =
     path: '/api/public/hooks/medication-reminders',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksGoogleCalendarSyncRoute =
+  ApiPublicHooksGoogleCalendarSyncRouteImport.update({
+    id: '/api/public/hooks/google-calendar-sync',
+    path: '/api/public/hooks/google-calendar-sync',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -238,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/recipes/': typeof AuthenticatedRecipesIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/shopping/': typeof AuthenticatedShoppingIndexRoute
+  '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -269,6 +277,7 @@ export interface FileRoutesByTo {
   '/recipes': typeof AuthenticatedRecipesIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/shopping': typeof AuthenticatedShoppingIndexRoute
+  '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -302,6 +311,7 @@ export interface FileRoutesById {
   '/_authenticated/recipes/': typeof AuthenticatedRecipesIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/shopping/': typeof AuthenticatedShoppingIndexRoute
+  '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -335,6 +345,7 @@ export interface FileRouteTypes {
     | '/recipes/'
     | '/settings/'
     | '/shopping/'
+    | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/push-scheduler'
     | '/api/public/telegram/webhook'
@@ -366,6 +377,7 @@ export interface FileRouteTypes {
     | '/recipes'
     | '/settings'
     | '/shopping'
+    | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/push-scheduler'
     | '/api/public/telegram/webhook'
@@ -398,6 +410,7 @@ export interface FileRouteTypes {
     | '/_authenticated/recipes/'
     | '/_authenticated/settings/'
     | '/_authenticated/shopping/'
+    | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/push-scheduler'
     | '/api/public/telegram/webhook'
@@ -407,6 +420,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  ApiPublicHooksGoogleCalendarSyncRoute: typeof ApiPublicHooksGoogleCalendarSyncRoute
   ApiPublicHooksMedicationRemindersRoute: typeof ApiPublicHooksMedicationRemindersRoute
   ApiPublicHooksPushSchedulerRoute: typeof ApiPublicHooksPushSchedulerRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
@@ -624,6 +638,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksMedicationRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/google-calendar-sync': {
+      id: '/api/public/hooks/google-calendar-sync'
+      path: '/api/public/hooks/google-calendar-sync'
+      fullPath: '/api/public/hooks/google-calendar-sync'
+      preLoaderRoute: typeof ApiPublicHooksGoogleCalendarSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -701,6 +722,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  ApiPublicHooksGoogleCalendarSyncRoute: ApiPublicHooksGoogleCalendarSyncRoute,
   ApiPublicHooksMedicationRemindersRoute:
     ApiPublicHooksMedicationRemindersRoute,
   ApiPublicHooksPushSchedulerRoute: ApiPublicHooksPushSchedulerRoute,
@@ -709,13 +731,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

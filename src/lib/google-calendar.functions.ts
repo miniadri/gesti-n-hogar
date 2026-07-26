@@ -161,3 +161,34 @@ export const syncGoogleCalendarImport = createServerFn({ method: "POST" })
 
     return { inserted, updated, skipped, total: events.length };
   });
+
+// -------- Sync hours preferences --------
+export const getGoogleSyncHours = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase
+      .from("profiles")
+      .select("google_sync_hours")
+      .eq("id", context.userId)
+      .maybeSingle();
+    return { hours: (data?.google_sync_hours as number[] | null) ?? [6, 15] };
+  });
+
+export const setGoogleSyncHours = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { hours: number[] }) =>
+    z
+      .object({
+        hours: z.array(z.number().int().min(0).max(23)).max(24),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const unique = Array.from(new Set(data.hours)).sort((a, b) => a - b);
+    const { error } = await context.supabase
+      .from("profiles")
+      .update({ google_sync_hours: unique })
+      .eq("id", context.userId);
+    if (error) throw new Error(error.message);
+    return { hours: unique };
+  });
