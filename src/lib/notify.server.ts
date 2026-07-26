@@ -80,6 +80,83 @@ export async function resolveHouseholdUserIds(
   return (data ?? []).map((r: any) => r.user_id).filter(Boolean);
 }
 
+/**
+ * Adults in the household (excludes child profiles). If `emergencyOnly` is
+ * true, further restricts to members flagged as emergency contacts; when no
+ * member is flagged, falls back to all adults so escalations still reach someone.
+ */
+export async function resolveHouseholdEscalationUserIds(
+  supabase: any,
+  householdId: string,
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("household_members")
+    .select("user_id, is_child, is_emergency_contact")
+    .eq("household_id", householdId)
+    .eq("is_child", false)
+    .not("user_id", "is", null);
+  const rows = (data ?? []) as any[];
+  const flagged = rows.filter((r) => r.is_emergency_contact).map((r) => r.user_id);
+  const all = rows.map((r) => r.user_id);
+  return (flagged.length ? flagged : all).filter(Boolean);
+}
+
+export async function sendTelegramToChatIds(
+  chatIds: string[],
+  text: string,
+  replyMarkup?: unknown,
+) {
+  const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
+  const TELEGRAM_API_KEY = process.env.TELEGRAM_API_KEY;
+  if (!LOVABLE_API_KEY || !TELEGRAM_API_KEY) return;
+  for (const chat_id of chatIds) {
+    if (!chat_id) continue;
+    const body: Record<string, unknown> = { chat_id, text, parse_mode: "HTML" };
+    if (replyMarkup) body.reply_markup = replyMarkup;
+    try {
+      const res = await fetch(`${GATEWAY}/sendMessage`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "X-Connection-Api-Key": TELEGRAM_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) console.error("Telegram send failed", await res.text());
+    } catch (err) {
+      console.error("Telegram send error", err);
+    }
+  }
+}
+
+export async function sendSosAlert(
+  supabase: any,
+  householdId: string,
+  info: { name: string; userId: string; latitude: number | null; longitude: number | null; note: string | null },
+) {
+  const userIds = (await resolveHouseholdEscalationUserIds(supabase, householdId)).filter(
+    (id) => id !== info.userId,
+  );
+  const mapsLink =
+    info.latitude != null && info.longitude != null
+      ? `https://maps.google.com/?q=${info.latitude},${info.longitude}`
+      : null;
+  const title = "🚨 SOS activado";
+  const body = `${info.name} ha pulsado el botón SOS.${info.note ? `\nNota: ${info.note}` : ""}${
+    mapsLink ? `\nUbicación: ${mapsLink}` : ""
+  }`;
+  await sendPushToUsers(supabase, userIds, { title, body, url: "/medications" });
+  await sendTelegramToUsers(supabase, userIds, `<b>${title}</b>\n${body}`);
+  const { data: externals } = await supabase
+    .from("emergency_contacts")
+    .select("telegram_chat_id")
+    .eq("household_id", householdId)
+    .not("telegram_chat_id", "is", null);
+  const chatIds = (externals ?? []).map((e: any) => e.telegram_chat_id).filter(Boolean);
+  await sendTelegramToChatIds(chatIds, `<b>${title}</b>\n${body}`);
+}
+
 export async function addMedicationToShoppingList(
   supabase: any,
   householdId: string,
