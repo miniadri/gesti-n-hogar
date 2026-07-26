@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
-import { Plus, Calendar as CalendarIcon, Clock, Users, Lock, Settings, ChevronLeft, ChevronRight, Palette, Pencil } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO, addMonths, subMonths } from "date-fns";
+import { useState, useEffect, useMemo } from "react";
+import { Plus, Calendar as CalendarIcon, Clock, Users, Lock, Settings, ChevronLeft, ChevronRight, Palette, Pencil, Trash2 } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO, addMonths, subMonths, subDays } from "date-fns";
 import { es } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
@@ -40,35 +40,50 @@ export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
 });
 
-const DEFAULT_CATEGORY_COLORS: Record<string, string> = {
-  family: "#3b82f6",
-  medical: "#ef4444",
-  school: "#f59e0b",
-  work: "#8b5cf6",
-  birthday: "#ec4899",
-  other: "#64748b",
-};
+type Category = { value: string; label: string; color: string };
 
-const categories = [
-  { value: "family", label: "Familiar" },
-  { value: "medical", label: "Médico" },
-  { value: "school", label: "Escuela" },
-  { value: "work", label: "Trabajo" },
-  { value: "birthday", label: "Cumpleaños" },
-  { value: "other", label: "Otro" },
+const DEFAULT_CATEGORIES: Category[] = [
+  { value: "family", label: "Familiar", color: "#3b82f6" },
+  { value: "medical", label: "Médico", color: "#ef4444" },
+  { value: "school", label: "Escuela", color: "#f59e0b" },
+  { value: "work", label: "Trabajo", color: "#8b5cf6" },
+  { value: "birthday", label: "Cumpleaños", color: "#ec4899" },
+  { value: "other", label: "Otro", color: "#64748b" },
 ];
 
-const COLOR_STORAGE_KEY = "homesync.calendar.categoryColors";
+const CATEGORIES_STORAGE_KEY = "homesync.calendar.categories";
+const COLOR_STORAGE_KEY = "homesync.calendar.categoryColors"; // legacy
+const PAST_EVENTS_DAYS = 7;
 const PALETTE = ["#3b82f6","#ef4444","#f59e0b","#10b981","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b","#0ea5e9","#a855f7","#eab308"];
 
-function loadColors(): Record<string, string> {
-  if (typeof window === "undefined") return DEFAULT_CATEGORY_COLORS;
+function loadCategories(): Category[] {
+  if (typeof window === "undefined") return DEFAULT_CATEGORIES;
   try {
-    const raw = window.localStorage.getItem(COLOR_STORAGE_KEY);
-    return { ...DEFAULT_CATEGORY_COLORS, ...(raw ? JSON.parse(raw) : {}) };
+    const raw = window.localStorage.getItem(CATEGORIES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    }
+    // Migrate legacy color-only map
+    const legacy = window.localStorage.getItem(COLOR_STORAGE_KEY);
+    if (legacy) {
+      const map = JSON.parse(legacy) as Record<string, string>;
+      return DEFAULT_CATEGORIES.map((c) => ({ ...c, color: map[c.value] ?? c.color }));
+    }
+    return DEFAULT_CATEGORIES;
   } catch {
-    return DEFAULT_CATEGORY_COLORS;
+    return DEFAULT_CATEGORIES;
   }
+}
+
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 32) || `cat_${Date.now()}`;
 }
 
 function CalendarPage() {
@@ -84,8 +99,9 @@ function CalendarPage() {
   const [pushToGoogle, setPushToGoogle] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [colors, setColors] = useState<Record<string, string>>(() => loadColors());
+  const [categoriesList, setCategoriesList] = useState<Category[]>(() => loadCategories());
   const [colorsOpen, setColorsOpen] = useState(false);
+  const [newCatLabel, setNewCatLabel] = useState("");
   const [editingEvent, setEditingEvent] = useState<any | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDate, setEditDate] = useState("");
@@ -95,11 +111,40 @@ function CalendarPage() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(COLOR_STORAGE_KEY, JSON.stringify(colors));
+      window.localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categoriesList));
     } catch {}
-  }, [colors]);
+  }, [categoriesList]);
 
-  const colorFor = (value?: string | null) => colors[value ?? "other"] ?? colors.other;
+  const catMap = useMemo(() => {
+    const m = new Map<string, Category>();
+    for (const c of categoriesList) m.set(c.value, c);
+    return m;
+  }, [categoriesList]);
+
+  const colorFor = (value?: string | null) =>
+    catMap.get(value ?? "other")?.color ?? catMap.get("other")?.color ?? "#64748b";
+  const labelFor = (value?: string | null) =>
+    catMap.get(value ?? "other")?.label ?? "Otro";
+
+  const updateCategory = (value: string, patch: Partial<Category>) =>
+    setCategoriesList((prev) => prev.map((c) => (c.value === value ? { ...c, ...patch } : c)));
+
+  const addCategory = () => {
+    const label = newCatLabel.trim();
+    if (!label) return;
+    let value = slugify(label);
+    if (catMap.has(value)) value = `${value}_${Date.now().toString(36).slice(-4)}`;
+    setCategoriesList((prev) => [...prev, { value, label, color: PALETTE[prev.length % PALETTE.length] }]);
+    setNewCatLabel("");
+  };
+
+  const removeCategory = (value: string) => {
+    if (value === "other") {
+      toast.error("La categoría 'Otro' no se puede eliminar");
+      return;
+    }
+    setCategoriesList((prev) => prev.filter((c) => c.value !== value));
+  };
 
   const doCreate = useServerFn(createEvent);
   const doUpdate = useServerFn(updateEvent);
@@ -113,7 +158,6 @@ function CalendarPage() {
     queryFn: () => getGStatus(),
   });
 
-  // Fetch current user id once
   if (currentUserId === null) {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
   }
@@ -130,6 +174,12 @@ function CalendarPage() {
     if (!eventsByDay.has(day)) eventsByDay.set(day, []);
     eventsByDay.get(day)!.push(event);
   }
+
+  // Upcoming: future events + past ones within last 7 days
+  const cutoff = subDays(new Date(), PAST_EVENTS_DAYS);
+  const upcoming = [...data]
+    .filter((e) => parseISO(e.start_at) >= cutoff)
+    .sort((a, b) => parseISO(a.start_at).getTime() - parseISO(b.start_at).getTime());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +228,7 @@ function CalendarPage() {
           <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
             Hoy
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setColorsOpen(true)} title="Colores de categorías">
+          <Button variant="outline" size="icon" onClick={() => setColorsOpen(true)} title="Categorías">
             <Palette className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="icon" asChild title="Google Calendar">
@@ -195,12 +245,20 @@ function CalendarPage() {
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-3 text-xs">
-        {categories.map((c) => (
+        {categoriesList.map((c) => (
           <div key={c.value} className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-full ring-1 ring-border" style={{ background: colorFor(c.value) }} />
+            <span className="inline-block h-3 w-3 rounded-full ring-1 ring-border" style={{ background: c.color }} />
             <span className="text-muted-foreground">{c.label}</span>
           </div>
         ))}
+        <div className="ml-2 flex items-center gap-3 border-l pl-3">
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <Users className="h-3 w-3" /> Compartido
+          </span>
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <Lock className="h-3 w-3" /> Privado
+          </span>
+        </div>
       </div>
 
       <Card>
@@ -230,10 +288,14 @@ function CalendarPage() {
                     {dayEvents.slice(0, 4).map((event) => (
                       <div
                         key={event.id}
-                        title={event.title}
-                        className="h-2.5 w-2.5 rounded-full ring-1 ring-background shadow-sm"
+                        title={`${event.title}${event.is_public ? " (compartido)" : " (privado)"}`}
+                        className="flex h-4 w-4 items-center justify-center rounded-full ring-1 ring-background shadow-sm"
                         style={{ background: colorFor(event.category) }}
-                      />
+                      >
+                        {event.is_public && (
+                          <Users className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                        )}
+                      </div>
                     ))}
                     {dayEvents.length > 4 && (
                       <span className="text-[10px] text-muted-foreground">+{dayEvents.length - 4}</span>
@@ -247,9 +309,14 @@ function CalendarPage() {
       </Card>
 
       <div className="space-y-3">
-        <h3 className="font-semibold">Próximos eventos</h3>
-        {data.length === 0 && <p className="text-sm text-muted-foreground">No hay eventos programados.</p>}
-        {data.slice(0, 10).map((event) => {
+        <div className="flex items-baseline justify-between">
+          <h3 className="font-semibold">Próximos eventos</h3>
+          <span className="text-xs text-muted-foreground">
+            Se muestran eventos pasados hasta {PAST_EVENTS_DAYS} días atrás
+          </span>
+        </div>
+        {upcoming.length === 0 && <p className="text-sm text-muted-foreground">No hay eventos programados.</p>}
+        {upcoming.slice(0, 10).map((event) => {
           const isOwner = event.created_by === currentUserId;
           const fromGoogle = event.source === "google_calendar";
           return (
@@ -282,7 +349,7 @@ function CalendarPage() {
                     className="border-transparent text-white"
                     style={{ background: colorFor(event.category) }}
                   >
-                    {categories.find((c) => c.value === event.category)?.label || "Otro"}
+                    {labelFor(event.category)}
                   </Badge>
                   {isOwner && (
                     <label className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -369,7 +436,7 @@ function CalendarPage() {
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2"
               >
-                {categories.map((c) => (
+                {categoriesList.map((c) => (
                   <option key={c.value} value={c.value}>
                     {c.label}
                   </option>
@@ -419,32 +486,43 @@ function CalendarPage() {
       <Dialog open={colorsOpen} onOpenChange={setColorsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Colores de categorías</DialogTitle>
+            <DialogTitle>Categorías</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {categories.map((c) => (
-              <div key={c.value} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <span className="inline-block h-4 w-4 rounded-full ring-1 ring-border" style={{ background: colorFor(c.value) }} />
-                    {c.label}
-                  </div>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+            {categoriesList.map((c) => (
+              <div key={c.value} className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-4 w-4 shrink-0 rounded-full ring-1 ring-border" style={{ background: c.color }} />
+                  <Input
+                    value={c.label}
+                    onChange={(e) => updateCategory(c.value, { label: e.target.value })}
+                    className="h-8"
+                  />
                   <input
                     type="color"
-                    value={colorFor(c.value)}
-                    onChange={(e) => setColors((prev) => ({ ...prev, [c.value]: e.target.value }))}
-                    className="h-8 w-12 cursor-pointer rounded border bg-transparent"
+                    value={c.color}
+                    onChange={(e) => updateCategory(c.value, { color: e.target.value })}
+                    className="h-8 w-10 shrink-0 cursor-pointer rounded border bg-transparent"
                   />
+                  <button
+                    type="button"
+                    onClick={() => removeCategory(c.value)}
+                    disabled={c.value === "other"}
+                    className="text-muted-foreground hover:text-destructive disabled:opacity-30"
+                    title={c.value === "other" ? "No se puede eliminar" : "Eliminar categoría"}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {PALETTE.map((hex) => (
                     <button
                       key={hex}
                       type="button"
-                      onClick={() => setColors((prev) => ({ ...prev, [c.value]: hex }))}
+                      onClick={() => updateCategory(c.value, { color: hex })}
                       className={cn(
-                        "h-6 w-6 rounded-full ring-1 ring-border transition-transform hover:scale-110",
-                        colorFor(c.value).toLowerCase() === hex.toLowerCase() && "ring-2 ring-primary",
+                        "h-5 w-5 rounded-full ring-1 ring-border transition-transform hover:scale-110",
+                        c.color.toLowerCase() === hex.toLowerCase() && "ring-2 ring-primary",
                       )}
                       style={{ background: hex }}
                       aria-label={hex}
@@ -453,9 +531,26 @@ function CalendarPage() {
                 </div>
               </div>
             ))}
+            <div className="flex items-center gap-2 rounded-lg border border-dashed p-3">
+              <Input
+                placeholder="Nueva categoría (ej. Deporte)"
+                value={newCatLabel}
+                onChange={(e) => setNewCatLabel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCategory();
+                  }
+                }}
+                className="h-8"
+              />
+              <Button size="sm" onClick={addCategory} disabled={!newCatLabel.trim()}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setColors(DEFAULT_CATEGORY_COLORS)}>
+            <Button variant="outline" onClick={() => setCategoriesList(DEFAULT_CATEGORIES)}>
               Restablecer
             </Button>
             <Button onClick={() => setColorsOpen(false)}>Listo</Button>
@@ -515,7 +610,7 @@ function CalendarPage() {
                 onChange={(e) => setEditCategory(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2"
               >
-                {categories.map((c) => (
+                {categoriesList.map((c) => (
                   <option key={c.value} value={c.value}>
                     {c.label}
                   </option>
