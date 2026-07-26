@@ -161,20 +161,39 @@ function CalendarPage() {
             {format(currentDate, "MMMM yyyy", { locale: es })}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="icon" onClick={() => setCurrentDate((d) => subMonths(d, 1))} title="Mes anterior">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => setCurrentDate((d) => addMonths(d, 1))} title="Mes siguiente">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
+            Hoy
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => setColorsOpen(true)} title="Colores de categorías">
+            <Palette className="h-4 w-4" />
+          </Button>
           <Button variant="outline" size="icon" asChild title="Google Calendar">
             <Link to="/settings/google-calendar">
               <Settings className="h-4 w-4" />
             </Link>
-          </Button>
-          <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
-            Hoy
           </Button>
           <Button onClick={() => setOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Evento
           </Button>
         </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        {categories.map((c) => (
+          <div key={c.value} className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-full ring-1 ring-border" style={{ background: colorFor(c.value) }} />
+            <span className="text-muted-foreground">{c.label}</span>
+          </div>
+        ))}
       </div>
 
       <Card>
