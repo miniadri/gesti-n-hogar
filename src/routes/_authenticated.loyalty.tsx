@@ -14,6 +14,12 @@ import {
   Search,
   ShieldAlert,
   Users,
+  Check,
+  ChevronsUpDown,
+  Lightbulb,
+  ImagePlus,
+  HardDrive,
+  X,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
@@ -37,6 +43,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listLoyaltyCards,
@@ -44,7 +60,24 @@ import {
   deleteLoyaltyCard,
   scanLoyaltyCard,
 } from "@/lib/loyalty-cards.functions";
+import { submitMerchantSuggestion } from "@/lib/merchants.functions";
 import { BarcodeDisplay } from "@/components/BarcodeDisplay";
+import merchantsCatalog from "@/data/merchants.es.json";
+import {
+  saveLocalImage,
+  getLocalImageURL,
+  deleteLocalImages,
+} from "@/lib/local-images";
+
+type CatalogMerchant = {
+  id: string;
+  name: string;
+  aliases?: string[];
+  color: string;
+  defaultBarcodeFormat: string;
+  category: string;
+};
+const CATALOG = merchantsCatalog as CatalogMerchant[];
 
 export const Route = createFileRoute("/_authenticated/loyalty")({
   head: () => ({
@@ -132,10 +165,13 @@ function LoyaltyPage() {
     setDialogOpen(true);
   };
 
+  const [suggestOpen, setSuggestOpen] = useState(false);
+
   const handleDelete = async (c: LoyaltyCard) => {
     if (!confirm(`¿Eliminar la tarjeta de ${c.merchant}?`)) return;
     try {
       await doDelete({ data: { id: c.id } });
+      await deleteLocalImages(c.id).catch(() => {});
       qc.invalidateQueries({ queryKey: ["loyalty-cards"] });
       toast.success("Tarjeta eliminada");
     } catch (e: any) {
@@ -154,10 +190,16 @@ function LoyaltyPage() {
             Guarda tus tarjetas de socio y puntos. Privadas para ti.
           </p>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" /> Nueva tarjeta
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setSuggestOpen(true)}>
+            <Lightbulb className="mr-2 h-4 w-4" /> Sugerir comercio
+          </Button>
+          <Button onClick={openNew}>
+            <Plus className="mr-2 h-4 w-4" /> Nueva tarjeta
+          </Button>
+        </div>
       </div>
+
 
       <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -270,6 +312,8 @@ function LoyaltyPage() {
           handleDelete(c);
         }}
       />
+
+      <SuggestMerchantDialog open={suggestOpen} onOpenChange={setSuggestOpen} />
     </div>
   );
 }
@@ -368,6 +412,36 @@ function CardDialog({
   const [saving, setSaving] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const localFrontRef = useRef<HTMLInputElement>(null);
+  const localBackRef = useRef<HTMLInputElement>(null);
+  const [localFront, setLocalFront] = useState<string | null>(null);
+  const [localBack, setLocalBack] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !editing?.id) {
+      setLocalFront(null);
+      setLocalBack(null);
+      return;
+    }
+    getLocalImageURL(editing.id, "front").then(setLocalFront).catch(() => {});
+    getLocalImageURL(editing.id, "back").then(setLocalBack).catch(() => {});
+  }, [open, editing?.id]);
+
+  const handleLocalSave = async (side: "front" | "back", file: File) => {
+    if (!editing?.id) {
+      toast.error("Guarda primero la tarjeta y podrás añadir fotos locales.");
+      return;
+    }
+    try {
+      await saveLocalImage(editing.id, side, file);
+      const url = await getLocalImageURL(editing.id, side);
+      if (side === "front") setLocalFront(url);
+      else setLocalBack(url);
+      toast.success("Foto guardada solo en este dispositivo");
+    } catch (e: any) {
+      toast.error(e.message || "No se pudo guardar la foto");
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -505,13 +579,20 @@ function CardDialog({
 
           <div className="space-y-1">
             <Label htmlFor="merchant">Comercio *</Label>
-            <Input
-              id="merchant"
+            <MerchantPicker
               value={merchant}
-              onChange={(e) => setMerchant(e.target.value)}
-              placeholder="Ej: Carrefour, Decathlon..."
+              onPick={(m) => {
+                setMerchant(m.name);
+                setColor(m.color);
+                if (!barcode) setFormat(m.defaultBarcodeFormat);
+              }}
+              onFreeText={setMerchant}
             />
+            <p className="text-xs text-muted-foreground">
+              Busca en el catálogo o escribe libremente si no aparece.
+            </p>
           </div>
+
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
@@ -589,7 +670,68 @@ function CardDialog({
             </div>
             <Switch id="shared" checked={isShared} onCheckedChange={setIsShared} />
           </div>
+
+          <div className="space-y-2 rounded-md border p-3">
+            <div className="flex items-start gap-2">
+              <HardDrive className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="flex-1 space-y-1">
+                <Label className="flex items-center gap-2">Fotos locales</Label>
+                <p className="text-xs text-muted-foreground">
+                  Se guardan <strong>solo en este dispositivo</strong> (sin coste de almacenamiento).
+                  Si limpias los datos del navegador o desinstalas la app, se perderán.
+                </p>
+              </div>
+            </div>
+            <input
+              ref={localFrontRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleLocalSave("front", e.target.files[0])}
+            />
+            <input
+              ref={localBackRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleLocalSave("back", e.target.files[0])}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => localFrontRef.current?.click()}
+                className="group relative flex aspect-video items-center justify-center overflow-hidden rounded border border-dashed bg-muted/40 text-xs text-muted-foreground hover:bg-muted"
+              >
+                {localFront ? (
+                  <img src={localFront} alt="Anverso" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="flex flex-col items-center gap-1">
+                    <ImagePlus className="h-5 w-5" /> Anverso
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => localBackRef.current?.click()}
+                className="group relative flex aspect-video items-center justify-center overflow-hidden rounded border border-dashed bg-muted/40 text-xs text-muted-foreground hover:bg-muted"
+              >
+                {localBack ? (
+                  <img src={localBack} alt="Reverso" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="flex flex-col items-center gap-1">
+                    <ImagePlus className="h-5 w-5" /> Reverso
+                  </span>
+                )}
+              </button>
+            </div>
+            {!editing?.id && (
+              <p className="text-xs text-muted-foreground">
+                Guarda primero la tarjeta para poder añadir fotos locales.
+              </p>
+            )}
+          </div>
         </div>
+
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -598,6 +740,174 @@ function CardDialog({
           <Button onClick={handleSave} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Guardar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MerchantPicker({
+  value,
+  onPick,
+  onFreeText,
+}: {
+  value: string;
+  onPick: (m: CatalogMerchant) => void;
+  onFreeText: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const matched = useMemo(
+    () => CATALOG.find((m) => m.name.toLowerCase() === value.trim().toLowerCase()),
+    [value],
+  );
+  return (
+    <div className="flex gap-2">
+      <Input
+        id="merchant"
+        value={value}
+        onChange={(e) => onFreeText(e.target.value)}
+        placeholder="Ej: Carrefour, Decathlon..."
+        className="flex-1"
+      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="shrink-0 px-3"
+            title="Catálogo"
+          >
+            {matched ? (
+              <span
+                className="mr-2 h-3 w-3 rounded-full"
+                style={{ backgroundColor: matched.color }}
+                aria-hidden
+              />
+            ) : null}
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[280px] p-0" align="end">
+          <Command>
+            <CommandInput placeholder="Buscar comercio..." />
+            <CommandList>
+              <CommandEmpty>
+                No está en el catálogo. Escríbelo a mano o sugiérelo.
+              </CommandEmpty>
+              <CommandGroup>
+                {CATALOG.map((m) => (
+                  <CommandItem
+                    key={m.id}
+                    value={`${m.name} ${(m.aliases ?? []).join(" ")}`}
+                    onSelect={() => {
+                      onPick(m);
+                      setOpen(false);
+                    }}
+                  >
+                    <span
+                      className="mr-2 h-3 w-3 rounded-full"
+                      style={{ backgroundColor: m.color }}
+                    />
+                    <span className="flex-1">{m.name}</span>
+                    <Check
+                      className={cn(
+                        "h-4 w-4",
+                        matched?.id === m.id ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function SuggestMerchantDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
+  const doSuggest = useServerFn(submitMerchantSuggestion);
+  const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setName("");
+      setNotes("");
+    }
+  }, [open]);
+
+  const submit = async () => {
+    if (name.trim().length < 2) {
+      toast.error("Escribe el nombre del comercio");
+      return;
+    }
+    setSaving(true);
+    try {
+      await doSuggest({ data: { merchant_name: name.trim(), notes: notes.trim() || null } });
+      toast.success("¡Gracias! Hemos avisado al equipo.");
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e.message || "No se pudo enviar la sugerencia");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5" /> Sugerir un comercio
+          </DialogTitle>
+          <DialogDescription>
+            ¿No encuentras tu comercio en el catálogo? Dínoslo y lo añadiremos para todos.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor="sug-name">Comercio</Label>
+            <Input
+              id="sug-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej: Mi tienda favorita"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="sug-notes">Notas (opcional)</Label>
+            <Textarea
+              id="sug-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Web, tipo de tarjeta (código de barras / QR), país..."
+              rows={3}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Cuando lo añadamos, aparecerá automáticamente en el catálogo de todos los usuarios
+            (incluidos los que ya tengan la tarjeta añadida a mano).
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Enviar sugerencia
           </Button>
         </DialogFooter>
       </DialogContent>
