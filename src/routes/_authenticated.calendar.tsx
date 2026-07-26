@@ -102,6 +102,7 @@ function CalendarPage() {
   const colorFor = (value?: string | null) => colors[value ?? "other"] ?? colors.other;
 
   const doCreate = useServerFn(createEvent);
+  const doUpdate = useServerFn(updateEvent);
   const doDelete = useServerFn(deleteEvent);
   const doRestore = useServerFn(restoreEvent);
   const doTogglePublic = useServerFn(togglePublicEvent);
