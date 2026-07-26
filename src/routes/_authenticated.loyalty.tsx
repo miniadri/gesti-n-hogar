@@ -746,3 +746,171 @@ function CardDialog({
     </Dialog>
   );
 }
+
+function MerchantPicker({
+  value,
+  onPick,
+  onFreeText,
+}: {
+  value: string;
+  onPick: (m: CatalogMerchant) => void;
+  onFreeText: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const matched = useMemo(
+    () => CATALOG.find((m) => m.name.toLowerCase() === value.trim().toLowerCase()),
+    [value],
+  );
+  return (
+    <div className="flex gap-2">
+      <Input
+        id="merchant"
+        value={value}
+        onChange={(e) => onFreeText(e.target.value)}
+        placeholder="Ej: Carrefour, Decathlon..."
+        className="flex-1"
+      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="shrink-0 px-3"
+            title="Catálogo"
+          >
+            {matched ? (
+              <span
+                className="mr-2 h-3 w-3 rounded-full"
+                style={{ backgroundColor: matched.color }}
+                aria-hidden
+              />
+            ) : null}
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[280px] p-0" align="end">
+          <Command>
+            <CommandInput placeholder="Buscar comercio..." />
+            <CommandList>
+              <CommandEmpty>
+                No está en el catálogo. Escríbelo a mano o sugiérelo.
+              </CommandEmpty>
+              <CommandGroup>
+                {CATALOG.map((m) => (
+                  <CommandItem
+                    key={m.id}
+                    value={`${m.name} ${(m.aliases ?? []).join(" ")}`}
+                    onSelect={() => {
+                      onPick(m);
+                      setOpen(false);
+                    }}
+                  >
+                    <span
+                      className="mr-2 h-3 w-3 rounded-full"
+                      style={{ backgroundColor: m.color }}
+                    />
+                    <span className="flex-1">{m.name}</span>
+                    <Check
+                      className={cn(
+                        "h-4 w-4",
+                        matched?.id === m.id ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function SuggestMerchantDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
+  const doSuggest = useServerFn(submitMerchantSuggestion);
+  const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setName("");
+      setNotes("");
+    }
+  }, [open]);
+
+  const submit = async () => {
+    if (name.trim().length < 2) {
+      toast.error("Escribe el nombre del comercio");
+      return;
+    }
+    setSaving(true);
+    try {
+      await doSuggest({ data: { merchant_name: name.trim(), notes: notes.trim() || null } });
+      toast.success("¡Gracias! Hemos avisado al equipo.");
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e.message || "No se pudo enviar la sugerencia");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5" /> Sugerir un comercio
+          </DialogTitle>
+          <DialogDescription>
+            ¿No encuentras tu comercio en el catálogo? Dínoslo y lo añadiremos para todos.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor="sug-name">Comercio</Label>
+            <Input
+              id="sug-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej: Mi tienda favorita"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="sug-notes">Notas (opcional)</Label>
+            <Textarea
+              id="sug-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Web, tipo de tarjeta (código de barras / QR), país..."
+              rows={3}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Cuando lo añadamos, aparecerá automáticamente en el catálogo de todos los usuarios
+            (incluidos los que ya tengan la tarjeta añadida a mano).
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Enviar sugerencia
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
