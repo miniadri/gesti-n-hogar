@@ -190,10 +190,16 @@ function LoyaltyPage() {
             Guarda tus tarjetas de socio y puntos. Privadas para ti.
           </p>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" /> Nueva tarjeta
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setSuggestOpen(true)}>
+            <Lightbulb className="mr-2 h-4 w-4" /> Sugerir comercio
+          </Button>
+          <Button onClick={openNew}>
+            <Plus className="mr-2 h-4 w-4" /> Nueva tarjeta
+          </Button>
+        </div>
       </div>
+
 
       <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
