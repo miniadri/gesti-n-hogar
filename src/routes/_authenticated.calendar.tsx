@@ -86,6 +86,12 @@ function CalendarPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [colors, setColors] = useState<Record<string, string>>(() => loadColors());
   const [colorsOpen, setColorsOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editTime, setEditTime] = useState("12:00");
+  const [editCategory, setEditCategory] = useState("other");
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   useEffect(() => {
     try {
