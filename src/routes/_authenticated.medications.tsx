@@ -37,6 +37,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake, snoozeIntake } from "@/lib/medications.functions";
 import { listMedicines } from "@/lib/medicines.functions";
 import { createShoppingItem } from "@/lib/shopping.functions";
+import { SosButton } from "@/components/SosButton";
+import { EmergencyPanel } from "@/components/EmergencyPanel";
 
 const medicationsQueryOptions = queryOptions({
   queryKey: ["medications"],
@@ -203,15 +205,18 @@ function MedicationsPage() {
           <h2 className="text-2xl font-bold tracking-tight">{t("medications.title")}</h2>
           <p className="text-muted-foreground">{t("medications.subtitle")}</p>
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setDialogOpen(true);
-          }}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          {t("medications.add")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <SosButton variant="compact" />
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setDialogOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {t("medications.add")}
+          </Button>
+        </div>
       </div>
 
       {pendingToday.length > 0 && (
@@ -260,6 +265,7 @@ function MedicationsPage() {
           <TabsTrigger value="active">Activas</TabsTrigger>
           <TabsTrigger value="history">{t("medications.history")}</TabsTrigger>
           <TabsTrigger value="stock">{t("medications.lowStock")}</TabsTrigger>
+          <TabsTrigger value="emergency">Emergencia</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="space-y-4">
@@ -490,6 +496,7 @@ function MedicationDialog({
   const [threshold, setThreshold] = useState("");
   const [memberId, setMemberId] = useState("");
   const [reminders, setReminders] = useState(true);
+  const [escalationMinutes, setEscalationMinutes] = useState("15");
   const [notes, setNotes] = useState("");
   const [expiryMonth, setExpiryMonth] = useState("");
   const [expiryYear, setExpiryYear] = useState("");
@@ -506,6 +513,7 @@ function MedicationDialog({
       setThreshold(editing.low_stock_threshold != null ? String(editing.low_stock_threshold) : "");
       setMemberId(editing.member_id);
       setReminders(editing.reminders_enabled);
+      setEscalationMinutes(editing.escalation_after_minutes != null ? String(editing.escalation_after_minutes) : "15");
       setNotes(editing.notes || "");
       // Prefill expiry from matching medicine in inventory
       const match = (medicines ?? []).find(
@@ -533,6 +541,7 @@ function MedicationDialog({
       setThreshold("");
       setMemberId(members[0]?.id || "");
       setReminders(true);
+      setEscalationMinutes("15");
       setNotes("");
       setExpiryMonth("");
       setExpiryYear("");
@@ -552,6 +561,7 @@ function MedicationDialog({
       current_quantity: currentQty ? Number(currentQty) : undefined,
       low_stock_threshold: threshold ? Number(threshold) : undefined,
       reminders_enabled: reminders,
+      escalation_after_minutes: escalationMinutes.trim() === "" ? null : Math.max(0, Number(escalationMinutes) || 0),
       notes,
       expiry_month: expiryMonth ? Number(expiryMonth) : null,
       expiry_year: expiryYear ? Number(expiryYear) : null,
@@ -712,6 +722,23 @@ function MedicationDialog({
               {t("medications.reminders")}
             </Label>
             <Switch id="reminders" checked={reminders} onCheckedChange={setReminders} />
+          </div>
+
+          <div className="space-y-2 rounded-lg border p-3">
+            <Label htmlFor="escalation">Escalar a adultos si se retrasa (minutos)</Label>
+            <Input
+              id="escalation"
+              type="number"
+              min="0"
+              max="720"
+              value={escalationMinutes}
+              onChange={(e) => setEscalationMinutes(e.target.value)}
+              placeholder="15"
+            />
+            <p className="text-xs text-muted-foreground">
+              Pasado este tiempo desde la hora prevista, avisamos a adultos marcados como
+              contacto de emergencia y a contactos externos por Telegram. Deja vacío o pon 0 para desactivar.
+            </p>
           </div>
 
           <Separator />
