@@ -14,6 +14,12 @@ import {
   Search,
   ShieldAlert,
   Users,
+  Check,
+  ChevronsUpDown,
+  Lightbulb,
+  ImagePlus,
+  HardDrive,
+  X,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
@@ -37,6 +43,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listLoyaltyCards,
@@ -44,7 +60,24 @@ import {
   deleteLoyaltyCard,
   scanLoyaltyCard,
 } from "@/lib/loyalty-cards.functions";
+import { submitMerchantSuggestion } from "@/lib/merchants.functions";
 import { BarcodeDisplay } from "@/components/BarcodeDisplay";
+import merchantsCatalog from "@/data/merchants.es.json";
+import {
+  saveLocalImage,
+  getLocalImageURL,
+  deleteLocalImages,
+} from "@/lib/local-images";
+
+type CatalogMerchant = {
+  id: string;
+  name: string;
+  aliases?: string[];
+  color: string;
+  defaultBarcodeFormat: string;
+  category: string;
+};
+const CATALOG = merchantsCatalog as CatalogMerchant[];
 
 export const Route = createFileRoute("/_authenticated/loyalty")({
   head: () => ({
