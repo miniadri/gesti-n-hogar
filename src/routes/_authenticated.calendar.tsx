@@ -272,7 +272,8 @@ function CalendarPage() {
                 <div className="flex items-center gap-2">
                   <Badge
                     variant="secondary"
-                    className={categories.find((c) => c.value === event.category)?.color || "bg-muted"}
+                    className="border-transparent text-white"
+                    style={{ background: colorFor(event.category) }}
                   >
                     {categories.find((c) => c.value === event.category)?.label || "Otro"}
                   </Badge>
