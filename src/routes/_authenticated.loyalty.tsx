@@ -670,7 +670,68 @@ function CardDialog({
             </div>
             <Switch id="shared" checked={isShared} onCheckedChange={setIsShared} />
           </div>
+
+          <div className="space-y-2 rounded-md border p-3">
+            <div className="flex items-start gap-2">
+              <HardDrive className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="flex-1 space-y-1">
+                <Label className="flex items-center gap-2">Fotos locales</Label>
+                <p className="text-xs text-muted-foreground">
+                  Se guardan <strong>solo en este dispositivo</strong> (sin coste de almacenamiento).
+                  Si limpias los datos del navegador o desinstalas la app, se perderán.
+                </p>
+              </div>
+            </div>
+            <input
+              ref={localFrontRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleLocalSave("front", e.target.files[0])}
+            />
+            <input
+              ref={localBackRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleLocalSave("back", e.target.files[0])}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => localFrontRef.current?.click()}
+                className="group relative flex aspect-video items-center justify-center overflow-hidden rounded border border-dashed bg-muted/40 text-xs text-muted-foreground hover:bg-muted"
+              >
+                {localFront ? (
+                  <img src={localFront} alt="Anverso" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="flex flex-col items-center gap-1">
+                    <ImagePlus className="h-5 w-5" /> Anverso
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => localBackRef.current?.click()}
+                className="group relative flex aspect-video items-center justify-center overflow-hidden rounded border border-dashed bg-muted/40 text-xs text-muted-foreground hover:bg-muted"
+              >
+                {localBack ? (
+                  <img src={localBack} alt="Reverso" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="flex flex-col items-center gap-1">
+                    <ImagePlus className="h-5 w-5" /> Reverso
+                  </span>
+                )}
+              </button>
+            </div>
+            {!editing?.id && (
+              <p className="text-xs text-muted-foreground">
+                Guarda primero la tarjeta para poder añadir fotos locales.
+              </p>
+            )}
+          </div>
         </div>
+
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
