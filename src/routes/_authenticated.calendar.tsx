@@ -219,16 +219,18 @@ function CalendarPage() {
                   <span className={cn("font-medium", isToday(day) && "text-primary")}>
                     {format(day, "d")}
                   </span>
-                  <div className="mt-1 flex flex-wrap gap-0.5">
-                    {dayEvents.slice(0, 3).map((event) => (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {dayEvents.slice(0, 4).map((event) => (
                       <div
                         key={event.id}
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          categories.find((c) => c.value === event.category)?.color || "bg-muted",
-                        )}
+                        title={event.title}
+                        className="h-2.5 w-2.5 rounded-full ring-1 ring-background shadow-sm"
+                        style={{ background: colorFor(event.category) }}
                       />
                     ))}
+                    {dayEvents.length > 4 && (
+                      <span className="text-[10px] text-muted-foreground">+{dayEvents.length - 4}</span>
+                    )}
                   </div>
                 </div>
               );
