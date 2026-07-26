@@ -14,6 +14,7 @@ const CardInput = z.object({
   color: z.string().trim().max(20).nullish(),
   front_image_url: z.string().url().nullish(),
   back_image_url: z.string().url().nullish(),
+  is_shared: z.boolean().optional(),
 });
 
 export const listLoyaltyCards = createServerFn({ method: "GET" })
