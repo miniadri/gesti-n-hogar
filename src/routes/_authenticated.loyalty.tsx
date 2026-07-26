@@ -412,6 +412,36 @@ function CardDialog({
   const [saving, setSaving] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const localFrontRef = useRef<HTMLInputElement>(null);
+  const localBackRef = useRef<HTMLInputElement>(null);
+  const [localFront, setLocalFront] = useState<string | null>(null);
+  const [localBack, setLocalBack] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !editing?.id) {
+      setLocalFront(null);
+      setLocalBack(null);
+      return;
+    }
+    getLocalImageURL(editing.id, "front").then(setLocalFront).catch(() => {});
+    getLocalImageURL(editing.id, "back").then(setLocalBack).catch(() => {});
+  }, [open, editing?.id]);
+
+  const handleLocalSave = async (side: "front" | "back", file: File) => {
+    if (!editing?.id) {
+      toast.error("Guarda primero la tarjeta y podrás añadir fotos locales.");
+      return;
+    }
+    try {
+      await saveLocalImage(editing.id, side, file);
+      const url = await getLocalImageURL(editing.id, side);
+      if (side === "front") setLocalFront(url);
+      else setLocalBack(url);
+      toast.success("Foto guardada solo en este dispositivo");
+    } catch (e: any) {
+      toast.error(e.message || "No se pudo guardar la foto");
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
