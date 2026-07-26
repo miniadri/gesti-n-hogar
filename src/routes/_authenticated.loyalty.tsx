@@ -165,10 +165,13 @@ function LoyaltyPage() {
     setDialogOpen(true);
   };
 
+  const [suggestOpen, setSuggestOpen] = useState(false);
+
   const handleDelete = async (c: LoyaltyCard) => {
     if (!confirm(`¿Eliminar la tarjeta de ${c.merchant}?`)) return;
     try {
       await doDelete({ data: { id: c.id } });
+      await deleteLocalImages(c.id).catch(() => {});
       qc.invalidateQueries({ queryKey: ["loyalty-cards"] });
       toast.success("Tarjeta eliminada");
     } catch (e: any) {
