@@ -174,31 +174,71 @@ export function EmergencyPanel({ members }: { members: any[] }) {
           {sosEvents.length === 0 && (
             <p className="text-sm text-muted-foreground">Sin activaciones registradas.</p>
           )}
-          {sosEvents.map((s: any) => (
-            <div key={s.id} className="rounded-lg border p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-medium">{s.triggered_by_name}</p>
-                <Badge variant="destructive" className="gap-1">
-                  <ShieldAlert className="h-3 w-3" /> SOS
-                </Badge>
-              </div>
-              <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                {new Date(s.created_at).toLocaleString()}
-                {s.latitude != null && s.longitude != null && (
-                  <a
-                    href={`https://maps.google.com/?q=${s.latitude},${s.longitude}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-primary hover:underline"
-                  >
-                    <MapPin className="h-3 w-3" /> Ver ubicación
-                  </a>
+          {sosEvents.map((s: any, idx: number) => {
+            const hasLoc = s.latitude != null && s.longitude != null;
+            const isLatest = idx === 0;
+            const lat = Number(s.latitude);
+            const lng = Number(s.longitude);
+            const d = 0.004;
+            const bbox = hasLoc
+              ? `${lng - d},${lat - d},${lng + d},${lat + d}`
+              : null;
+            return (
+              <div key={s.id} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium">{s.triggered_by_name}</p>
+                  <Badge variant="destructive" className="gap-1">
+                    <ShieldAlert className="h-3 w-3" /> SOS
+                  </Badge>
+                </div>
+                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {new Date(s.created_at).toLocaleString()}
+                  </span>
+                  {hasLoc && (
+                    <>
+                      <a
+                        href={`https://maps.google.com/?q=${lat},${lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <MapPin className="h-3 w-3" /> Ver ubicación
+                      </a>
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <Navigation className="h-3 w-3" /> Cómo llegar
+                      </a>
+                    </>
+                  )}
+                </p>
+                {s.note && <p className="mt-1 text-sm">{s.note}</p>}
+                {isLatest && hasLoc && bbox && (
+                  <div className="mt-3 overflow-hidden rounded-lg border">
+                    <iframe
+                      title={`Mapa SOS ${s.id}`}
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`}
+                      className="h-56 w-full"
+                      loading="lazy"
+                    />
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 bg-muted/50 py-2 text-xs font-medium text-primary hover:bg-muted"
+                    >
+                      <Navigation className="h-3 w-3" /> Abrir ruta en Google Maps
+                    </a>
+                  </div>
                 )}
-              </p>
-              {s.note && <p className="mt-1 text-sm">{s.note}</p>}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
     </div>
