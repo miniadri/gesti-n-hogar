@@ -15,7 +15,10 @@ import {
   saveGoogleCalendarConnection,
   disconnectGoogleCalendar,
   syncGoogleCalendarImport,
+  getGoogleSyncHours,
+  setGoogleSyncHours,
 } from "@/lib/google-calendar.functions";
+import { Clock } from "lucide-react";
 
 const GATEWAY_BASE_URL = "https://connector-gateway.lovable.dev";
 const CONNECTOR_ID = "google_calendar";
