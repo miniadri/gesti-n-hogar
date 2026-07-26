@@ -18,6 +18,7 @@ import {
   Wine,
   Pill,
   ShoppingBag,
+  CreditCard,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -178,6 +179,12 @@ function ShoppingPage() {
           <Button variant="outline" onClick={() => setStoreOpen(true)}>
             <Store className="mr-2 h-4 w-4" />
             Gestionar tiendas
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/loyalty">
+              <CreditCard className="mr-2 h-4 w-4" />
+              Tarjetas
+            </Link>
           </Button>
         </div>
       </div>

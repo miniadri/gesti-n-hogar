@@ -675,7 +675,9 @@ export type Database = {
           color: string | null
           created_at: string
           front_image_url: string | null
+          household_id: string | null
           id: string
+          is_shared: boolean
           merchant: string
           notes: string | null
           updated_at: string
@@ -689,7 +691,9 @@ export type Database = {
           color?: string | null
           created_at?: string
           front_image_url?: string | null
+          household_id?: string | null
           id?: string
+          is_shared?: boolean
           merchant: string
           notes?: string | null
           updated_at?: string
@@ -703,13 +707,23 @@ export type Database = {
           color?: string | null
           created_at?: string
           front_image_url?: string | null
+          household_id?: string | null
           id?: string
+          is_shared?: boolean
           merchant?: string
           notes?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_cards_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meal_plan_days: {
         Row: {

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -13,7 +13,9 @@ import {
   Pencil,
   Search,
   ShieldAlert,
+  Users,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +62,7 @@ export const Route = createFileRoute("/_authenticated/loyalty")({
 
 type LoyaltyCard = {
   id: string;
+  user_id: string;
   merchant: string;
   card_number: string | null;
   barcode: string | null;
@@ -68,6 +71,8 @@ type LoyaltyCard = {
   color: string | null;
   front_image_url: string | null;
   back_image_url: string | null;
+  is_shared?: boolean | null;
+  household_id?: string | null;
 };
 
 const BARCODE_FORMATS = [
@@ -100,6 +105,11 @@ function LoyaltyPage() {
     queryKey: ["loyalty-cards"],
     queryFn: () => doList(),
   });
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }, []);
 
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<LoyaltyCard | null>(null);
@@ -203,7 +213,17 @@ function LoyaltyPage() {
                     <span className="text-lg font-semibold leading-tight drop-shadow-sm">
                       {c.merchant}
                     </span>
-                    <CreditCard className="h-5 w-5 opacity-80" />
+                    <div className="flex items-center gap-1">
+                      {c.is_shared && (
+                        <span
+                          title="Compartida con el hogar"
+                          className="flex items-center gap-1 rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-medium backdrop-blur"
+                        >
+                          <Users className="h-3 w-3" /> Hogar
+                        </span>
+                      )}
+                      <CreditCard className="h-5 w-5 opacity-80" />
+                    </div>
                   </div>
                   <div>
                     {c.card_number && (
@@ -213,6 +233,11 @@ function LoyaltyPage() {
                     )}
                     {c.barcode && !c.card_number && (
                       <p className="truncate font-mono text-xs opacity-80">{c.barcode}</p>
+                    )}
+                    {currentUserId && c.user_id !== currentUserId && (
+                      <p className="mt-1 text-[10px] uppercase tracking-wide opacity-75">
+                        Compartida por otro miembro
+                      </p>
                     )}
                   </div>
                 </div>
@@ -234,6 +259,7 @@ function LoyaltyPage() {
 
       <ViewCardDialog
         card={viewing}
+        isOwner={!!(viewing && currentUserId && viewing.user_id === currentUserId)}
         onClose={() => setViewing(null)}
         onEdit={(c) => {
           setViewing(null);
@@ -250,11 +276,13 @@ function LoyaltyPage() {
 
 function ViewCardDialog({
   card,
+  isOwner,
   onClose,
   onEdit,
   onDelete,
 }: {
   card: LoyaltyCard | null;
+  isOwner: boolean;
   onClose: () => void;
   onEdit: (c: LoyaltyCard) => void;
   onDelete: (c: LoyaltyCard) => void;
@@ -265,7 +293,14 @@ function ViewCardDialog({
         {card && (
           <>
             <DialogHeader>
-              <DialogTitle>{card.merchant}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                {card.merchant}
+                {card.is_shared && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                    <Users className="h-3 w-3" /> Hogar
+                  </span>
+                )}
+              </DialogTitle>
               {card.card_number && (
                 <DialogDescription className="font-mono">{card.card_number}</DialogDescription>
               )}
@@ -285,14 +320,21 @@ function ViewCardDialog({
             {card.notes && (
               <p className="whitespace-pre-wrap text-sm text-muted-foreground">{card.notes}</p>
             )}
-            <DialogFooter className="flex flex-row justify-between gap-2 sm:justify-between">
-              <Button variant="destructive" size="sm" onClick={() => onDelete(card)}>
-                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => onEdit(card)}>
-                <Pencil className="mr-2 h-4 w-4" /> Editar
-              </Button>
-            </DialogFooter>
+            {!isOwner && (
+              <p className="text-xs text-muted-foreground">
+                Esta tarjeta la ha compartido otro miembro del hogar. Solo su propietario puede editarla o borrarla.
+              </p>
+            )}
+            {isOwner && (
+              <DialogFooter className="flex flex-row justify-between gap-2 sm:justify-between">
+                <Button variant="destructive" size="sm" onClick={() => onDelete(card)}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => onEdit(card)}>
+                  <Pencil className="mr-2 h-4 w-4" /> Editar
+                </Button>
+              </DialogFooter>
+            )}
           </>
         )}
       </DialogContent>
@@ -321,6 +363,7 @@ function CardDialog({
   const [notes, setNotes] = useState("");
   const [color, setColor] = useState<string>(CARD_COLORS[0]);
   const [frontUrl, setFrontUrl] = useState<string | null>(null);
+  const [isShared, setIsShared] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -336,6 +379,7 @@ function CardDialog({
       setNotes(editing.notes ?? "");
       setColor(editing.color || CARD_COLORS[0]);
       setFrontUrl(editing.front_image_url);
+      setIsShared(!!editing.is_shared);
     } else {
       setMerchant("");
       setCardNumber("");
@@ -344,6 +388,7 @@ function CardDialog({
       setNotes("");
       setColor(CARD_COLORS[Math.floor(Math.random() * CARD_COLORS.length)]);
       setFrontUrl(null);
+      setIsShared(false);
     }
   }, [open, editing]);
 
@@ -395,6 +440,7 @@ function CardDialog({
           notes: notes.trim() || null,
           color,
           front_image_url: frontUrl,
+          is_shared: isShared,
         },
       });
       toast.success(editing ? "Tarjeta actualizada" : "Tarjeta añadida");
@@ -530,6 +576,18 @@ function CardDialog({
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
             />
+          </div>
+
+          <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="shared" className="flex items-center gap-2">
+                <Users className="h-4 w-4" /> Compartir con el hogar
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Los miembros de tu hogar podrán ver y usar esta tarjeta, pero no editarla ni borrarla.
+              </p>
+            </div>
+            <Switch id="shared" checked={isShared} onCheckedChange={setIsShared} />
           </div>
         </div>
 
