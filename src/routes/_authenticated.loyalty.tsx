@@ -77,7 +77,9 @@ type CatalogMerchant = {
   defaultBarcodeFormat: string;
   category: string;
 };
-const CATALOG = merchantsCatalog as CatalogMerchant[];
+const CATALOG = (merchantsCatalog as CatalogMerchant[])
+  .slice()
+  .sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
 
 export const Route = createFileRoute("/_authenticated/loyalty")({
   head: () => ({
