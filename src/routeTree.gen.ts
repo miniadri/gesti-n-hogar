@@ -37,6 +37,7 @@ import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_auth
 import { Route as AuthenticatedRecipesRecipeIdRouteImport } from './routes/_authenticated.recipes.$recipeId'
 import { Route as AuthenticatedInventoryScanAddRouteImport } from './routes/_authenticated.inventory.scan-add'
 import { Route as AuthenticatedInventoryKitchenRouteImport } from './routes/_authenticated.inventory.kitchen'
+import { Route as AuthenticatedCalendarScheduleRouteImport } from './routes/_authenticated.calendar.schedule'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicHooksPushSchedulerRouteImport } from './routes/api/public/hooks/push-scheduler'
 import { Route as ApiPublicHooksMedicationRemindersRouteImport } from './routes/api/public/hooks/medication-reminders'
@@ -199,6 +200,12 @@ const AuthenticatedInventoryKitchenRoute =
     path: '/inventory/kitchen',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedCalendarScheduleRoute =
+  AuthenticatedCalendarScheduleRouteImport.update({
+    id: '/schedule',
+    path: '/schedule',
+    getParentRoute: () => AuthenticatedCalendarRoute,
+  } as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -227,7 +234,7 @@ const ApiPublicHooksGoogleCalendarSyncRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
-  '/calendar': typeof AuthenticatedCalendarRoute
+  '/calendar': typeof AuthenticatedCalendarRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/devices': typeof AuthenticatedDevicesRoute
   '/finances': typeof AuthenticatedFinancesRoute
@@ -235,6 +242,7 @@ export interface FileRoutesByFullPath {
   '/medications': typeof AuthenticatedMedicationsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/calendar/schedule': typeof AuthenticatedCalendarScheduleRoute
   '/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
   '/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
@@ -260,7 +268,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
-  '/calendar': typeof AuthenticatedCalendarRoute
+  '/calendar': typeof AuthenticatedCalendarRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/devices': typeof AuthenticatedDevicesRoute
   '/finances': typeof AuthenticatedFinancesRoute
@@ -268,6 +276,7 @@ export interface FileRoutesByTo {
   '/medications': typeof AuthenticatedMedicationsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/calendar/schedule': typeof AuthenticatedCalendarScheduleRoute
   '/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
   '/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
@@ -295,7 +304,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
-  '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
+  '/_authenticated/calendar': typeof AuthenticatedCalendarRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/devices': typeof AuthenticatedDevicesRoute
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
@@ -303,6 +312,7 @@ export interface FileRoutesById {
   '/_authenticated/medications': typeof AuthenticatedMedicationsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/_authenticated/calendar/schedule': typeof AuthenticatedCalendarScheduleRoute
   '/_authenticated/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
   '/_authenticated/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/_authenticated/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
@@ -338,6 +348,7 @@ export interface FileRouteTypes {
     | '/medications'
     | '/tasks'
     | '/auth/callback'
+    | '/calendar/schedule'
     | '/inventory/kitchen'
     | '/inventory/scan-add'
     | '/recipes/$recipeId'
@@ -371,6 +382,7 @@ export interface FileRouteTypes {
     | '/medications'
     | '/tasks'
     | '/auth/callback'
+    | '/calendar/schedule'
     | '/inventory/kitchen'
     | '/inventory/scan-add'
     | '/recipes/$recipeId'
@@ -405,6 +417,7 @@ export interface FileRouteTypes {
     | '/_authenticated/medications'
     | '/_authenticated/tasks'
     | '/auth/callback'
+    | '/_authenticated/calendar/schedule'
     | '/_authenticated/inventory/kitchen'
     | '/_authenticated/inventory/scan-add'
     | '/_authenticated/recipes/$recipeId'
@@ -636,6 +649,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventoryKitchenRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/calendar/schedule': {
+      id: '/_authenticated/calendar/schedule'
+      path: '/schedule'
+      fullPath: '/calendar/schedule'
+      preLoaderRoute: typeof AuthenticatedCalendarScheduleRouteImport
+      parentRoute: typeof AuthenticatedCalendarRoute
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -667,8 +687,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedCalendarRouteChildren {
+  AuthenticatedCalendarScheduleRoute: typeof AuthenticatedCalendarScheduleRoute
+}
+
+const AuthenticatedCalendarRouteChildren: AuthenticatedCalendarRouteChildren = {
+  AuthenticatedCalendarScheduleRoute: AuthenticatedCalendarScheduleRoute,
+}
+
+const AuthenticatedCalendarRouteWithChildren =
+  AuthenticatedCalendarRoute._addFileChildren(
+    AuthenticatedCalendarRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
-  AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
+  AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDevicesRoute: typeof AuthenticatedDevicesRoute
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
@@ -695,7 +728,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
+  AuthenticatedCalendarRoute: AuthenticatedCalendarRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDevicesRoute: AuthenticatedDevicesRoute,
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
