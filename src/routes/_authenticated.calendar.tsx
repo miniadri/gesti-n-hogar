@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Calendar as CalendarIcon, Clock, Users, Lock, Settings, ChevronLeft, ChevronRight, Palette, Pencil, Trash2 } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, CalendarDays, Clock, Users, Lock, Settings, ChevronLeft, ChevronRight, Palette, Pencil, Trash2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO, addMonths, subMonths, subDays } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -234,6 +234,12 @@ function CalendarPage() {
           <Button variant="outline" size="icon" asChild title="Google Calendar">
             <Link to="/settings/google-calendar">
               <Settings className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild title="Cuadrante laboral/escolar">
+            <Link to="/calendar/schedule">
+              <CalendarDays className="mr-2 h-4 w-4" />
+              Cuadrante
             </Link>
           </Button>
           <Button onClick={() => setOpen(true)}>

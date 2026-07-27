@@ -1668,6 +1668,234 @@ export type Database = {
           },
         ]
       }
+      schedule_day_slots: {
+        Row: {
+          created_at: string
+          date: string
+          end_time: string
+          household_id: string
+          id: string
+          label: string | null
+          member_id: string
+          notes: string | null
+          slot_kind: Database["public"]["Enums"]["schedule_slot_kind"]
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          end_time: string
+          household_id: string
+          id?: string
+          label?: string | null
+          member_id: string
+          notes?: string | null
+          slot_kind?: Database["public"]["Enums"]["schedule_slot_kind"]
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          end_time?: string
+          household_id?: string
+          id?: string
+          label?: string | null
+          member_id?: string
+          notes?: string | null
+          slot_kind?: Database["public"]["Enums"]["schedule_slot_kind"]
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_day_slots_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_day_slots_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_day_status: {
+        Row: {
+          created_at: string
+          date: string
+          household_id: string
+          id: string
+          member_id: string
+          notes: string | null
+          overtime_hours: number
+          state: Database["public"]["Enums"]["schedule_day_state"]
+          updated_at: string
+          use_day_override: boolean
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          household_id: string
+          id?: string
+          member_id: string
+          notes?: string | null
+          overtime_hours?: number
+          state?: Database["public"]["Enums"]["schedule_day_state"]
+          updated_at?: string
+          use_day_override?: boolean
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          household_id?: string
+          id?: string
+          member_id?: string
+          notes?: string | null
+          overtime_hours?: number
+          state?: Database["public"]["Enums"]["schedule_day_state"]
+          updated_at?: string
+          use_day_override?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_day_status_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_day_status_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_settings: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          is_shared: boolean
+          kind: Database["public"]["Enums"]["schedule_kind"]
+          member_id: string
+          notes: string | null
+          target_hours_per_day: number
+          updated_at: string
+          use_template: boolean
+          vacation_days_per_month: number
+          vacation_start_date: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          is_shared?: boolean
+          kind?: Database["public"]["Enums"]["schedule_kind"]
+          member_id: string
+          notes?: string | null
+          target_hours_per_day?: number
+          updated_at?: string
+          use_template?: boolean
+          vacation_days_per_month?: number
+          vacation_start_date?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          is_shared?: boolean
+          kind?: Database["public"]["Enums"]["schedule_kind"]
+          member_id?: string
+          notes?: string | null
+          target_hours_per_day?: number
+          updated_at?: string
+          use_template?: boolean
+          vacation_days_per_month?: number
+          vacation_start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_settings_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_settings_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: true
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_template_slots: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          end_time: string
+          household_id: string
+          id: string
+          label: string | null
+          member_id: string
+          notes: string | null
+          slot_kind: Database["public"]["Enums"]["schedule_slot_kind"]
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          household_id: string
+          id?: string
+          label?: string | null
+          member_id: string
+          notes?: string | null
+          slot_kind?: Database["public"]["Enums"]["schedule_slot_kind"]
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          household_id?: string
+          id?: string
+          label?: string | null
+          member_id?: string
+          notes?: string | null
+          slot_kind?: Database["public"]["Enums"]["schedule_slot_kind"]
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_template_slots_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_template_slots_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shopping_list_items: {
         Row: {
           category: string | null
@@ -2015,6 +2243,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_manage_member_schedule: {
+        Args: { _member_id: string }
+        Returns: boolean
+      }
+      can_view_member_schedule: {
+        Args: { _is_shared: boolean; _member_id: string }
+        Returns: boolean
+      }
       current_household: { Args: never; Returns: string }
       get_household_contributions: {
         Args: { _household_id: string }
@@ -2068,6 +2304,14 @@ export type Database = {
         | "injection"
         | "other"
       medication_intake_status: "pending" | "taken" | "skipped" | "missed"
+      schedule_day_state: "normal" | "vacation" | "holiday" | "sick" | "off"
+      schedule_kind: "work" | "school"
+      schedule_slot_kind:
+        | "work"
+        | "subject"
+        | "extracurricular"
+        | "break"
+        | "off"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2206,6 +2450,15 @@ export const Constants = {
         "other",
       ],
       medication_intake_status: ["pending", "taken", "skipped", "missed"],
+      schedule_day_state: ["normal", "vacation", "holiday", "sick", "off"],
+      schedule_kind: ["work", "school"],
+      schedule_slot_kind: [
+        "work",
+        "subject",
+        "extracurricular",
+        "break",
+        "off",
+      ],
     },
   },
 } as const
