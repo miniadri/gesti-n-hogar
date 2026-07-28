@@ -107,8 +107,13 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 function slotHours(s: { start_time: string; end_time: string }): number {
-  const m = timeToMinutes(s.end_time) - timeToMinutes(s.start_time);
-  return Math.max(0, m / 60);
+  const start = timeToMinutes(s.start_time);
+  let end = timeToMinutes(s.end_time);
+  if (end <= start) end += 24 * 60; // overnight shift crossing midnight
+  return Math.max(0, (end - start) / 60);
+}
+function crossesMidnight(s: { start_time: string; end_time: string }): boolean {
+  return timeToMinutes(s.end_time) <= timeToMinutes(s.start_time);
 }
 function fmtTime(t: string) {
   return t.slice(0, 5);
@@ -328,9 +333,16 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
               const dateStr = format(day, "yyyy-MM-dd");
               const status = statusByDate.get(dateStr);
               const slots = resolveDaySlots(day);
+              const prevSlots = resolveDaySlots(addDays(day, -1));
+              const carry = prevSlots.filter(crossesMidnight);
+              const items: Array<Slot & { __carry?: boolean; __crosses?: boolean }> = [
+                ...carry.map((s) => ({ ...s, __carry: true as const })),
+                ...slots.map((s) => ({ ...s, __carry: false as const, __crosses: crossesMidnight(s) })),
+              ];
               const dayHours = slots.filter((s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular").reduce((a, s) => a + slotHours(s), 0);
               const overtime = Math.max(0, dayHours - settings.target_hours_per_day) + Number(status?.overtime_hours ?? 0);
               const hasOverride = daySlots.some((s) => s.date === dateStr) || status?.use_day_override;
+              const nextDay = addDays(day, 1);
               return (
                 <Card key={dateStr} className="overflow-hidden">
                   <CardHeader className="pb-2">
@@ -344,16 +356,32 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {slots.length === 0 ? (
+                    {items.length === 0 ? (
                       <p className="text-xs text-muted-foreground">Sin franjas</p>
                     ) : (
-                      slots.map((s) => (
-                        <div key={s.id} className={`flex items-center justify-between rounded border px-2 py-1 text-xs ${kindColor(s.slot_kind)}`}>
-                          <div>
-                            <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
-                            {s.label && <div className="opacity-80">{s.label}</div>}
+                      items.map((s, i) => (
+                        <div key={(s.__carry ? "c-" : "o-") + s.id + i} className={`flex items-center justify-between rounded border px-2 py-1 text-xs ${kindColor(s.slot_kind)} ${s.__carry ? "opacity-80 border-dashed" : ""}`}>
+                          <div className="min-w-0">
+                            {s.__carry ? (
+                              <>
+                                <div className="font-medium">00:00–{fmtTime(s.end_time)}</div>
+                                <div className="opacity-80 italic">Viene del {format(addDays(day, -1), "d MMM", { locale: es })} ({fmtTime(s.start_time)})</div>
+                                {s.label && <div className="opacity-80">{s.label}</div>}
+                              </>
+                            ) : s.__crosses ? (
+                              <>
+                                <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
+                                <div className="opacity-80 italic">{format(day, "d MMM", { locale: es })} → {format(nextDay, "d MMM", { locale: es })}</div>
+                                {s.label && <div className="opacity-80">{s.label}</div>}
+                              </>
+                            ) : (
+                              <>
+                                <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
+                                {s.label && <div className="opacity-80">{s.label}</div>}
+                              </>
+                            )}
                           </div>
-                          {s.date && (
+                          {s.date && !s.__carry && (
                             <button
                               className="opacity-60 hover:opacity-100"
                               onClick={() => setSlotDialog({ kind: "day", date: dateStr, slot: s })}
@@ -728,7 +756,7 @@ function SlotDialog({
             <Button
               onClick={async () => {
                 try {
-                  if (start >= end) { toast.error("La salida debe ser posterior a la entrada"); return; }
+                  if (start === end) { toast.error("La entrada y salida no pueden coincidir"); return; }
                   if (isDay) {
                     await upsertD({
                       data: {
