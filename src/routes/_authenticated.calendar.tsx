@@ -1,9 +1,33 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Calendar as CalendarIcon, CalendarDays, Clock, Users, Lock, Settings, ChevronLeft, ChevronRight, Palette, Pencil, Trash2 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO, addMonths, subMonths, subDays } from "date-fns";
+import {
+  Plus,
+  Calendar as CalendarIcon,
+  CalendarDays,
+  Clock,
+  Users,
+  Lock,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Palette,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  isToday,
+  parseISO,
+  addMonths,
+  subMonths,
+  subDays,
+} from "date-fns";
 import { es } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +44,14 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
-import { listEvents, createEvent, updateEvent, deleteEvent, restoreEvent, togglePublicEvent } from "@/lib/calendar.functions";
+import {
+  listEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  restoreEvent,
+  togglePublicEvent,
+} from "@/lib/calendar.functions";
 import { getGoogleCalendarStatus } from "@/lib/google-calendar.functions";
 import { undoableToast } from "@/hooks/use-undoable";
 import { cn } from "@/lib/utils";
@@ -54,7 +85,20 @@ const DEFAULT_CATEGORIES: Category[] = [
 const CATEGORIES_STORAGE_KEY = "homesync.calendar.categories";
 const COLOR_STORAGE_KEY = "homesync.calendar.categoryColors"; // legacy
 const PAST_EVENTS_DAYS = 7;
-const PALETTE = ["#3b82f6","#ef4444","#f59e0b","#10b981","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b","#0ea5e9","#a855f7","#eab308"];
+const PALETTE = [
+  "#3b82f6",
+  "#ef4444",
+  "#f59e0b",
+  "#10b981",
+  "#8b5cf6",
+  "#ec4899",
+  "#14b8a6",
+  "#f97316",
+  "#64748b",
+  "#0ea5e9",
+  "#a855f7",
+  "#eab308",
+];
 
 function loadCategories(): Category[] {
   if (typeof window === "undefined") return DEFAULT_CATEGORIES;
@@ -77,16 +121,19 @@ function loadCategories(): Category[] {
 }
 
 function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 32) || `cat_${Date.now()}`;
+  return (
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 32) || `cat_${Date.now()}`
+  );
 }
 
 function CalendarPage() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const queryClient = useQueryClient();
   const { data } = useSuspenseQuery(calendarQueryOptions);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -123,8 +170,7 @@ function CalendarPage() {
 
   const colorFor = (value?: string | null) =>
     catMap.get(value ?? "other")?.color ?? catMap.get("other")?.color ?? "#64748b";
-  const labelFor = (value?: string | null) =>
-    catMap.get(value ?? "other")?.label ?? "Otro";
+  const labelFor = (value?: string | null) => catMap.get(value ?? "other")?.label ?? "Otro";
 
   const updateCategory = (value: string, patch: Partial<Category>) =>
     setCategoriesList((prev) => prev.map((c) => (c.value === value ? { ...c, ...patch } : c)));
@@ -134,7 +180,10 @@ function CalendarPage() {
     if (!label) return;
     let value = slugify(label);
     if (catMap.has(value)) value = `${value}_${Date.now().toString(36).slice(-4)}`;
-    setCategoriesList((prev) => [...prev, { value, label, color: PALETTE[prev.length % PALETTE.length] }]);
+    setCategoriesList((prev) => [
+      ...prev,
+      { value, label, color: PALETTE[prev.length % PALETTE.length] },
+    ]);
     setNewCatLabel("");
   };
 
@@ -157,6 +206,10 @@ function CalendarPage() {
     queryKey: ["google-calendar-status"],
     queryFn: () => getGStatus(),
   });
+
+  if (pathname === "/calendar/schedule") {
+    return <Outlet />;
+  }
 
   if (currentUserId === null) {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
@@ -219,16 +272,31 @@ function CalendarPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="icon" onClick={() => setCurrentDate((d) => subMonths(d, 1))} title="Mes anterior">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCurrentDate((d) => subMonths(d, 1))}
+            title="Mes anterior"
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setCurrentDate((d) => addMonths(d, 1))} title="Mes siguiente">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCurrentDate((d) => addMonths(d, 1))}
+            title="Mes siguiente"
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
             Hoy
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setColorsOpen(true)} title="Categorías">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setColorsOpen(true)}
+            title="Categorías"
+          >
             <Palette className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="icon" asChild title="Google Calendar">
@@ -253,7 +321,10 @@ function CalendarPage() {
       <div className="flex flex-wrap items-center gap-3 text-xs">
         {categoriesList.map((c) => (
           <div key={c.value} className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-full ring-1 ring-border" style={{ background: c.color }} />
+            <span
+              className="inline-block h-3 w-3 rounded-full ring-1 ring-border"
+              style={{ background: c.color }}
+            />
             <span className="text-muted-foreground">{c.label}</span>
           </div>
         ))}
@@ -304,7 +375,9 @@ function CalendarPage() {
                       </div>
                     ))}
                     {dayEvents.length > 4 && (
-                      <span className="text-[10px] text-muted-foreground">+{dayEvents.length - 4}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        +{dayEvents.length - 4}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -321,7 +394,9 @@ function CalendarPage() {
             Se muestran eventos pasados hasta {PAST_EVENTS_DAYS} días atrás
           </span>
         </div>
-        {upcoming.length === 0 && <p className="text-sm text-muted-foreground">No hay eventos programados.</p>}
+        {upcoming.length === 0 && (
+          <p className="text-sm text-muted-foreground">No hay eventos programados.</p>
+        )}
         {upcoming.slice(0, 10).map((event) => {
           const isOwner = event.created_by === currentUserId;
           const fromGoogle = event.source === "google_calendar";
@@ -341,7 +416,9 @@ function CalendarPage() {
                       </Badge>
                     )}
                     {fromGoogle && (
-                      <Badge variant="outline" className="text-xs">Google</Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Google
+                      </Badge>
                     )}
                   </p>
                   <p className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -498,7 +575,10 @@ function CalendarPage() {
             {categoriesList.map((c) => (
               <div key={c.value} className="space-y-2 rounded-lg border p-3">
                 <div className="flex items-center gap-2">
-                  <span className="inline-block h-4 w-4 shrink-0 rounded-full ring-1 ring-border" style={{ background: c.color }} />
+                  <span
+                    className="inline-block h-4 w-4 shrink-0 rounded-full ring-1 ring-border"
+                    style={{ background: c.color }}
+                  />
                   <Input
                     value={c.label}
                     onChange={(e) => updateCategory(c.value, { label: e.target.value })}
