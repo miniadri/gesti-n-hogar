@@ -343,6 +343,17 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
               const overtime = Math.max(0, dayHours - settings.target_hours_per_day) + Number(status?.overtime_hours ?? 0);
               const hasOverride = daySlots.some((s) => s.date === dateStr) || status?.use_day_override;
               const nextDay = addDays(day, 1);
+              const statusBannerColor =
+                status?.state === "off"
+                  ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
+                  : status?.state === "vacation"
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                    : status?.state === "sick"
+                      ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200"
+                      : status?.state === "holiday"
+                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
+                        : "";
+
               return (
                 <Card key={dateStr} className="overflow-hidden">
                   <CardHeader className="pb-2">
@@ -350,12 +361,14 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                       <CardTitle className="text-sm">
                         {DAY_LABELS[idx]} <span className="text-muted-foreground">{format(day, "d MMM", { locale: es })}</span>
                       </CardTitle>
-                      {status?.state && status.state !== "normal" && (
-                        <Badge variant="outline" className="text-xs">{stateLabel(status.state)}</Badge>
-                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
+                    {status?.state && status.state !== "normal" && (
+                      <div className={`-mx-6 -mt-2 mb-2 w-[calc(100%+3rem)] px-4 py-2 text-center text-sm font-semibold ${statusBannerColor}`}>
+                        {stateLabel(status.state)}
+                      </div>
+                    )}
                     {items.length === 0 ? (
                       <p className="text-xs text-muted-foreground">Sin franjas</p>
                     ) : (
