@@ -107,8 +107,13 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 function slotHours(s: { start_time: string; end_time: string }): number {
-  const m = timeToMinutes(s.end_time) - timeToMinutes(s.start_time);
-  return Math.max(0, m / 60);
+  const start = timeToMinutes(s.start_time);
+  let end = timeToMinutes(s.end_time);
+  if (end <= start) end += 24 * 60; // overnight shift crossing midnight
+  return Math.max(0, (end - start) / 60);
+}
+function crossesMidnight(s: { start_time: string; end_time: string }): boolean {
+  return timeToMinutes(s.end_time) <= timeToMinutes(s.start_time);
 }
 function fmtTime(t: string) {
   return t.slice(0, 5);
