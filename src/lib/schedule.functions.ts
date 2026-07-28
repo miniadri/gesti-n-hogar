@@ -235,7 +235,7 @@ const DayStatusInput = z.object({
   member_id: z.string().uuid(),
   date: z.string(),
   state: DayState.optional(),
-  overtime_hours: z.number().min(0).max(24).optional(),
+  overtime_hours: z.number().min(-24).max(24).optional(),
   use_day_override: z.boolean().optional(),
   notes: z.string().nullable().optional(),
 });
