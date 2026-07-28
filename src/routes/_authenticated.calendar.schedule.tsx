@@ -367,7 +367,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                   <CardContent className="space-y-2 px-3 pb-3 sm:px-4">
 
                     {status?.state && status.state !== "normal" && (
-                      <div className={`-mx-6 -mt-2 mb-2 w-[calc(100%+3rem)] px-4 py-2 text-center text-sm font-semibold ${statusBannerColor}`}>
+                      <div className={`-mx-3 -mt-2 mb-2 w-[calc(100%+1.5rem)] px-3 py-2 text-center text-sm font-semibold sm:-mx-4 sm:w-[calc(100%+2rem)] sm:px-4 ${statusBannerColor}`}>
                         {stateLabel(status.state)}
                       </div>
                     )}
