@@ -14,6 +14,7 @@ export async function sendTelegramToUsers(
   userIds: string[],
   text: string,
   replyMarkup?: unknown,
+  parseMode: "HTML" | null = "HTML",
 ): Promise<number> {
   const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
   const TELEGRAM_API_KEY = process.env.TELEGRAM_API_KEY;
@@ -26,7 +27,8 @@ export async function sendTelegramToUsers(
   let sent = 0;
   for (const p of profiles ?? []) {
     if (!p?.chat_id) continue;
-    const body: Record<string, unknown> = { chat_id: p.chat_id, text, parse_mode: "HTML" };
+    const body: Record<string, unknown> = { chat_id: p.chat_id, text };
+    if (parseMode) body.parse_mode = parseMode;
     if (replyMarkup) body.reply_markup = replyMarkup;
     try {
       const res = await fetch(`${GATEWAY}/sendMessage`, {
@@ -128,6 +130,7 @@ export async function sendTelegramToChatIds(
   chatIds: string[],
   text: string,
   replyMarkup?: unknown,
+  parseMode: "HTML" | null = "HTML",
 ): Promise<number> {
   const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
   const TELEGRAM_API_KEY = process.env.TELEGRAM_API_KEY;
@@ -136,7 +139,8 @@ export async function sendTelegramToChatIds(
   let sent = 0;
   for (const chat_id of uniqueChatIds) {
     if (!chat_id) continue;
-    const body: Record<string, unknown> = { chat_id, text, parse_mode: "HTML" };
+    const body: Record<string, unknown> = { chat_id, text };
+    if (parseMode) body.parse_mode = parseMode;
     if (replyMarkup) body.reply_markup = replyMarkup;
     try {
       const res = await fetch(`${GATEWAY}/sendMessage`, {
@@ -158,15 +162,6 @@ export async function sendTelegramToChatIds(
     }
   }
   return sent;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 export async function sendSosAlert(
@@ -205,17 +200,15 @@ export async function sendSosAlert(
   ].filter(Boolean) as string[];
   const body = details.join("\n");
   const telegramBody = [
-    `<b>${escapeHtml(title)}</b>`,
-    escapeHtml(`${info.name} ha pulsado el botón SOS.`),
-    info.note ? `Nota: ${escapeHtml(info.note)}` : null,
-    mapsLink
-      ? `Ubicación: <a href="${escapeHtml(mapsLink)}">abrir mapa</a>`
-      : "Ubicación: no disponible",
-    directionsLink ? `Cómo llegar: <a href="${escapeHtml(directionsLink)}">abrir ruta</a>` : null,
+    title,
+    `${info.name} ha pulsado el botón SOS.`,
+    info.note ? `Nota: ${info.note}` : null,
+    mapsLink ? `Ubicación: ${mapsLink}` : "Ubicación: no disponible",
+    directionsLink ? `Cómo llegar: ${directionsLink}` : null,
     info.location_accuracy != null
       ? `Precisión aproximada: ${Math.round(info.location_accuracy)} m`
       : null,
-    `Hora: ${escapeHtml(new Date().toLocaleString("es-ES", { timeZone: "Europe/Madrid" }))}`,
+    `Hora: ${new Date().toLocaleString("es-ES", { timeZone: "Europe/Madrid" })}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -228,7 +221,7 @@ export async function sendSosAlert(
 
   let telegramProfileCount = 0;
   try {
-    telegramProfileCount = await sendTelegramToUsers(supabase, userIds, telegramBody);
+    telegramProfileCount = await sendTelegramToUsers(supabase, userIds, telegramBody, undefined, null);
   } catch (err) {
     console.error("SOS Telegram profile send failed", err);
   }
@@ -250,7 +243,7 @@ export async function sendSosAlert(
   const chatIds = (externals ?? []).map((e: any) => e.telegram_chat_id).filter(Boolean);
   let telegramExternalCount = 0;
   try {
-    telegramExternalCount = await sendTelegramToChatIds(chatIds, telegramBody);
+    telegramExternalCount = await sendTelegramToChatIds(chatIds, telegramBody, undefined, null);
   } catch (err) {
     console.error("SOS Telegram external send failed", err);
   }
