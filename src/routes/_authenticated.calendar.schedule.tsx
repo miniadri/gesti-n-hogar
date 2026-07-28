@@ -756,7 +756,7 @@ function SlotDialog({
             <Button
               onClick={async () => {
                 try {
-                  if (start >= end) { toast.error("La salida debe ser posterior a la entrada"); return; }
+                  if (start === end) { toast.error("La entrada y salida no pueden coincidir"); return; }
                   if (isDay) {
                     await upsertD({
                       data: {
