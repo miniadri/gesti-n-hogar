@@ -1,7 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList, Calendar, ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList, Calendar, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+
+const DIAGNOSTIC_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com"]);
 
 export const Route = createFileRoute("/_authenticated/settings/")({
   head: () => ({
@@ -12,8 +16,16 @@ export const Route = createFileRoute("/_authenticated/settings/")({
 
 function SettingsHubPage() {
   const { t } = useTranslation();
+  const [canSeeDiagnostics, setCanSeeDiagnostics] = useState(false);
 
-  const items = [
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const email = data.user?.email?.toLowerCase();
+      setCanSeeDiagnostics(Boolean(email && DIAGNOSTIC_ADMIN_EMAILS.has(email)));
+    });
+  }, []);
+
+  const items = useMemo(() => [
     {
       to: "/settings/family",
       label: t("nav.family"),
@@ -62,7 +74,17 @@ function SettingsHubPage() {
       description: "Reordena u oculta las secciones del menú",
       icon: LayoutList,
     },
-  ];
+    ...(canSeeDiagnostics
+      ? [
+          {
+            to: "/settings/diagnostics",
+            label: "Diagnóstico",
+            description: "Estado técnico privado de integraciones y avisos",
+            icon: ShieldCheck,
+          },
+        ]
+      : []),
+  ], [canSeeDiagnostics, t]);
 
   return (
     <div className="space-y-6">
