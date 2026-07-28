@@ -179,6 +179,7 @@ export function EmergencyPanel({ members }: { members: any[] }) {
             const isLatest = idx === 0;
             const lat = Number(s.latitude);
             const lng = Number(s.longitude);
+            const accuracy = s.location_accuracy != null ? Number(s.location_accuracy) : null;
             const d = 0.004;
             const bbox = hasLoc
               ? `${lng - d},${lat - d},${lng + d},${lat + d}`
@@ -217,6 +218,24 @@ export function EmergencyPanel({ members }: { members: any[] }) {
                     </>
                   )}
                 </p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  {hasLoc ? (
+                    <>
+                      <Badge variant="secondary" className="font-normal">
+                        {lat.toFixed(6)}, {lng.toFixed(6)}
+                      </Badge>
+                      {accuracy != null && (
+                        <Badge variant="secondary" className="font-normal">
+                          Precisión aprox. {Math.round(accuracy)} m
+                        </Badge>
+                      )}
+                    </>
+                  ) : (
+                    <Badge variant="outline" className="font-normal">
+                      Sin ubicación
+                    </Badge>
+                  )}
+                </div>
                 {s.note && <p className="mt-1 text-sm">{s.note}</p>}
                 {isLatest && hasLoc && bbox && (
                   <div className="mt-3 overflow-hidden rounded-lg border">

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
@@ -9,22 +10,54 @@ import { triggerSos } from "@/lib/sos.functions";
 
 const HOLD_MS = 2000;
 
-async function getLocation(): Promise<{ lat: number; lng: number; accuracy: number } | null> {
-  if (typeof navigator === "undefined" || !navigator.geolocation) return null;
+type SosLocation =
+  | { lat: number; lng: number; accuracy: number; source: "precise" | "fallback" }
+  | { lat: null; lng: null; accuracy: null; error: string };
+
+function requestPosition(options: PositionOptions): Promise<GeolocationPosition | null> {
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(null), 4000);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        clearTimeout(timeout);
-        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
-      },
-      () => {
-        clearTimeout(timeout);
-        resolve(null);
-      },
-      { enableHighAccuracy: true, timeout: 3500, maximumAge: 60000 },
+      (pos) => resolve(pos),
+      () => resolve(null),
+      options,
     );
   });
+}
+
+async function getLocation(): Promise<SosLocation> {
+  if (typeof window === "undefined" || typeof navigator === "undefined" || !navigator.geolocation) {
+    return { lat: null, lng: null, accuracy: null, error: "geolocation_unavailable" };
+  }
+
+  const precise = await requestPosition({
+    enableHighAccuracy: true,
+    timeout: 12000,
+    maximumAge: 30000,
+  });
+  if (precise) {
+    return {
+      lat: precise.coords.latitude,
+      lng: precise.coords.longitude,
+      accuracy: precise.coords.accuracy,
+      source: "precise",
+    };
+  }
+
+  const fallback = await requestPosition({
+    enableHighAccuracy: false,
+    timeout: 8000,
+    maximumAge: 5 * 60 * 1000,
+  });
+  if (fallback) {
+    return {
+      lat: fallback.coords.latitude,
+      lng: fallback.coords.longitude,
+      accuracy: fallback.coords.accuracy,
+      source: "fallback",
+    };
+  }
+
+  return { lat: null, lng: null, accuracy: null, error: "location_timeout_or_denied" };
 }
 
 export function SosButton({
@@ -37,6 +70,7 @@ export function SosButton({
   label?: string;
 }) {
   const doTrigger = useServerFn(triggerSos);
+  const queryClient = useQueryClient();
   const [progress, setProgress] = useState(0);
   const [sending, setSending] = useState(false);
   const holdStart = useRef<number | null>(null);
@@ -56,15 +90,35 @@ export function SosButton({
     setSending(true);
     const loc = await getLocation();
     try {
-      await doTrigger({
+      const result: any = await doTrigger({
         data: {
-          latitude: loc?.lat ?? null,
-          longitude: loc?.lng ?? null,
-          location_accuracy: loc?.accuracy ?? null,
+          latitude: loc.lat,
+          longitude: loc.lng,
+          location_accuracy: loc.accuracy,
           note: null,
         },
       });
-      toast.success("🚨 Alerta SOS enviada al hogar");
+      queryClient.invalidateQueries({ queryKey: ["sos-events"] });
+
+      const status = result?.notification_status;
+      const hasLocation = loc.lat != null && loc.lng != null;
+      if (status?.ok) {
+        const channels = [
+          status.telegramSent ? `${status.telegramSent} Telegram` : null,
+          status.pushSent ? "push" : null,
+        ].filter(Boolean).join(" + ");
+        toast.success(
+          `🚨 SOS enviado${channels ? ` por ${channels}` : ""}${hasLocation ? " con ubicación" : " sin ubicación"}`,
+        );
+      } else {
+        toast.warning(
+          `SOS registrado${hasLocation ? " con ubicación" : " sin ubicación"}, pero no se confirmó ninguna notificación.`,
+        );
+      }
+
+      if (!hasLocation) {
+        toast.warning("El navegador no entregó ubicación. Revisa permisos de ubicación y que la web esté en HTTPS.");
+      }
     } catch (err: any) {
       toast.error(err?.message || "No se pudo enviar el SOS");
     } finally {
