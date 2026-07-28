@@ -546,7 +546,7 @@ function TemplateEditor({
           <Copy className="mr-1 h-3 w-3" /> a toda la semana
         </Button>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
         {DAY_LABELS.map((label, dow) => {
           const slots = template.filter((s) => s.day_of_week === dow).sort((a, b) => a.start_time.localeCompare(b.start_time));
           const hours = slots.filter((s) => s.slot_kind !== "break" && s.slot_kind !== "off").reduce((a, s) => a + slotHours(s), 0);
