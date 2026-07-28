@@ -87,11 +87,12 @@ function DiagnosticsPage() {
               label="Conexión del usuario actual"
               ok={data.integrations.googleCalendar.connected && data.integrations.googleCalendar.available}
               okText="Conectada"
-              emptyText={data.integrations.googleCalendar.available ? "No conectada" : "No disponible"}
+              emptyText={data.integrations.googleCalendar.available ? "No conectada" : "No verificable"}
+              warning={!data.integrations.googleCalendar.available}
             />
             <InfoLine
               label="Diagnóstico"
-              value={data.integrations.googleCalendar.available ? "Consulta completada" : "Requiere service role"}
+              value={data.integrations.googleCalendar.available ? "Consulta completada" : "Prueba funcional desde Calendario"}
             />
           </CardContent>
         </Card>

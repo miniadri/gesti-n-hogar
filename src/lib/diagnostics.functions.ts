@@ -25,6 +25,15 @@ function check(key: string, label: string, ok: boolean, detailOk: string, detail
   };
 }
 
+function warningCheck(key: string, label: string, detail: string): DiagnosticCheck {
+  return {
+    key,
+    label,
+    status: "warning",
+    detail,
+  };
+}
+
 function currentUserEmail(context: any): string {
   return String(context?.claims?.email ?? "").toLowerCase();
 }
@@ -143,6 +152,11 @@ export const getDiagnostics = createServerFn({ method: "GET" })
       ),
     ]);
 
+    const telegramEnvConfigured = hasEnv("LOVABLE_API_KEY") && hasEnv("TELEGRAM_API_KEY");
+    const pushEnvConfigured = hasEnv("VAPID_PUBLIC_KEY") && hasEnv("VAPID_PRIVATE_KEY");
+    const googleEnvConfigured = hasEnv("GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY");
+    const homeAssistantConfigured = Boolean(homeAssistantConnection);
+
     const environment: DiagnosticCheck[] = [
       check("supabase_url", "Supabase URL", hasEnv("SUPABASE_URL"), "Configurada", "Falta SUPABASE_URL"),
       check(
@@ -157,44 +171,32 @@ export const getDiagnostics = createServerFn({ method: "GET" })
         "Supabase service role",
         hasEnv("SUPABASE_SERVICE_ROLE_KEY"),
         "Configurada",
-        "Falta SUPABASE_SERVICE_ROLE_KEY",
+        "No visible para diagnóstico; limita comprobaciones admin",
       ),
-      check(
-        "telegram",
-        "Telegram",
-        hasEnv("LOVABLE_API_KEY") && hasEnv("TELEGRAM_API_KEY"),
-        "Gateway y bot configurados",
-        "Falta LOVABLE_API_KEY o TELEGRAM_API_KEY",
-      ),
-      check(
-        "push",
-        "Push web",
-        hasEnv("VAPID_PUBLIC_KEY") && hasEnv("VAPID_PRIVATE_KEY"),
-        "VAPID configurado",
-        "Falta VAPID_PUBLIC_KEY o VAPID_PRIVATE_KEY",
-      ),
-      check(
-        "google_calendar",
-        "Google Calendar",
-        hasEnv("GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY"),
-        "Conector configurado",
-        "Falta GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY",
-      ),
-      check(
-        "app_url",
-        "URL pública",
-        hasEnv("PUBLIC_APP_URL"),
-        "Configurada",
-        "Falta PUBLIC_APP_URL; algunos enlaces pueden usar fallback",
-      ),
-      check(
-        "ha_secret",
-        "Home Assistant",
-        hasEnv("HA_TOKEN_SECRET"),
-        "Cifrado de token configurado",
-        "Falta HA_TOKEN_SECRET",
-      ),
-      check("cron", "Cron interno", hasEnv("CRON_SECRET"), "Secreto configurado", "Falta CRON_SECRET"),
+      telegramEnvConfigured
+        ? check("telegram", "Telegram", true, "Gateway y bot configurados", "")
+        : (telegramProfiles ?? 0) > 0
+          ? warningCheck("telegram", "Telegram", "Hay usuarios vinculados; gateway no verificable desde diagnóstico")
+          : check("telegram", "Telegram", false, "", "Falta configuración o no hay usuarios vinculados"),
+      pushEnvConfigured
+        ? check("push", "Push web", true, "VAPID configurado", "")
+        : (pushSubscriptions ?? 0) > 0
+          ? warningCheck("push", "Push web", "Hay suscripción push; VAPID no verificable desde diagnóstico")
+          : check("push", "Push web", false, "", "Falta VAPID o no hay suscripción push activa"),
+      googleEnvConfigured
+        ? check("google_calendar", "Google Calendar", true, "Conector configurado", "")
+        : googleConnection === true
+          ? check("google_calendar", "Google Calendar", true, "Conexión detectada", "")
+          : warningCheck("google_calendar", "Google Calendar", "No verificable desde diagnóstico; prueba desde Calendario"),
+      hasEnv("PUBLIC_APP_URL")
+        ? check("app_url", "URL pública", true, "Configurada", "")
+        : warningCheck("app_url", "URL pública", "No visible; Lovable puede estar usando una URL propia"),
+      homeAssistantConfigured
+        ? check("ha_secret", "Home Assistant", true, "Conexión guardada en el hogar", "")
+        : check("ha_secret", "Home Assistant", hasEnv("HA_TOKEN_SECRET"), "Cifrado de token configurado", "No configurado"),
+      hasEnv("CRON_SECRET")
+        ? check("cron", "Cron interno", true, "Secreto configurado", "")
+        : warningCheck("cron", "Cron interno", "No verificable desde diagnóstico; revisar solo si fallan tareas automáticas"),
     ];
 
     return {
