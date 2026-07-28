@@ -32,6 +32,7 @@ import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes
 import { Route as AuthenticatedSettingsGoogleCalendarRouteImport } from './routes/_authenticated.settings.google-calendar'
 import { Route as AuthenticatedSettingsFamilyRouteImport } from './routes/_authenticated.settings.family'
 import { Route as AuthenticatedSettingsEmergencyRouteImport } from './routes/_authenticated.settings.emergency'
+import { Route as AuthenticatedSettingsDiagnosticsRouteImport } from './routes/_authenticated.settings.diagnostics'
 import { Route as AuthenticatedSettingsAppliancesRouteImport } from './routes/_authenticated.settings.appliances'
 import { Route as AuthenticatedRecipesPlannerRouteImport } from './routes/_authenticated.recipes.planner'
 import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_authenticated.recipes.discover'
@@ -171,6 +172,12 @@ const AuthenticatedSettingsEmergencyRoute =
     path: '/settings/emergency',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsDiagnosticsRoute =
+  AuthenticatedSettingsDiagnosticsRouteImport.update({
+    id: '/settings/diagnostics',
+    path: '/settings/diagnostics',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsAppliancesRoute =
   AuthenticatedSettingsAppliancesRouteImport.update({
     id: '/settings/appliances',
@@ -256,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
   '/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
+  '/settings/diagnostics': typeof AuthenticatedSettingsDiagnosticsRoute
   '/settings/emergency': typeof AuthenticatedSettingsEmergencyRoute
   '/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/settings/google-calendar': typeof AuthenticatedSettingsGoogleCalendarRoute
@@ -291,6 +299,7 @@ export interface FileRoutesByTo {
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
   '/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
+  '/settings/diagnostics': typeof AuthenticatedSettingsDiagnosticsRoute
   '/settings/emergency': typeof AuthenticatedSettingsEmergencyRoute
   '/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/settings/google-calendar': typeof AuthenticatedSettingsGoogleCalendarRoute
@@ -328,6 +337,7 @@ export interface FileRoutesById {
   '/_authenticated/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/_authenticated/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
   '/_authenticated/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
+  '/_authenticated/settings/diagnostics': typeof AuthenticatedSettingsDiagnosticsRoute
   '/_authenticated/settings/emergency': typeof AuthenticatedSettingsEmergencyRoute
   '/_authenticated/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/_authenticated/settings/google-calendar': typeof AuthenticatedSettingsGoogleCalendarRoute
@@ -365,6 +375,7 @@ export interface FileRouteTypes {
     | '/recipes/discover'
     | '/recipes/planner'
     | '/settings/appliances'
+    | '/settings/diagnostics'
     | '/settings/emergency'
     | '/settings/family'
     | '/settings/google-calendar'
@@ -400,6 +411,7 @@ export interface FileRouteTypes {
     | '/recipes/discover'
     | '/recipes/planner'
     | '/settings/appliances'
+    | '/settings/diagnostics'
     | '/settings/emergency'
     | '/settings/family'
     | '/settings/google-calendar'
@@ -436,6 +448,7 @@ export interface FileRouteTypes {
     | '/_authenticated/recipes/discover'
     | '/_authenticated/recipes/planner'
     | '/_authenticated/settings/appliances'
+    | '/_authenticated/settings/diagnostics'
     | '/_authenticated/settings/emergency'
     | '/_authenticated/settings/family'
     | '/_authenticated/settings/google-calendar'
@@ -627,6 +640,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsEmergencyRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/diagnostics': {
+      id: '/_authenticated/settings/diagnostics'
+      path: '/settings/diagnostics'
+      fullPath: '/settings/diagnostics'
+      preLoaderRoute: typeof AuthenticatedSettingsDiagnosticsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/appliances': {
       id: '/_authenticated/settings/appliances'
       path: '/settings/appliances'
@@ -734,6 +754,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRecipesDiscoverRoute: typeof AuthenticatedRecipesDiscoverRoute
   AuthenticatedRecipesPlannerRoute: typeof AuthenticatedRecipesPlannerRoute
   AuthenticatedSettingsAppliancesRoute: typeof AuthenticatedSettingsAppliancesRoute
+  AuthenticatedSettingsDiagnosticsRoute: typeof AuthenticatedSettingsDiagnosticsRoute
   AuthenticatedSettingsEmergencyRoute: typeof AuthenticatedSettingsEmergencyRoute
   AuthenticatedSettingsFamilyRoute: typeof AuthenticatedSettingsFamilyRoute
   AuthenticatedSettingsGoogleCalendarRoute: typeof AuthenticatedSettingsGoogleCalendarRoute
@@ -762,6 +783,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRecipesDiscoverRoute: AuthenticatedRecipesDiscoverRoute,
   AuthenticatedRecipesPlannerRoute: AuthenticatedRecipesPlannerRoute,
   AuthenticatedSettingsAppliancesRoute: AuthenticatedSettingsAppliancesRoute,
+  AuthenticatedSettingsDiagnosticsRoute: AuthenticatedSettingsDiagnosticsRoute,
   AuthenticatedSettingsEmergencyRoute: AuthenticatedSettingsEmergencyRoute,
   AuthenticatedSettingsFamilyRoute: AuthenticatedSettingsFamilyRoute,
   AuthenticatedSettingsGoogleCalendarRoute:
