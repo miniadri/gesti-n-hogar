@@ -24,22 +24,26 @@ export const triggerSos = createServerFn({ method: "POST" })
       .maybeSingle();
     const triggeredByName = member?.display_name || "Un miembro";
 
+    const payload = {
+      household_id: householdId,
+      triggered_by: context.userId,
+      triggered_by_name: triggeredByName,
+      latitude: data.latitude ?? null,
+      longitude: data.longitude ?? null,
+      location_accuracy: data.location_accuracy ?? null,
+      note: data.note ?? null,
+    };
+
     const { data: sos, error } = await context.supabase
       .from("sos_events")
-      .insert({
-        household_id: householdId,
-        triggered_by: context.userId,
-        triggered_by_name: triggeredByName,
-        latitude: data.latitude ?? null,
-        longitude: data.longitude ?? null,
-        location_accuracy: data.location_accuracy ?? null,
-        note: data.note ?? null,
-      })
+      .insert(payload)
       .select()
       .single();
-    if (error) throw error;
 
-    // Fire notifications (adults + emergency contacts). Best-effort.
+    if (error) {
+      console.error("SOS history insert error", error);
+    }
+
     try {
       const { sendSosAlert } = await import("@/lib/notify.server");
       await sendSosAlert(context.supabase, householdId, {
@@ -47,13 +51,17 @@ export const triggerSos = createServerFn({ method: "POST" })
         userId: context.userId,
         latitude: data.latitude ?? null,
         longitude: data.longitude ?? null,
+        location_accuracy: data.location_accuracy ?? null,
         note: data.note ?? null,
       });
     } catch (err) {
       console.error("SOS notify error", err);
+      throw new Error("SOS registrado, pero no se pudieron enviar las notificaciones");
     }
 
-    return sos;
+    return (
+      sos ?? { ...payload, id: null, created_at: new Date().toISOString(), history_saved: false }
+    );
   });
 
 export const listSosEvents = createServerFn({ method: "GET" })
