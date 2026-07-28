@@ -44,9 +44,16 @@ export const triggerSos = createServerFn({ method: "POST" })
       console.error("SOS history insert error", error);
     }
 
+    let notificationStatus = {
+      pushSent: false,
+      telegramSent: 0,
+      ok: false,
+      reason: "not_attempted",
+    };
+
     try {
       const { sendSosAlert } = await import("@/lib/notify.server");
-      await sendSosAlert(context.supabase, householdId, {
+      notificationStatus = await sendSosAlert(context.supabase, householdId, {
         name: triggeredByName,
         userId: context.userId,
         latitude: data.latitude ?? null,
@@ -56,12 +63,18 @@ export const triggerSos = createServerFn({ method: "POST" })
       });
     } catch (err) {
       console.error("SOS notify error", err);
-      throw new Error("SOS registrado, pero no se pudieron enviar las notificaciones");
+      notificationStatus = {
+        pushSent: false,
+        telegramSent: 0,
+        ok: false,
+        reason: err instanceof Error ? err.message : "notification_error",
+      };
     }
 
-    return (
-      sos ?? { ...payload, id: null, created_at: new Date().toISOString(), history_saved: false }
-    );
+    return {
+      ...(sos ?? { ...payload, id: null, created_at: new Date().toISOString(), history_saved: false }),
+      notification_status: notificationStatus,
+    };
   });
 
 export const listSosEvents = createServerFn({ method: "GET" })

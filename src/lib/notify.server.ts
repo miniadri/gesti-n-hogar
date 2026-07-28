@@ -2,6 +2,13 @@ import webPush from "web-push";
 
 const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
 
+type SosNotificationStatus = {
+  pushSent: boolean;
+  telegramSent: number;
+  ok: boolean;
+  reason: string | null;
+};
+
 export async function sendTelegramToUsers(
   supabase: any,
   userIds: string[],
@@ -52,7 +59,12 @@ export async function sendPushToUsers(
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
   if (!pub || !priv) return false;
-  webPush.setVapidDetails("mailto:admin@homesync.app", pub, priv);
+  try {
+    webPush.setVapidDetails("mailto:admin@homesync.app", pub, priv);
+  } catch (err) {
+    console.error("push configuration failed", err);
+    return false;
+  }
   const { data: subs } = await supabase
     .from("push_subscriptions")
     .select("id, endpoint, p256dh, auth")
@@ -168,7 +180,7 @@ export async function sendSosAlert(
     location_accuracy: number | null;
     note: string | null;
   },
-) {
+): Promise<SosNotificationStatus> {
   const userIds = Array.from(
     new Set([info.userId, ...(await resolveHouseholdEscalationUserIds(supabase, householdId))]),
   ).filter(Boolean);
@@ -176,11 +188,16 @@ export async function sendSosAlert(
     info.latitude != null && info.longitude != null
       ? `https://maps.google.com/?q=${info.latitude},${info.longitude}`
       : null;
+  const directionsLink =
+    info.latitude != null && info.longitude != null
+      ? `https://www.google.com/maps/dir/?api=1&destination=${info.latitude},${info.longitude}`
+      : null;
   const title = "🚨 SOS activado";
   const details = [
     `${info.name} ha pulsado el botón SOS.`,
     info.note ? `Nota: ${info.note}` : null,
     mapsLink ? `Ubicación: ${mapsLink}` : "Ubicación: no disponible",
+    directionsLink ? `Cómo llegar: ${directionsLink}` : null,
     info.location_accuracy != null
       ? `Precisión aproximada: ${Math.round(info.location_accuracy)} m`
       : null,
@@ -194,6 +211,7 @@ export async function sendSosAlert(
     mapsLink
       ? `Ubicación: <a href="${escapeHtml(mapsLink)}">abrir mapa</a>`
       : "Ubicación: no disponible",
+    directionsLink ? `Cómo llegar: <a href="${escapeHtml(directionsLink)}">abrir ruta</a>` : null,
     info.location_accuracy != null
       ? `Precisión aproximada: ${Math.round(info.location_accuracy)} m`
       : null,
@@ -201,8 +219,20 @@ export async function sendSosAlert(
   ]
     .filter(Boolean)
     .join("\n");
-  const pushSent = await sendPushToUsers(supabase, userIds, { title, body, url: "/dashboard" });
-  const telegramProfileCount = await sendTelegramToUsers(supabase, userIds, telegramBody);
+  let pushSent = false;
+  try {
+    pushSent = await sendPushToUsers(supabase, userIds, { title, body, url: "/dashboard" });
+  } catch (err) {
+    console.error("SOS push send failed", err);
+  }
+
+  let telegramProfileCount = 0;
+  try {
+    telegramProfileCount = await sendTelegramToUsers(supabase, userIds, telegramBody);
+  } catch (err) {
+    console.error("SOS Telegram profile send failed", err);
+  }
+
   const { data: externals, error: externalError } = await supabase
     .from("emergency_contacts")
     .select("telegram_chat_id")
@@ -210,20 +240,28 @@ export async function sendSosAlert(
     .not("telegram_chat_id", "is", null);
   if (externalError) {
     console.error("External emergency contact lookup failed", externalError);
-    if (!pushSent && telegramProfileCount === 0) {
-      throw new Error("No se pudo comprobar la lista de contactos de emergencia");
-    }
-    return { pushSent, telegramSent: telegramProfileCount };
+    return {
+      pushSent,
+      telegramSent: telegramProfileCount,
+      ok: pushSent || telegramProfileCount > 0,
+      reason: pushSent || telegramProfileCount > 0 ? null : "external_contacts_lookup_failed",
+    };
   }
   const chatIds = (externals ?? []).map((e: any) => e.telegram_chat_id).filter(Boolean);
-  const telegramExternalCount = await sendTelegramToChatIds(chatIds, telegramBody);
-  const telegramSent = telegramProfileCount + telegramExternalCount;
-  if (!pushSent && telegramSent === 0) {
-    throw new Error(
-      "No hay destinatarios SOS disponibles. Vincula Telegram en los miembros del hogar, añade un chat_id externo o activa notificaciones push.",
-    );
+  let telegramExternalCount = 0;
+  try {
+    telegramExternalCount = await sendTelegramToChatIds(chatIds, telegramBody);
+  } catch (err) {
+    console.error("SOS Telegram external send failed", err);
   }
-  return { pushSent, telegramSent };
+  const telegramSent = telegramProfileCount + telegramExternalCount;
+  const ok = pushSent || telegramSent > 0;
+  return {
+    pushSent,
+    telegramSent,
+    ok,
+    reason: ok ? null : "no_recipients_or_delivery_failed",
+  };
 }
 
 export async function addMedicationToShoppingList(
