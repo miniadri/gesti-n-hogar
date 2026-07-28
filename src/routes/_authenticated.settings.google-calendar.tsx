@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Calendar, CheckCircle2, RefreshCw, Unplug } from "lucide-react";
+import { AlertTriangle, Calendar, CheckCircle2, RefreshCw, Unplug } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,6 +74,10 @@ function GoogleCalendarSettings() {
   };
 
   const handleConnect = async () => {
+    if (status && !status.connectorConfigured) {
+      toast.error("Google Calendar no está configurado en Lovable");
+      return;
+    }
     setBusy("connect");
     try {
       const result = await connectAppUser({
@@ -153,8 +157,32 @@ function GoogleCalendarSettings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {status && !status.connectorConfigured && (
+            <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-medium">Google Calendar no está configurado en este entorno.</p>
+                <p className="text-xs">
+                  Falta <code>GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY</code> en Lovable. Hasta que esté
+                  configurada, no se puede iniciar una vinculación nueva.
+                </p>
+              </div>
+            </div>
+          )}
+          {status && !status.configured && status.connectorConfigured && (
+            <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-medium">No se puede comprobar la conexión guardada.</p>
+                <p className="text-xs">
+                  Falta la configuración admin de Supabase. El calendario local puede seguir funcionando, pero la
+                  conexión con Google no se puede verificar desde aquí.
+                </p>
+              </div>
+            </div>
+          )}
           {!status?.connected && (
-            <Button onClick={handleConnect} disabled={busy !== null}>
+            <Button onClick={handleConnect} disabled={busy !== null || (status ? !status.connectorConfigured : false)}>
               {busy === "connect" ? "Abriendo Google..." : "Conectar con Google"}
             </Button>
           )}

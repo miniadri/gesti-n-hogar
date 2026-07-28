@@ -166,13 +166,13 @@ export const getDiagnostics = createServerFn({ method: "GET" })
         "Configurada",
         "Falta SUPABASE_PUBLISHABLE_KEY",
       ),
-      check(
-        "supabase_service",
-        "Supabase service role",
-        hasEnv("SUPABASE_SERVICE_ROLE_KEY"),
-        "Configurada",
-        "No visible para diagnóstico; limita comprobaciones admin",
-      ),
+      hasEnv("SUPABASE_SERVICE_ROLE_KEY")
+        ? check("supabase_service", "Supabase service role", true, "Configurada", "")
+        : warningCheck(
+            "supabase_service",
+            "Supabase service role",
+            "No visible para diagnóstico; limita comprobaciones admin",
+          ),
       telegramEnvConfigured
         ? check("telegram", "Telegram", true, "Gateway y bot configurados", "")
         : (telegramProfiles ?? 0) > 0

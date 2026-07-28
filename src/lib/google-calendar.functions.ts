@@ -26,7 +26,11 @@ export const startGoogleCalendarConnect = createServerFn({ method: "POST" })
   .inputValidator((targetOrigin: string) => z.string().url().parse(targetOrigin))
   .handler(async ({ data: targetOrigin, context }) => {
     const clientKey = process.env.GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY;
-    if (!clientKey) throw new Error("GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY not set");
+    if (!clientKey) {
+      throw new Error(
+        "Google Calendar no está configurado en Lovable. Falta GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY.",
+      );
+    }
 
     const existing = await getConnectionKeyForUser(context.userId, GOOGLE_CALENDAR_CONNECTOR);
 
@@ -63,14 +67,15 @@ export const saveGoogleCalendarConnection = createServerFn({ method: "POST" })
 export const getGoogleCalendarStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const connectorConfigured = Boolean(process.env.GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY);
     try {
       const connected = await hasConnection(context.userId, GOOGLE_CALENDAR_CONNECTOR);
-      return { connected, configured: true };
+      return { connected, configured: true, connectorConfigured };
     } catch (err: any) {
       const message = String(err?.message ?? "");
       if (message.includes("SUPABASE_SERVICE_ROLE_KEY") || message.includes("SUPABASE_URL")) {
         console.warn("Google Calendar status unavailable: Supabase admin client is not configured");
-        return { connected: false, configured: false };
+        return { connected: false, configured: false, connectorConfigured };
       }
       throw err;
     }
