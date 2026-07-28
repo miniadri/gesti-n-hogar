@@ -357,7 +357,8 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
 
               return (
                 <Card key={dateStr} className="overflow-hidden">
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-2 px-3 pt-3 sm:px-4 sm:pt-4">
+
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm">
                         {DAY_LABELS[idx]} <span className="text-muted-foreground">{format(day, "d MMM", { locale: es })}</span>
