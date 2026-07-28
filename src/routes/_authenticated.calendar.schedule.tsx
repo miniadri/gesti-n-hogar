@@ -145,7 +145,7 @@ function SchedulePage() {
   const selected = members.find((m) => m.id === selectedId) ?? members[0];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4">
+    <div className="mx-auto w-full max-w-7xl space-y-6 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" asChild title="Volver">
@@ -328,7 +328,8 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-7">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+
             {weekDays.map((day, idx) => {
               const dateStr = format(day, "yyyy-MM-dd");
               const status = statusByDate.get(dateStr);
@@ -356,16 +357,18 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
 
               return (
                 <Card key={dateStr} className="overflow-hidden">
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-2 px-3 pt-3 sm:px-4 sm:pt-4">
+
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm">
                         {DAY_LABELS[idx]} <span className="text-muted-foreground">{format(day, "d MMM", { locale: es })}</span>
                       </CardTitle>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-2 px-3 pb-3 sm:px-4">
+
                     {status?.state && status.state !== "normal" && (
-                      <div className={`-mx-6 -mt-2 mb-2 w-[calc(100%+3rem)] px-4 py-2 text-center text-sm font-semibold ${statusBannerColor}`}>
+                      <div className={`-mx-3 -mt-2 mb-2 w-[calc(100%+1.5rem)] px-3 py-2 text-center text-sm font-semibold sm:-mx-4 sm:w-[calc(100%+2rem)] sm:px-4 ${statusBannerColor}`}>
                         {stateLabel(status.state)}
                       </div>
                     )}
@@ -545,7 +548,7 @@ function TemplateEditor({
           <Copy className="mr-1 h-3 w-3" /> a toda la semana
         </Button>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
         {DAY_LABELS.map((label, dow) => {
           const slots = template.filter((s) => s.day_of_week === dow).sort((a, b) => a.start_time.localeCompare(b.start_time));
           const hours = slots.filter((s) => s.slot_kind !== "break" && s.slot_kind !== "off").reduce((a, s) => a + slotHours(s), 0);
