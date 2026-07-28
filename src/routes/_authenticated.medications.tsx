@@ -17,6 +17,7 @@ import {
   History,
   Bell,
   Clock3,
+  ShieldAlert,
 
 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,7 +39,6 @@ import { listMedications, createMedication, updateMedication, deleteMedication, 
 import { listMedicines } from "@/lib/medicines.functions";
 import { createShoppingItem } from "@/lib/shopping.functions";
 import { SosButton } from "@/components/SosButton";
-import { EmergencyPanel } from "@/components/EmergencyPanel";
 
 const medicationsQueryOptions = queryOptions({
   queryKey: ["medications"],
@@ -345,7 +345,24 @@ function MedicationsPage() {
         </TabsContent>
 
         <TabsContent value="emergency" className="space-y-4">
-          <EmergencyPanel members={members} />
+          <Card>
+            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-destructive/10">
+                  <ShieldAlert className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <p className="font-semibold">Emergencia y contactos SOS</p>
+                  <p className="text-sm text-muted-foreground">
+                    La configuración de contactos de emergencia ahora está centralizada en Ajustes.
+                  </p>
+                </div>
+              </div>
+              <Button asChild className="w-full sm:w-auto">
+                <Link to="/settings/emergency">Abrir emergencia</Link>
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

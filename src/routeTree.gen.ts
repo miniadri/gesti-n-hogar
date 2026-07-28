@@ -31,6 +31,7 @@ import { Route as AuthenticatedSettingsLocalizationRouteImport } from './routes/
 import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes/_authenticated.settings.home-assistant'
 import { Route as AuthenticatedSettingsGoogleCalendarRouteImport } from './routes/_authenticated.settings.google-calendar'
 import { Route as AuthenticatedSettingsFamilyRouteImport } from './routes/_authenticated.settings.family'
+import { Route as AuthenticatedSettingsEmergencyRouteImport } from './routes/_authenticated.settings.emergency'
 import { Route as AuthenticatedSettingsAppliancesRouteImport } from './routes/_authenticated.settings.appliances'
 import { Route as AuthenticatedRecipesPlannerRouteImport } from './routes/_authenticated.recipes.planner'
 import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_authenticated.recipes.discover'
@@ -164,6 +165,12 @@ const AuthenticatedSettingsFamilyRoute =
     path: '/settings/family',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsEmergencyRoute =
+  AuthenticatedSettingsEmergencyRouteImport.update({
+    id: '/settings/emergency',
+    path: '/settings/emergency',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsAppliancesRoute =
   AuthenticatedSettingsAppliancesRouteImport.update({
     id: '/settings/appliances',
@@ -249,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
   '/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
+  '/settings/emergency': typeof AuthenticatedSettingsEmergencyRoute
   '/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/settings/google-calendar': typeof AuthenticatedSettingsGoogleCalendarRoute
   '/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
@@ -283,6 +291,7 @@ export interface FileRoutesByTo {
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
   '/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
+  '/settings/emergency': typeof AuthenticatedSettingsEmergencyRoute
   '/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/settings/google-calendar': typeof AuthenticatedSettingsGoogleCalendarRoute
   '/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
@@ -319,6 +328,7 @@ export interface FileRoutesById {
   '/_authenticated/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/_authenticated/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
   '/_authenticated/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
+  '/_authenticated/settings/emergency': typeof AuthenticatedSettingsEmergencyRoute
   '/_authenticated/settings/family': typeof AuthenticatedSettingsFamilyRoute
   '/_authenticated/settings/google-calendar': typeof AuthenticatedSettingsGoogleCalendarRoute
   '/_authenticated/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
@@ -355,6 +365,7 @@ export interface FileRouteTypes {
     | '/recipes/discover'
     | '/recipes/planner'
     | '/settings/appliances'
+    | '/settings/emergency'
     | '/settings/family'
     | '/settings/google-calendar'
     | '/settings/home-assistant'
@@ -389,6 +400,7 @@ export interface FileRouteTypes {
     | '/recipes/discover'
     | '/recipes/planner'
     | '/settings/appliances'
+    | '/settings/emergency'
     | '/settings/family'
     | '/settings/google-calendar'
     | '/settings/home-assistant'
@@ -424,6 +436,7 @@ export interface FileRouteTypes {
     | '/_authenticated/recipes/discover'
     | '/_authenticated/recipes/planner'
     | '/_authenticated/settings/appliances'
+    | '/_authenticated/settings/emergency'
     | '/_authenticated/settings/family'
     | '/_authenticated/settings/google-calendar'
     | '/_authenticated/settings/home-assistant'
@@ -607,6 +620,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsFamilyRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/emergency': {
+      id: '/_authenticated/settings/emergency'
+      path: '/settings/emergency'
+      fullPath: '/settings/emergency'
+      preLoaderRoute: typeof AuthenticatedSettingsEmergencyRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/appliances': {
       id: '/_authenticated/settings/appliances'
       path: '/settings/appliances'
@@ -714,6 +734,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRecipesDiscoverRoute: typeof AuthenticatedRecipesDiscoverRoute
   AuthenticatedRecipesPlannerRoute: typeof AuthenticatedRecipesPlannerRoute
   AuthenticatedSettingsAppliancesRoute: typeof AuthenticatedSettingsAppliancesRoute
+  AuthenticatedSettingsEmergencyRoute: typeof AuthenticatedSettingsEmergencyRoute
   AuthenticatedSettingsFamilyRoute: typeof AuthenticatedSettingsFamilyRoute
   AuthenticatedSettingsGoogleCalendarRoute: typeof AuthenticatedSettingsGoogleCalendarRoute
   AuthenticatedSettingsHomeAssistantRoute: typeof AuthenticatedSettingsHomeAssistantRoute
@@ -741,6 +762,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRecipesDiscoverRoute: AuthenticatedRecipesDiscoverRoute,
   AuthenticatedRecipesPlannerRoute: AuthenticatedRecipesPlannerRoute,
   AuthenticatedSettingsAppliancesRoute: AuthenticatedSettingsAppliancesRoute,
+  AuthenticatedSettingsEmergencyRoute: AuthenticatedSettingsEmergencyRoute,
   AuthenticatedSettingsFamilyRoute: AuthenticatedSettingsFamilyRoute,
   AuthenticatedSettingsGoogleCalendarRoute:
     AuthenticatedSettingsGoogleCalendarRoute,
@@ -785,3 +807,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -11,6 +11,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useSuspenseQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { subscribePush, unsubscribePush, getVapidPublicKey } from "@/lib/push.functions";
 import { getTelegramProfile, unlinkTelegram, linkTelegram } from "@/lib/medications.functions";
+import { sendPushTest, sendTelegramTest } from "@/lib/notification-tests.functions";
 import { toast } from "sonner";
 
 const telegramQueryOptions = queryOptions({
@@ -33,6 +34,7 @@ function NotificationsSettingsPage() {
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [telegramLoading, setTelegramLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState<"telegram" | "push" | null>(null);
   const queryClient = useQueryClient();
   const { data: telegramProfile } = useSuspenseQuery(telegramQueryOptions);
 
@@ -57,6 +59,8 @@ function NotificationsSettingsPage() {
   const getKey = useServerFn(getVapidPublicKey);
   const doUnlinkTelegram = useServerFn(unlinkTelegram);
   const doLinkTelegram = useServerFn(linkTelegram);
+  const doTelegramTest = useServerFn(sendTelegramTest);
+  const doPushTest = useServerFn(sendPushTest);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -137,6 +141,38 @@ function NotificationsSettingsPage() {
     }
   };
 
+  const handleTelegramTest = async () => {
+    setTestLoading("telegram");
+    try {
+      const result = await doTelegramTest();
+      if (result.ok) {
+        toast.success("Prueba enviada por Telegram");
+      } else {
+        toast.warning("No se pudo confirmar el envío por Telegram");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Error al probar Telegram");
+    } finally {
+      setTestLoading(null);
+    }
+  };
+
+  const handlePushTest = async () => {
+    setTestLoading("push");
+    try {
+      const result = await doPushTest();
+      if (result.ok) {
+        toast.success("Prueba push enviada");
+      } else {
+        toast.warning("No se encontró una suscripción push activa para este usuario");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Error al probar push");
+    } finally {
+      setTestLoading(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -165,6 +201,39 @@ function NotificationsSettingsPage() {
               Activar notificaciones
             </Button>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BellRing className="h-5 w-5" />
+            Pruebas de aviso
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <Button
+            variant="outline"
+            onClick={handleTelegramTest}
+            disabled={testLoading !== null || !telegramProfile}
+          >
+            {testLoading === "telegram" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Send className="mr-2 h-4 w-4" />
+            Probar Telegram
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handlePushTest}
+            disabled={testLoading !== null || !subscribed}
+          >
+            {testLoading === "push" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Bell className="mr-2 h-4 w-4" />
+            Probar push
+          </Button>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            Las pruebas se envían solo a tu usuario actual. Sirven para comprobar el canal antes de depender de
+            recordatorios o alertas reales.
+          </p>
         </CardContent>
       </Card>
 
@@ -226,6 +295,7 @@ function NotificationsSettingsPage() {
             { id: "events", label: "Eventos del calendario" },
             { id: "budget", label: "Presupuesto excedido" },
             { id: "medications", label: "Tomar medicación" },
+            { id: "sos", label: "Alertas SOS" },
             { id: "food_expiry", label: "Alimentos próximos a caducar" },
             { id: "medicine_expiry", label: "Medicinas próximas a caducar" },
           ].map((item) => (
