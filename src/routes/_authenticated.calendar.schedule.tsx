@@ -145,7 +145,7 @@ function SchedulePage() {
   const selected = members.find((m) => m.id === selectedId) ?? members[0];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4">
+    <div className="mx-auto w-full max-w-7xl space-y-6 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" asChild title="Volver">
