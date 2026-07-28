@@ -328,7 +328,8 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-7">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+
             {weekDays.map((day, idx) => {
               const dateStr = format(day, "yyyy-MM-dd");
               const status = statusByDate.get(dateStr);
