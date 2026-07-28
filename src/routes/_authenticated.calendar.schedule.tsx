@@ -107,13 +107,14 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 function slotHours(s: { start_time: string; end_time: string }): number {
-  const start = timeToMinutes(s.start_time);
-  let end = timeToMinutes(s.end_time);
-  if (end <= start) end += 24 * 60; // overnight shift crossing midnight
-  return Math.max(0, (end - start) / 60);
+  const m = timeToMinutes(s.end_time) - timeToMinutes(s.start_time);
+  return Math.max(0, m / 60);
 }
-function crossesMidnight(s: { start_time: string; end_time: string }): boolean {
-  return timeToMinutes(s.end_time) <= timeToMinutes(s.start_time);
+function adjustedHours(plannedHours: number, adjustment: number): number {
+  return Math.max(0, plannedHours + adjustment);
+}
+function actualOvertime(actualHours: number, targetHours: number): number {
+  return Math.max(0, actualHours - targetHours);
 }
 function fmtTime(t: string) {
   return t.slice(0, 5);
@@ -145,7 +146,7 @@ function SchedulePage() {
   const selected = members.find((m) => m.id === selectedId) ?? members[0];
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 p-3 sm:p-4">
+    <div className="mx-auto max-w-6xl space-y-6 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" asChild title="Volver">
@@ -248,10 +249,10 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       const slots = resolveDaySlots(d);
       const dayHours = slots.filter((s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular").reduce((a, s) => a + slotHours(s), 0);
       const status = statusByDate.get(format(d, "yyyy-MM-dd"));
-      const manualExtra = Number(status?.overtime_hours ?? 0);
-      worked += dayHours;
-      const dayExtra = Math.max(0, dayHours - settings.target_hours_per_day) + manualExtra;
-      extra += dayExtra;
+      const adjustment = Number(status?.overtime_hours ?? 0);
+      const actualHours = adjustedHours(dayHours, adjustment);
+      worked += actualHours;
+      extra += actualOvertime(actualHours, settings.target_hours_per_day);
     }
     return { worked, extra };
   }, [weekDays, template, daySlots, statuses, settings]);
@@ -270,8 +271,10 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       if (status?.state === "vacation") vacations += 1;
       const slots = resolveDaySlots(d);
       const dayHours = slots.filter((s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular").reduce((a, s) => a + slotHours(s), 0);
-      worked += dayHours;
-      extra += Math.max(0, dayHours - settings.target_hours_per_day) + Number(status?.overtime_hours ?? 0);
+      const adjustment = Number(status?.overtime_hours ?? 0);
+      const actualHours = adjustedHours(dayHours, adjustment);
+      worked += actualHours;
+      extra += actualOvertime(actualHours, settings.target_hours_per_day);
     }
     return { worked, extra, vacations };
   }, [weekStart, template, daySlots, statuses, settings]);
@@ -328,76 +331,39 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
-
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-7">
             {weekDays.map((day, idx) => {
               const dateStr = format(day, "yyyy-MM-dd");
               const status = statusByDate.get(dateStr);
               const slots = resolveDaySlots(day);
-              const prevSlots = resolveDaySlots(addDays(day, -1));
-              const carry = prevSlots.filter(crossesMidnight);
-              const items: Array<Slot & { __carry?: boolean; __crosses?: boolean }> = [
-                ...carry.map((s) => ({ ...s, __carry: true as const })),
-                ...slots.map((s) => ({ ...s, __carry: false as const, __crosses: crossesMidnight(s) })),
-              ];
               const dayHours = slots.filter((s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular").reduce((a, s) => a + slotHours(s), 0);
-              const overtime = Math.max(0, dayHours - settings.target_hours_per_day) + Number(status?.overtime_hours ?? 0);
+              const adjustment = Number(status?.overtime_hours ?? 0);
+              const actualHours = adjustedHours(dayHours, adjustment);
+              const overtime = actualOvertime(actualHours, settings.target_hours_per_day);
               const hasOverride = daySlots.some((s) => s.date === dateStr) || status?.use_day_override;
-              const nextDay = addDays(day, 1);
-              const statusBannerColor =
-                status?.state === "off"
-                  ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
-                  : status?.state === "vacation"
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                    : status?.state === "sick"
-                      ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200"
-                      : status?.state === "holiday"
-                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
-                        : "";
-
               return (
                 <Card key={dateStr} className="overflow-hidden">
-                  <CardHeader className="pb-2 px-3 pt-3 sm:px-4 sm:pt-4">
-
+                  <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm">
                         {DAY_LABELS[idx]} <span className="text-muted-foreground">{format(day, "d MMM", { locale: es })}</span>
                       </CardTitle>
+                      {status?.state && status.state !== "normal" && (
+                        <Badge variant="outline" className="text-xs">{stateLabel(status.state)}</Badge>
+                      )}
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-2 px-3 pb-3 sm:px-4">
-
-                    {status?.state && status.state !== "normal" && (
-                      <div className={`-mx-3 -mt-2 mb-2 w-[calc(100%+1.5rem)] px-3 py-2 text-center text-sm font-semibold sm:-mx-4 sm:w-[calc(100%+2rem)] sm:px-4 ${statusBannerColor}`}>
-                        {stateLabel(status.state)}
-                      </div>
-                    )}
-                    {items.length === 0 ? (
+                  <CardContent className="space-y-2">
+                    {slots.length === 0 ? (
                       <p className="text-xs text-muted-foreground">Sin franjas</p>
                     ) : (
-                      items.map((s, i) => (
-                        <div key={(s.__carry ? "c-" : "o-") + s.id + i} className={`flex items-center justify-between rounded border px-2 py-1 text-xs ${kindColor(s.slot_kind)} ${s.__carry ? "opacity-80 border-dashed" : ""}`}>
-                          <div className="min-w-0">
-                            {s.__carry ? (
-                              <>
-                                <div className="font-medium">00:00–{fmtTime(s.end_time)}</div>
-                                <div className="opacity-80 italic">Viene del {format(addDays(day, -1), "d MMM", { locale: es })} ({fmtTime(s.start_time)})</div>
-                                {s.label && <div className="opacity-80">{s.label}</div>}
-                              </>
-                            ) : s.__crosses ? (
-                              <>
-                                <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
-                                <div className="opacity-80 italic">{format(day, "d MMM", { locale: es })} → {format(nextDay, "d MMM", { locale: es })}</div>
-                                {s.label && <div className="opacity-80">{s.label}</div>}
-                              </>
-                            ) : (
-                              <>
-                                <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
-                                {s.label && <div className="opacity-80">{s.label}</div>}
-                              </>
-                            )}
+                      slots.map((s) => (
+                        <div key={s.id} className={`flex items-center justify-between rounded border px-2 py-1 text-xs ${kindColor(s.slot_kind)}`}>
+                          <div>
+                            <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
+                            {s.label && <div className="opacity-80">{s.label}</div>}
                           </div>
-                          {s.date && !s.__carry && (
+                          {s.date && (
                             <button
                               className="opacity-60 hover:opacity-100"
                               onClick={() => setSlotDialog({ kind: "day", date: dateStr, slot: s })}
@@ -410,7 +376,19 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                       ))
                     )}
                     <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
-                      <span>{dayHours.toFixed(1)}h {overtime > 0 && <span className="ml-1 text-amber-600">(+{overtime.toFixed(1)}h)</span>}</span>
+                      <span>
+                        {adjustment === 0 ? (
+                          <>{dayHours.toFixed(1)}h</>
+                        ) : (
+                          <>Plan {dayHours.toFixed(1)}h · Real {actualHours.toFixed(1)}h</>
+                        )}
+                        {adjustment !== 0 && (
+                          <span className={adjustment > 0 ? "ml-1 text-amber-600" : "ml-1 text-sky-600"}>
+                            ({adjustment > 0 ? "+" : ""}{adjustment.toFixed(1)}h)
+                          </span>
+                        )}
+                        {overtime > 0 && <span className="ml-1 text-amber-600"> +{overtime.toFixed(1)}h extra</span>}
+                      </span>
                       {hasOverride && <span className="italic">Ajuste</span>}
                     </div>
                     <div className="flex gap-1">
@@ -548,7 +526,7 @@ function TemplateEditor({
           <Copy className="mr-1 h-3 w-3" /> a toda la semana
         </Button>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-7">
         {DAY_LABELS.map((label, dow) => {
           const slots = template.filter((s) => s.day_of_week === dow).sort((a, b) => a.start_time.localeCompare(b.start_time));
           const hours = slots.filter((s) => s.slot_kind !== "break" && s.slot_kind !== "off").reduce((a, s) => a + slotHours(s), 0);
@@ -772,7 +750,7 @@ function SlotDialog({
             <Button
               onClick={async () => {
                 try {
-                  if (start === end) { toast.error("La entrada y salida no pueden coincidir"); return; }
+                  if (start >= end) { toast.error("La salida debe ser posterior a la entrada"); return; }
                   if (isDay) {
                     await upsertD({
                       data: {
@@ -851,9 +829,11 @@ function StatusDialog({
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label>Horas extra adicionales</Label>
+            <Label>Ajuste de horas reales</Label>
             <Input type="number" step="0.25" value={overtime} onChange={(e) => setOvertime(e.target.value)} />
-            <p className="text-xs text-muted-foreground">Suma a las que se calculen automáticamente por superar la jornada.</p>
+            <p className="text-xs text-muted-foreground">
+              Usa positivo si trabajaste más de lo previsto y negativo si saliste antes. Ejemplo: 10h previstas y ajuste -1 = 9h reales.
+            </p>
           </div>
           <div className="flex items-center justify-between rounded border p-2">
             <div>
