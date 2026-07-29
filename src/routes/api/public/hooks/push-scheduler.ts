@@ -10,9 +10,10 @@ export const Route = createFileRoute("/api/public/hooks/push-scheduler")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey") || "";
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
-        if (!expected || apikey !== expected) {
+        const authHeader = request.headers.get("authorization") ?? "";
+        const bearer = authHeader.replace(/^Bearer\s+/i, "");
+        const expected = process.env.CRON_BEARER ?? "";
+        if (!expected || bearer !== expected) {
           return new Response("Unauthorized", { status: 401 });
         }
 
