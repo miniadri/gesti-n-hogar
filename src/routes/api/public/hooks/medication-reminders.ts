@@ -6,15 +6,10 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey") ?? "";
         const authHeader = request.headers.get("authorization") ?? "";
         const bearer = authHeader.replace(/^Bearer\s+/i, "");
-        const publishable = process.env.SUPABASE_PUBLISHABLE_KEY ?? "";
-        const cronSecret = process.env.CRON_SECRET ?? "";
-        const ok =
-          (publishable && apikey === publishable) ||
-          (cronSecret && bearer === cronSecret);
-        if (!ok) {
+        const expected = process.env.CRON_BEARER ?? "";
+        if (!expected || bearer !== expected) {
           return new Response("Unauthorized", { status: 401 });
         }
 
