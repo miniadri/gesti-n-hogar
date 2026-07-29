@@ -127,7 +127,9 @@ export const joinHousehold = createServerFn({ method: "POST" })
   .inputValidator((input) => JoinInviteInput.parse(input))
   .handler(async ({ data, context }) => {
     const code = data.code.toUpperCase();
-    const { data: invite, error: inviteError } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: invite, error: inviteError } = await supabaseAdmin
       .from("household_invites")
       .select("*, household:household_id(*)")
       .eq("code", code)
@@ -136,7 +138,7 @@ export const joinHousehold = createServerFn({ method: "POST" })
     if (inviteError || !invite) throw new Error("Código inválido o expirado");
 
     // Already a member? no-op.
-    const { data: existing } = await context.supabase
+    const { data: existing } = await supabaseAdmin
       .from("household_members")
       .select("id")
       .eq("household_id", invite.household_id)
@@ -153,7 +155,6 @@ export const joinHousehold = createServerFn({ method: "POST" })
     // If requested and the user only has their auto-created default household
     // (sole member, no shared data yet), remove it so they don't end up in two.
     if (data.replaceDefault) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: myHouseholds } = await supabaseAdmin
         .from("household_members")
         .select("household_id")
@@ -169,13 +170,13 @@ export const joinHousehold = createServerFn({ method: "POST" })
       }
     }
 
-    await context.supabase.from("household_members").insert({
+    await supabaseAdmin.from("household_members").insert({
       household_id: invite.household_id,
       user_id: context.userId,
       display_name: profile?.full_name || "Miembro",
     });
 
-    await context.supabase.from("user_roles").insert({
+    await supabaseAdmin.from("user_roles").insert({
       user_id: context.userId,
       role: invite.role,
       household_id: invite.household_id,

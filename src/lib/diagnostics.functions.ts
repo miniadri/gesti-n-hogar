@@ -194,7 +194,7 @@ export const getDiagnostics = createServerFn({ method: "GET" })
       homeAssistantConfigured
         ? check("ha_secret", "Home Assistant", true, "Conexión guardada en el hogar", "")
         : check("ha_secret", "Home Assistant", hasEnv("HA_TOKEN_SECRET"), "Cifrado de token configurado", "No configurado"),
-      hasEnv("CRON_SECRET")
+      hasEnv("CRON_BEARER")
         ? check("cron", "Cron interno", true, "Secreto configurado", "")
         : warningCheck("cron", "Cron interno", "No verificable desde diagnóstico; revisar solo si fallan tareas automáticas"),
     ];

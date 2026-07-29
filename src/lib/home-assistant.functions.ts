@@ -75,6 +75,8 @@ function assertReachableFromCloud(baseUrl: string) {
       h.endsWith(".local") ||
       /^127\./.test(h) ||
       /^10\./.test(h) ||
+      /^0\./.test(h) ||
+      /^169\.254\./.test(h) ||
       /^192\.168\./.test(h) ||
       /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h);
     if (isPrivate) {
@@ -87,8 +89,13 @@ function assertReachableFromCloud(baseUrl: string) {
         "La URL debe usar HTTPS. Las conexiones HTTP no están permitidas por seguridad.",
       );
     }
+    if (u.username || u.password) {
+      throw new Error("La URL no debe incluir usuario ni contraseña.");
+    }
   } catch (err) {
     if (err instanceof Error && err.message.includes("URL pública")) throw err;
+    if (err instanceof Error && err.message.includes("HTTPS")) throw err;
+    if (err instanceof Error && err.message.includes("usuario")) throw err;
     throw new Error("URL no válida");
   }
 }
