@@ -549,7 +549,9 @@ export const linkTelegram = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ token: z.string().min(1) }).parse(input))
   .handler(async ({ data, context }) => {
-    const { data: pending, error: findError } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: pending, error: findError } = await supabaseAdmin
       .from("telegram_pending_links")
       .select("chat_id")
       .eq("token", data.token)
@@ -561,7 +563,7 @@ export const linkTelegram = createServerFn({ method: "POST" })
       .upsert({ user_id: context.userId, chat_id: pending.chat_id }, { onConflict: "user_id" });
     if (upsertError) throw upsertError;
 
-    await context.supabase.from("telegram_pending_links").delete().eq("token", data.token);
+    await supabaseAdmin.from("telegram_pending_links").delete().eq("token", data.token);
     return { ok: true, chat_id: pending.chat_id };
   });
 
