@@ -47,8 +47,14 @@ export const createChildMember = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("Solo un administrador del hogar puede crear miembros infantiles");
 
-    const { data: member, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: member, error } = await supabaseAdmin
       .from("household_members")
       .insert({
         household_id: householdId,
