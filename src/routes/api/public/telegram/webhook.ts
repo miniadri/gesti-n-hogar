@@ -286,18 +286,17 @@ async function handleSosAck(
       .eq("id", ack.id);
   }
 
+  await supabase
+    .from("sos_events")
+    .update({ acknowledged_at: new Date().toISOString() })
+    .eq("id", sosEventId)
+    .is("acknowledged_at", null);
+
   const { count: pending } = await supabase
     .from("sos_acknowledgements")
     .select("id", { count: "exact", head: true })
     .eq("sos_event_id", sosEventId)
     .is("acknowledged_at", null);
-
-  if (!pending) {
-    await supabase
-      .from("sos_events")
-      .update({ acknowledged_at: new Date().toISOString() })
-      .eq("id", sosEventId);
-  }
 
   await answerCallback(telegramApiKey, callbackId, "✅ Recepción confirmada");
   if (messageId) {

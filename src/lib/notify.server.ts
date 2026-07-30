@@ -202,7 +202,7 @@ export function buildSosMessage(event: SosEventInfo, reminderNumber: number): { 
       ? `Precisión aproximada: ${Math.round(event.location_accuracy)} m`
       : null,
     `Hora: ${when}`,
-    "⚠️ Confirma que has recibido el aviso; si no, se reenviará cada 2 minutos.",
+    "⚠️ Confirma que has recibido el aviso. Si nadie confirma, se reenviará cada 2 minutos.",
   ]
     .filter(Boolean)
     .join("\n");

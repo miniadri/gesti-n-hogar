@@ -9,7 +9,7 @@ import { acknowledgeSos, listPendingSosAcks } from "@/lib/sos.functions";
 /**
  * Blocking-style banner shown to any household member that has received a SOS
  * alert and has not acknowledged reception yet. Reminders keep firing every
- * 2 minutes until it is confirmed here, in Telegram or from the push message.
+ * 2 minutes only while nobody has confirmed the SOS.
  */
 export function SosAckBanner() {
   const fetchPending = useServerFn(listPendingSosAcks);
@@ -55,7 +55,7 @@ export function SosAckBanner() {
                   </a>
                 )}
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Debes confirmar la recepción; se reenviará cada 2 minutos hasta que lo hagas.
+                  Confirma la recepción. Si nadie confirma, el SOS se reenviará cada 2 minutos.
                 </p>
               </div>
               <Button

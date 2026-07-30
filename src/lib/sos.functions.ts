@@ -142,6 +142,12 @@ export const acknowledgeSos = createServerFn({ method: "POST" })
       .is("acknowledged_at", null);
     if (error) throw error;
 
+    await context.supabase
+      .from("sos_events")
+      .update({ acknowledged_at: new Date().toISOString() })
+      .eq("id", data.sosEventId)
+      .is("acknowledged_at", null);
+
     const { count } = await context.supabase
       .from("sos_acknowledgements")
       .select("id", { count: "exact", head: true })

@@ -5,8 +5,10 @@ import { dispatchSosNotifications } from "@/lib/notify.server";
 const REMINDER_INTERVAL_MS = 2 * 60 * 1000;
 const MAX_AGE_MS = 6 * 60 * 60 * 1000; // stop retrying after 6h
 
-// Runs every ~1-2 minutes via pg_cron. Re-sends SOS alerts to every recipient
-// that has not acknowledged reception yet.
+// Runs every ~1-2 minutes via pg_cron. Re-sends SOS alerts only while nobody
+// has acknowledged reception yet. Once one recipient confirms, reminders stop
+// for the event, but the remaining recipients can still acknowledge from the
+// original message/banner.
 export const Route = createFileRoute("/api/public/hooks/sos-reminders")({
   server: {
     handlers: {
@@ -41,17 +43,25 @@ export const Route = createFileRoute("/api/public/hooks/sos-reminders")({
 
         let resent = 0;
         for (const ev of (events ?? []) as any[]) {
-          const { count: pending } = await supabase
-            .from("sos_acknowledgements")
-            .select("id", { count: "exact", head: true })
-            .eq("sos_event_id", ev.id)
-            .is("acknowledged_at", null);
+          const [{ count: acknowledged }, { count: pending }] = await Promise.all([
+            supabase
+              .from("sos_acknowledgements")
+              .select("id", { count: "exact", head: true })
+              .eq("sos_event_id", ev.id)
+              .not("acknowledged_at", "is", null),
+            supabase
+              .from("sos_acknowledgements")
+              .select("id", { count: "exact", head: true })
+              .eq("sos_event_id", ev.id)
+              .is("acknowledged_at", null),
+          ]);
 
-          if (!pending) {
+          if ((acknowledged ?? 0) > 0 || !pending) {
             await supabase
               .from("sos_events")
               .update({ acknowledged_at: new Date().toISOString() })
-              .eq("id", ev.id);
+              .eq("id", ev.id)
+              .is("acknowledged_at", null);
             continue;
           }
 
