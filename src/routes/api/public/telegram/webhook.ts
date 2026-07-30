@@ -250,3 +250,62 @@ async function handleCallbackQuery(
 
   await answerCallback(telegramApiKey, callbackId, "Acción desconocida");
 }
+
+async function handleSosAck(
+  supabase: any,
+  telegramApiKey: string,
+  callbackId: string,
+  chatId: string,
+  messageId: number | undefined,
+  sosEventId: string,
+) {
+  const { data: profile } = await supabase
+    .from("telegram_profiles")
+    .select("user_id")
+    .eq("chat_id", chatId)
+    .maybeSingle();
+
+  let query = supabase
+    .from("sos_acknowledgements")
+    .select("id, recipient_name, acknowledged_at")
+    .eq("sos_event_id", sosEventId);
+  query = profile?.user_id
+    ? query.eq("user_id", profile.user_id)
+    : query.eq("telegram_chat_id", chatId);
+
+  const { data: ack } = await query.maybeSingle();
+  if (!ack) {
+    await answerCallback(telegramApiKey, callbackId, "Este aviso no está dirigido a ti.");
+    return;
+  }
+
+  if (!ack.acknowledged_at) {
+    await supabase
+      .from("sos_acknowledgements")
+      .update({ acknowledged_at: new Date().toISOString(), channel: "telegram" })
+      .eq("id", ack.id);
+  }
+
+  const { count: pending } = await supabase
+    .from("sos_acknowledgements")
+    .select("id", { count: "exact", head: true })
+    .eq("sos_event_id", sosEventId)
+    .is("acknowledged_at", null);
+
+  if (!pending) {
+    await supabase
+      .from("sos_events")
+      .update({ acknowledged_at: new Date().toISOString() })
+      .eq("id", sosEventId);
+  }
+
+  await answerCallback(telegramApiKey, callbackId, "✅ Recepción confirmada");
+  if (messageId) {
+    await editMessage(
+      telegramApiKey,
+      chatId,
+      messageId,
+      `✅ Aviso SOS confirmado por ${ack.recipient_name ?? "ti"}${pending ? ` — faltan ${pending} por confirmar` : " — todos confirmados"}`,
+    );
+  }
+}
