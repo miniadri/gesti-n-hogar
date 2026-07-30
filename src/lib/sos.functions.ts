@@ -60,6 +60,8 @@ export const triggerSos = createServerFn({ method: "POST" })
     try {
       const { sendSosAlert } = await import("@/lib/notify.server");
       notificationStatus = await sendSosAlert(context.supabase, householdId, {
+        id: (sos as any)?.id ?? null,
+        created_at: (sos as any)?.created_at,
         name: triggeredByName,
         userId: context.userId,
         latitude: data.latitude ?? null,
@@ -67,6 +69,7 @@ export const triggerSos = createServerFn({ method: "POST" })
         location_accuracy: data.location_accuracy ?? null,
         note: data.note ?? null,
       });
+
     } catch (err) {
       console.error("SOS notify error", err);
       notificationStatus = {
