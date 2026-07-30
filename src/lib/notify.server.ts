@@ -164,98 +164,218 @@ export async function sendTelegramToChatIds(
   return sent;
 }
 
+type SosEventInfo = {
+  id: string | null;
+  household_id: string;
+  triggered_by?: string | null;
+  triggered_by_name?: string | null;
+  name?: string;
+  userId?: string;
+  latitude: number | null;
+  longitude: number | null;
+  location_accuracy: number | null;
+  note: string | null;
+  created_at?: string;
+  reminder_count?: number | null;
+};
+
+export function buildSosMessage(event: SosEventInfo, reminderNumber: number): { title: string; body: string } {
+  const who = event.triggered_by_name || event.name || "Un miembro";
+  const mapsLink =
+    event.latitude != null && event.longitude != null
+      ? `https://maps.google.com/?q=${event.latitude},${event.longitude}`
+      : null;
+  const directionsLink =
+    event.latitude != null && event.longitude != null
+      ? `https://www.google.com/maps/dir/?api=1&destination=${event.latitude},${event.longitude}`
+      : null;
+  const title = reminderNumber > 0 ? `🚨 SOS SIN CONFIRMAR (aviso ${reminderNumber + 1})` : "🚨 SOS activado";
+  const when = new Date(event.created_at ?? Date.now()).toLocaleString("es-ES", {
+    timeZone: "Europe/Madrid",
+  });
+  const body = [
+    `${who} ha pulsado el botón SOS.`,
+    event.note ? `Nota: ${event.note}` : null,
+    mapsLink ? `Ubicación: ${mapsLink}` : "Ubicación: no disponible",
+    directionsLink ? `Cómo llegar: ${directionsLink}` : null,
+    event.location_accuracy != null
+      ? `Precisión aproximada: ${Math.round(event.location_accuracy)} m`
+      : null,
+    `Hora: ${when}`,
+    "⚠️ Confirma que has recibido el aviso; si no, se reenviará cada 2 minutos.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return { title, body };
+}
+
+/**
+ * Sends the SOS alert to every recipient that has NOT acknowledged yet.
+ * Returns delivery counters.
+ */
+export async function dispatchSosNotifications(
+  supabase: any,
+  event: SosEventInfo,
+  reminderNumber = 0,
+): Promise<SosNotificationStatus> {
+  const { title, body } = buildSosMessage(event, reminderNumber);
+  const ackUrl = "/settings/emergency";
+
+  let userIds: string[] = [];
+  let chatIds: string[] = [];
+
+  if (event.id) {
+    const { data: pending } = await supabase
+      .from("sos_acknowledgements")
+      .select("user_id, telegram_chat_id")
+      .eq("sos_event_id", event.id)
+      .is("acknowledged_at", null);
+    for (const row of (pending ?? []) as any[]) {
+      if (row.user_id) userIds.push(row.user_id);
+      else if (row.telegram_chat_id) chatIds.push(row.telegram_chat_id);
+    }
+  } else {
+    // Fallback (event could not be persisted): notify escalation contacts directly.
+    userIds = await resolveHouseholdEscalationUserIds(supabase, event.household_id);
+    const { data: externals } = await supabase
+      .from("emergency_contacts")
+      .select("telegram_chat_id")
+      .eq("household_id", event.household_id)
+      .not("telegram_chat_id", "is", null);
+    chatIds = (externals ?? []).map((e: any) => e.telegram_chat_id).filter(Boolean);
+  }
+
+  if (userIds.length === 0 && chatIds.length === 0) {
+    return { pushSent: false, telegramSent: 0, ok: false, reason: "no_pending_recipients" };
+  }
+
+  const replyMarkup = event.id
+    ? {
+        inline_keyboard: [[{ text: "✅ Confirmar recepción", callback_data: `sos:ack:${event.id}` }]],
+      }
+    : undefined;
+
+  let pushSent = false;
+  try {
+    pushSent = await sendPushToUsers(supabase, userIds, { title, body, url: ackUrl });
+  } catch (err) {
+    console.error("SOS push send failed", err);
+  }
+
+  let telegramSent = 0;
+  try {
+    telegramSent += await sendTelegramToUsers(
+      supabase,
+      userIds,
+      `${title}\n${body}`,
+      replyMarkup,
+      null,
+    );
+  } catch (err) {
+    console.error("SOS Telegram profile send failed", err);
+  }
+  try {
+    telegramSent += await sendTelegramToChatIds(chatIds, `${title}\n${body}`, replyMarkup, null);
+  } catch (err) {
+    console.error("SOS Telegram external send failed", err);
+  }
+
+  const ok = pushSent || telegramSent > 0;
+  return { pushSent, telegramSent, ok, reason: ok ? null : "no_recipients_or_delivery_failed" };
+}
+
 export async function sendSosAlert(
   supabase: any,
   householdId: string,
   info: {
+    id?: string | null;
     name: string;
     userId: string;
     latitude: number | null;
     longitude: number | null;
     location_accuracy: number | null;
     note: string | null;
+    created_at?: string;
   },
 ): Promise<SosNotificationStatus> {
-  const userIds = Array.from(
-    new Set([info.userId, ...(await resolveHouseholdEscalationUserIds(supabase, householdId))]),
-  ).filter(Boolean);
-  const mapsLink =
-    info.latitude != null && info.longitude != null
-      ? `https://maps.google.com/?q=${info.latitude},${info.longitude}`
-      : null;
-  const directionsLink =
-    info.latitude != null && info.longitude != null
-      ? `https://www.google.com/maps/dir/?api=1&destination=${info.latitude},${info.longitude}`
-      : null;
-  const title = "🚨 SOS activado";
-  const details = [
-    `${info.name} ha pulsado el botón SOS.`,
-    info.note ? `Nota: ${info.note}` : null,
-    mapsLink ? `Ubicación: ${mapsLink}` : "Ubicación: no disponible",
-    directionsLink ? `Cómo llegar: ${directionsLink}` : null,
-    info.location_accuracy != null
-      ? `Precisión aproximada: ${Math.round(info.location_accuracy)} m`
-      : null,
-    `Hora: ${new Date().toLocaleString("es-ES", { timeZone: "Europe/Madrid" })}`,
-  ].filter(Boolean) as string[];
-  const body = details.join("\n");
-  const telegramBody = [
-    title,
-    `${info.name} ha pulsado el botón SOS.`,
-    info.note ? `Nota: ${info.note}` : null,
-    mapsLink ? `Ubicación: ${mapsLink}` : "Ubicación: no disponible",
-    directionsLink ? `Cómo llegar: ${directionsLink}` : null,
-    info.location_accuracy != null
-      ? `Precisión aproximada: ${Math.round(info.location_accuracy)} m`
-      : null,
-    `Hora: ${new Date().toLocaleString("es-ES", { timeZone: "Europe/Madrid" })}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-  let pushSent = false;
-  try {
-    pushSent = await sendPushToUsers(supabase, userIds, { title, body, url: "/dashboard" });
-  } catch (err) {
-    console.error("SOS push send failed", err);
+  const eventId = info.id ?? null;
+
+  if (eventId) {
+    // Register the recipients that must acknowledge this SOS.
+    const adults = await resolveHouseholdEscalationUserIds(supabase, householdId);
+    const recipientUserIds = Array.from(new Set(adults.filter((id) => id && id !== info.userId)));
+
+    const { data: externals } = await supabase
+      .from("emergency_contacts")
+      .select("name, telegram_chat_id")
+      .eq("household_id", householdId)
+      .not("telegram_chat_id", "is", null);
+
+    const { data: members } = await supabase
+      .from("household_members")
+      .select("user_id, display_name")
+      .eq("household_id", householdId)
+      .in("user_id", recipientUserIds.length ? recipientUserIds : ["00000000-0000-0000-0000-000000000000"]);
+    const nameByUser = new Map(
+      ((members ?? []) as any[]).map((m) => [m.user_id, m.display_name as string]),
+    );
+
+    const rows = [
+      ...recipientUserIds.map((uid) => ({
+        sos_event_id: eventId,
+        household_id: householdId,
+        user_id: uid,
+        telegram_chat_id: null,
+        recipient_name: nameByUser.get(uid) ?? "Miembro",
+      })),
+      ...((externals ?? []) as any[])
+        .filter((e) => e.telegram_chat_id)
+        .map((e) => ({
+          sos_event_id: eventId,
+          household_id: householdId,
+          user_id: null,
+          telegram_chat_id: String(e.telegram_chat_id),
+          recipient_name: e.name ?? "Contacto externo",
+        })),
+    ];
+
+    if (rows.length > 0) {
+      const { error } = await supabase.from("sos_acknowledgements").insert(rows);
+      if (error) console.error("SOS ack rows insert failed", error);
+    } else {
+      // Nobody to acknowledge -> mark as acknowledged so no reminders are queued.
+      await supabase
+        .from("sos_events")
+        .update({ acknowledged_at: new Date().toISOString() })
+        .eq("id", eventId);
+    }
   }
 
-  let telegramProfileCount = 0;
-  try {
-    telegramProfileCount = await sendTelegramToUsers(supabase, userIds, telegramBody, undefined, null);
-  } catch (err) {
-    console.error("SOS Telegram profile send failed", err);
+  const status = await dispatchSosNotifications(
+    supabase,
+    {
+      id: eventId,
+      household_id: householdId,
+      triggered_by_name: info.name,
+      latitude: info.latitude,
+      longitude: info.longitude,
+      location_accuracy: info.location_accuracy,
+      note: info.note,
+      created_at: info.created_at,
+    },
+    0,
+  );
+
+  if (eventId) {
+    await supabase
+      .from("sos_events")
+      .update({ last_reminder_sent_at: new Date().toISOString() })
+      .eq("id", eventId);
   }
 
-  const { data: externals, error: externalError } = await supabase
-    .from("emergency_contacts")
-    .select("telegram_chat_id")
-    .eq("household_id", householdId)
-    .not("telegram_chat_id", "is", null);
-  if (externalError) {
-    console.error("External emergency contact lookup failed", externalError);
-    return {
-      pushSent,
-      telegramSent: telegramProfileCount,
-      ok: pushSent || telegramProfileCount > 0,
-      reason: pushSent || telegramProfileCount > 0 ? null : "external_contacts_lookup_failed",
-    };
-  }
-  const chatIds = (externals ?? []).map((e: any) => e.telegram_chat_id).filter(Boolean);
-  let telegramExternalCount = 0;
-  try {
-    telegramExternalCount = await sendTelegramToChatIds(chatIds, telegramBody, undefined, null);
-  } catch (err) {
-    console.error("SOS Telegram external send failed", err);
-  }
-  const telegramSent = telegramProfileCount + telegramExternalCount;
-  const ok = pushSent || telegramSent > 0;
-  return {
-    pushSent,
-    telegramSent,
-    ok,
-    reason: ok ? null : "no_recipients_or_delivery_failed",
-  };
+  return status;
 }
+
 
 export async function addMedicationToShoppingList(
   supabase: any,
