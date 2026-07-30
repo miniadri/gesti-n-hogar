@@ -54,7 +54,12 @@ function normalizeIpv6(ip: string): string {
 }
 
 function isBlockedIp(ip: string): boolean {
-  const v4 = ipv4ToNumber(ip);
+  let candidate = normalizeIpv6(ip);
+  // IPv4-mapped IPv6 (::ffff:a.b.c.d) must be evaluated as IPv4.
+  const mapped = candidate.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped) candidate = mapped[1];
+
+  const v4 = ipv4ToNumber(candidate);
   if (v4 !== null) {
     const blockedV4: Array<[string, number]> = [
       ["0.0.0.0", 8],
@@ -72,26 +77,24 @@ function isBlockedIp(ip: string): boolean {
       ["224.0.0.0", 4],
       ["240.0.0.0", 4],
     ];
-    return blockedV4.some(([base, bits]) => isIpv4InCidr(ip, base, bits));
+    return blockedV4.some(([base, bits]) => isIpv4InCidr(candidate, base, bits));
   }
 
-  const v6 = normalizeIpv6(ip);
+  const v6 = candidate;
   return (
     v6 === "::1" ||
     v6 === "::" ||
-    v6.startsWith("fe80:") ||
-    v6.startsWith("fe9") ||
-    v6.startsWith("fea") ||
-    v6.startsWith("feb") ||
-    v6.startsWith("fc") ||
-    v6.startsWith("fd") ||
+    // fe80::/10 (link-local): fe8, fe9, fea, feb
+    /^fe[89ab]/.test(v6) ||
+    // fc00::/7 (unique local): fc, fd
+    /^f[cd]/.test(v6) ||
+    // multicast
     v6.startsWith("ff") ||
-    v6.startsWith("::ffff:10.") ||
-    v6.startsWith("::ffff:127.") ||
-    v6.startsWith("::ffff:169.254.") ||
-    v6.startsWith("::ffff:192.168.")
+    // IPv4-mapped forms not caught above
+    v6.startsWith("::ffff:")
   );
 }
+
 
 async function resolvePublicAddresses(hostname: string): Promise<string[]> {
   const records: string[] = [];
