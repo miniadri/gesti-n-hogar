@@ -2007,37 +2007,100 @@ export type Database = {
           },
         ]
       }
-      sos_events: {
+      sos_acknowledgements: {
         Row: {
+          acknowledged_at: string | null
+          channel: string | null
           created_at: string
           household_id: string
           id: string
+          recipient_name: string | null
+          sos_event_id: string
+          telegram_chat_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          channel?: string | null
+          created_at?: string
+          household_id: string
+          id?: string
+          recipient_name?: string | null
+          sos_event_id: string
+          telegram_chat_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          channel?: string | null
+          created_at?: string
+          household_id?: string
+          id?: string
+          recipient_name?: string | null
+          sos_event_id?: string
+          telegram_chat_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sos_acknowledgements_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sos_acknowledgements_sos_event_id_fkey"
+            columns: ["sos_event_id"]
+            isOneToOne: false
+            referencedRelation: "sos_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sos_events: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          household_id: string
+          id: string
+          last_reminder_sent_at: string | null
           latitude: number | null
           location_accuracy: number | null
           longitude: number | null
           note: string | null
+          reminder_count: number
           triggered_by: string | null
           triggered_by_name: string
         }
         Insert: {
+          acknowledged_at?: string | null
           created_at?: string
           household_id: string
           id?: string
+          last_reminder_sent_at?: string | null
           latitude?: number | null
           location_accuracy?: number | null
           longitude?: number | null
           note?: string | null
+          reminder_count?: number
           triggered_by?: string | null
           triggered_by_name: string
         }
         Update: {
+          acknowledged_at?: string | null
           created_at?: string
           household_id?: string
           id?: string
+          last_reminder_sent_at?: string | null
           latitude?: number | null
           location_accuracy?: number | null
           longitude?: number | null
           note?: string | null
+          reminder_count?: number
           triggered_by?: string | null
           triggered_by_name?: string
         }
