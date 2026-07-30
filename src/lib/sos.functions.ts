@@ -93,7 +93,7 @@ export const listSosEvents = createServerFn({ method: "GET" })
     if (!householdId) return [];
     const { data, error } = await context.supabase
       .from("sos_events")
-      .select("*")
+      .select("*, sos_acknowledgements(id, recipient_name, acknowledged_at, channel)")
       .eq("household_id", householdId)
       .order("created_at", { ascending: false })
       .limit(50);
