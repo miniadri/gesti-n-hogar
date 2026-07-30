@@ -299,19 +299,24 @@ export async function sendSosAlert(
   },
 ): Promise<SosNotificationStatus> {
   const eventId = info.id ?? null;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const serviceSupabase = supabaseAdmin;
 
   if (eventId) {
     // Register the recipients that must acknowledge this SOS.
-    const adults = await resolveHouseholdEscalationUserIds(supabase, householdId);
+    // This is a trusted server-side step after triggerSos has authenticated the
+    // caller and resolved their household. It needs service role because normal
+    // users cannot insert acknowledgements for other household members.
+    const adults = await resolveHouseholdEscalationUserIds(serviceSupabase, householdId);
     const recipientUserIds = Array.from(new Set(adults.filter((id) => id && id !== info.userId)));
 
-    const { data: externals } = await supabase
+    const { data: externals } = await serviceSupabase
       .from("emergency_contacts")
       .select("name, telegram_chat_id")
       .eq("household_id", householdId)
       .not("telegram_chat_id", "is", null);
 
-    const { data: members } = await supabase
+    const { data: members } = await serviceSupabase
       .from("household_members")
       .select("user_id, display_name")
       .eq("household_id", householdId)
@@ -340,11 +345,11 @@ export async function sendSosAlert(
     ];
 
     if (rows.length > 0) {
-      const { error } = await supabase.from("sos_acknowledgements").insert(rows);
+      const { error } = await serviceSupabase.from("sos_acknowledgements").insert(rows);
       if (error) console.error("SOS ack rows insert failed", error);
     } else {
       // Nobody to acknowledge -> mark as acknowledged so no reminders are queued.
-      await supabase
+      await serviceSupabase
         .from("sos_events")
         .update({ acknowledged_at: new Date().toISOString() })
         .eq("id", eventId);
@@ -352,7 +357,7 @@ export async function sendSosAlert(
   }
 
   const status = await dispatchSosNotifications(
-    supabase,
+    serviceSupabase,
     {
       id: eventId,
       household_id: householdId,
@@ -367,7 +372,7 @@ export async function sendSosAlert(
   );
 
   if (eventId) {
-    await supabase
+    await serviceSupabase
       .from("sos_events")
       .update({ last_reminder_sent_at: new Date().toISOString() })
       .eq("id", eventId);

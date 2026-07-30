@@ -117,7 +117,7 @@ export function SosButton({
         );
       } else {
         toast.warning(
-          `SOS registrado${hasLocation ? " con ubicación" : " sin ubicación"}, pero no se confirmó ninguna notificación.`,
+          `SOS registrado${hasLocation ? " con ubicación" : " sin ubicación"}, pero no se pudo confirmar el envío de notificaciones.`,
         );
       }
 
