@@ -89,7 +89,11 @@ export function AppShell({ children, title, userName, notificationCount = 0, rea
         {!isMobile && <DesktopSidebar />}
 
         <main className="flex-1 overflow-y-auto px-4 pb-28 pt-4 md:px-6 md:pb-6 md:pt-6 lg:px-8">
-          <div className="mx-auto max-w-7xl">{children}</div>
+          <div className="mx-auto max-w-7xl">
+            <SosAckBanner />
+            {children}
+          </div>
+
         </main>
       </div>
 
