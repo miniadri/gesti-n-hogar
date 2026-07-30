@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -75,12 +75,17 @@ export function SosButton({
   const [sending, setSending] = useState(false);
   const holdStart = useRef<number | null>(null);
   const raf = useRef<number | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fired = useRef(false);
+  const pointerId = useRef<number | null>(null);
 
   const stopHold = () => {
     if (raf.current) cancelAnimationFrame(raf.current);
+    if (holdTimer.current) clearTimeout(holdTimer.current);
     raf.current = null;
+    holdTimer.current = null;
     holdStart.current = null;
+    pointerId.current = null;
     setProgress(0);
   };
 
@@ -143,22 +148,54 @@ export function SosButton({
   const startHold = (e: React.PointerEvent) => {
     e.preventDefault();
     if (sending) return;
+    if (holdStart.current != null) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    pointerId.current = e.pointerId;
     fired.current = false;
     holdStart.current = performance.now();
     raf.current = requestAnimationFrame(tick);
+    holdTimer.current = setTimeout(() => {
+      stopHold();
+      void fire();
+    }, HOLD_MS);
   };
+
+  const endHold = (e: React.PointerEvent) => {
+    if (pointerId.current === e.pointerId) {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+    }
+    stopHold();
+  };
+
+  const handleClick = () => {
+    if (!sending && progress === 0) {
+      toast.info("Mantén pulsado el botón SOS durante 2 segundos para enviarlo.");
+    }
+  };
+
+  useEffect(() => {
+    const cancel = () => stopHold();
+    window.addEventListener("blur", cancel);
+    document.addEventListener("visibilitychange", cancel);
+    return () => {
+      window.removeEventListener("blur", cancel);
+      document.removeEventListener("visibilitychange", cancel);
+      stopHold();
+    };
+  }, []);
 
   if (variant === "compact") {
     return (
       <Button
         variant="destructive"
         size="sm"
-        className={cn("relative overflow-hidden", className)}
+        className={cn("relative touch-none overflow-hidden", className)}
         disabled={sending}
         onPointerDown={startHold}
-        onPointerUp={stopHold}
-        onPointerLeave={stopHold}
-        onPointerCancel={stopHold}
+        onPointerUp={endHold}
+        onPointerLeave={endHold}
+        onPointerCancel={endHold}
+        onClick={handleClick}
         title="Mantén pulsado 2 s para enviar SOS"
       >
         <span
@@ -177,12 +214,13 @@ export function SosButton({
       aria-label="Botón SOS"
       disabled={sending}
       onPointerDown={startHold}
-      onPointerUp={stopHold}
-      onPointerLeave={stopHold}
-      onPointerCancel={stopHold}
+      onPointerUp={endHold}
+      onPointerLeave={endHold}
+      onPointerCancel={endHold}
+      onClick={handleClick}
       className={cn(
         "relative w-full overflow-hidden rounded-2xl border-2 border-destructive bg-destructive text-destructive-foreground shadow-lg",
-        "flex items-center justify-center gap-3 px-6 py-6 font-bold text-lg select-none",
+        "flex touch-none items-center justify-center gap-3 px-6 py-6 font-bold text-lg select-none",
         "transition-transform active:scale-[0.98] disabled:opacity-70",
         className,
       )}
