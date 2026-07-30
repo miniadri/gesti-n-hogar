@@ -204,9 +204,10 @@ export async function haCallService(
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`HA service ${domain}.${service} failed (${res.status}): ${body}`);
+    // Do not surface the upstream response body — it can leak internal data.
+    throw new Error(`HA service ${domain}.${service} failed (${res.status})`);
   }
+
   return res.json();
 }
 
