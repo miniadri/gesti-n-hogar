@@ -44,12 +44,18 @@ export const triggerSos = createServerFn({ method: "POST" })
       console.error("SOS history insert error", error);
     }
 
-    let notificationStatus = {
+    let notificationStatus: {
+      pushSent: boolean;
+      telegramSent: number;
+      ok: boolean;
+      reason: string | null;
+    } = {
       pushSent: false,
       telegramSent: 0,
       ok: false,
       reason: "not_attempted",
     };
+
 
     try {
       const { sendSosAlert } = await import("@/lib/notify.server");
