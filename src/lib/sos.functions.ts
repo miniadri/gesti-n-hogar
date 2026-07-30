@@ -100,3 +100,53 @@ export const listSosEvents = createServerFn({ method: "GET" })
     if (error) throw error;
     return data ?? [];
   });
+
+/** SOS alerts addressed to the current user that still need acknowledgement. */
+export const listPendingSosAcks = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("sos_acknowledgements")
+      .select("id, sos_event_id, created_at, sos_events(id, triggered_by_name, latitude, longitude, note, created_at)")
+      .eq("user_id", context.userId)
+      .is("acknowledged_at", null)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    return data ?? [];
+  });
+
+/** Acknowledgement status of a SOS event (who has confirmed and who hasn't). */
+export const listSosAckStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ sosEventId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("sos_acknowledgements")
+      .select("id, recipient_name, channel, acknowledged_at, user_id, telegram_chat_id")
+      .eq("sos_event_id", data.sosEventId)
+      .order("recipient_name");
+    if (error) throw error;
+    return rows ?? [];
+  });
+
+export const acknowledgeSos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ sosEventId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("sos_acknowledgements")
+      .update({ acknowledged_at: new Date().toISOString(), channel: "app" })
+      .eq("sos_event_id", data.sosEventId)
+      .eq("user_id", context.userId)
+      .is("acknowledged_at", null);
+    if (error) throw error;
+
+    const { count } = await context.supabase
+      .from("sos_acknowledgements")
+      .select("id", { count: "exact", head: true })
+      .eq("sos_event_id", data.sosEventId)
+      .is("acknowledged_at", null);
+
+    return { ok: true, pending: count ?? 0 };
+  });
