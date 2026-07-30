@@ -237,6 +237,26 @@ export function EmergencyPanel({ members }: { members: any[] }) {
                   )}
                 </div>
                 {s.note && <p className="mt-1 text-sm">{s.note}</p>}
+                {Array.isArray(s.sos_acknowledgements) && s.sos_acknowledgements.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs font-medium">Acuse de recibo</p>
+                    <div className="flex flex-wrap gap-1">
+                      {s.sos_acknowledgements.map((a: any) => (
+                        <Badge
+                          key={a.id}
+                          variant={a.acknowledged_at ? "secondary" : "outline"}
+                          className="font-normal"
+                        >
+                          {a.acknowledged_at ? "✅" : "⏳"} {a.recipient_name ?? "Destinatario"}
+                          {a.acknowledged_at
+                            ? ` · ${new Date(a.acknowledged_at).toLocaleTimeString()}${a.channel ? ` (${a.channel})` : ""}`
+                            : " · sin confirmar"}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {isLatest && hasLoc && bbox && (
                   <div className="mt-3 overflow-hidden rounded-lg border">
                     <iframe
