@@ -41,6 +41,7 @@ import { Route as AuthenticatedInventoryScanAddRouteImport } from './routes/_aut
 import { Route as AuthenticatedInventoryKitchenRouteImport } from './routes/_authenticated.inventory.kitchen'
 import { Route as AuthenticatedCalendarScheduleRouteImport } from './routes/_authenticated.calendar.schedule'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
+import { Route as ApiPublicHooksSosRemindersRouteImport } from './routes/api/public/hooks/sos-reminders'
 import { Route as ApiPublicHooksPushSchedulerRouteImport } from './routes/api/public/hooks/push-scheduler'
 import { Route as ApiPublicHooksMedicationRemindersRouteImport } from './routes/api/public/hooks/medication-reminders'
 import { Route as ApiPublicHooksGoogleCalendarSyncRouteImport } from './routes/api/public/hooks/google-calendar-sync'
@@ -226,6 +227,12 @@ const ApiPublicTelegramWebhookRoute =
     path: '/api/public/telegram/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksSosRemindersRoute =
+  ApiPublicHooksSosRemindersRouteImport.update({
+    id: '/api/public/hooks/sos-reminders',
+    path: '/api/public/hooks/sos-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksPushSchedulerRoute =
   ApiPublicHooksPushSchedulerRouteImport.update({
     id: '/api/public/hooks/push-scheduler',
@@ -279,6 +286,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
+  '/api/public/hooks/sos-reminders': typeof ApiPublicHooksSosRemindersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -315,6 +323,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
+  '/api/public/hooks/sos-reminders': typeof ApiPublicHooksSosRemindersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
@@ -353,6 +362,7 @@ export interface FileRoutesById {
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
+  '/api/public/hooks/sos-reminders': typeof ApiPublicHooksSosRemindersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
@@ -391,6 +401,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/push-scheduler'
+    | '/api/public/hooks/sos-reminders'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -427,6 +438,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/push-scheduler'
+    | '/api/public/hooks/sos-reminders'
     | '/api/public/telegram/webhook'
   id:
     | '__root__'
@@ -464,6 +476,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/push-scheduler'
+    | '/api/public/hooks/sos-reminders'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -474,6 +487,7 @@ export interface RootRouteChildren {
   ApiPublicHooksGoogleCalendarSyncRoute: typeof ApiPublicHooksGoogleCalendarSyncRoute
   ApiPublicHooksMedicationRemindersRoute: typeof ApiPublicHooksMedicationRemindersRoute
   ApiPublicHooksPushSchedulerRoute: typeof ApiPublicHooksPushSchedulerRoute
+  ApiPublicHooksSosRemindersRoute: typeof ApiPublicHooksSosRemindersRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
@@ -703,6 +717,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/sos-reminders': {
+      id: '/api/public/hooks/sos-reminders'
+      path: '/api/public/hooks/sos-reminders'
+      fullPath: '/api/public/hooks/sos-reminders'
+      preLoaderRoute: typeof ApiPublicHooksSosRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/push-scheduler': {
       id: '/api/public/hooks/push-scheduler'
       path: '/api/public/hooks/push-scheduler'
@@ -824,6 +845,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksMedicationRemindersRoute:
     ApiPublicHooksMedicationRemindersRoute,
   ApiPublicHooksPushSchedulerRoute: ApiPublicHooksPushSchedulerRoute,
+  ApiPublicHooksSosRemindersRoute: ApiPublicHooksSosRemindersRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport

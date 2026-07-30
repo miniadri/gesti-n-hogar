@@ -136,11 +136,19 @@ async function handleCallbackQuery(
   const chatId = cq.message?.chat?.id;
   const messageId = cq.message?.message_id as number | undefined;
 
-  const [prefix, action, intakeId] = data.split(":");
+  const [prefix, action, targetId] = data.split(":");
+
+  if (prefix === "sos" && action === "ack" && targetId && chatId) {
+    await handleSosAck(supabase, telegramApiKey, callbackId, String(chatId), messageId, targetId);
+    return;
+  }
+
+  const intakeId = targetId;
   if (prefix !== "intake" || !intakeId || !chatId || !messageId) {
     await answerCallback(telegramApiKey, callbackId, "Acción no válida");
     return;
   }
+
 
   // Authorize: the Telegram user must be linked and belong to the household of the intake
   const { data: profile } = await supabase
