@@ -27,6 +27,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useNavPreferences, type NavKey } from "@/lib/nav-preferences";
+import { SosAckBanner } from "@/components/SosAckBanner";
+
 
 type NavEntry = { key: NavKey; to: string; label: string; icon: React.ComponentType<{ className?: string }> };
 
