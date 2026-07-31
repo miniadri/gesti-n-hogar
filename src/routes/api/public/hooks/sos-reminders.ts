@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/public/hooks/sos-reminders")({
         const { data: events, error } = await supabase
           .from("sos_events")
           .select(
-            "id, household_id, triggered_by_name, latitude, longitude, location_accuracy, note, created_at, acknowledged_at, last_reminder_sent_at, reminder_count, is_test",
+            "id, household_id, triggered_by_name, latitude, longitude, location_accuracy, note, created_at, acknowledged_at, last_reminder_sent_at, reminder_count, is_test, sos_type, battery_level, battery_charging, connection_type, location_source, last_known_location_used",
           )
           .is("acknowledged_at", null)
           .eq("is_test", false)

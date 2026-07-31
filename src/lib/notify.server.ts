@@ -177,8 +177,30 @@ type SosEventInfo = {
   note: string | null;
   created_at?: string;
   reminder_count?: number | null;
+  sos_type?: string | null;
+  battery_level?: number | null;
+  battery_charging?: boolean | null;
+  connection_type?: string | null;
+  location_source?: string | null;
+  last_known_location_used?: boolean | null;
   is_test?: boolean | null;
 };
+
+function sosTypeLabel(type?: string | null) {
+  switch (type) {
+    case "medical":
+      return "Médico";
+    case "fall":
+      return "Caída";
+    case "unsafe":
+      return "Inseguridad";
+    case "other":
+      return "Otro";
+    case "urgency":
+    default:
+      return "Urgencia";
+  }
+}
 
 export function buildSosMessage(event: SosEventInfo, reminderNumber: number): { title: string; body: string } {
   const who = event.triggered_by_name || event.name || "Un miembro";
@@ -203,12 +225,18 @@ export function buildSosMessage(event: SosEventInfo, reminderNumber: number): { 
     isTest
       ? `${who} ha enviado un simulacro SOS. No es una emergencia real.`
       : `${who} ha pulsado el botón SOS.`,
+    `Tipo: ${sosTypeLabel(event.sos_type)}`,
     event.note ? `Nota: ${event.note}` : null,
     mapsLink ? `Ubicación: ${mapsLink}` : "Ubicación: no disponible",
+    event.last_known_location_used ? "Ubicación: última ubicación conocida (no ubicación actual)." : null,
     directionsLink ? `Cómo llegar: ${directionsLink}` : null,
     event.location_accuracy != null
       ? `Precisión aproximada: ${Math.round(event.location_accuracy)} m`
       : null,
+    event.battery_level != null
+      ? `Batería: ${Math.round(event.battery_level)}%${event.battery_charging ? " (cargando)" : ""}`
+      : null,
+    event.connection_type ? `Conexión: ${event.connection_type}` : null,
     `Hora: ${when}`,
     isTest
       ? "Confirma si quieres probar el acuse de recibo. Este simulacro no genera recordatorios automáticos."
@@ -294,6 +322,60 @@ export async function dispatchSosNotifications(
   return { pushSent, telegramSent, ok, reason: ok ? null : "no_recipients_or_delivery_failed" };
 }
 
+export async function dispatchSosCancellation(
+  supabase: any,
+  event: {
+    id: string;
+    household_id: string;
+    triggered_by_name?: string | null;
+    created_at?: string | null;
+    note?: string | null;
+  },
+): Promise<SosNotificationStatus> {
+  const { data: pending } = await supabase
+    .from("sos_acknowledgements")
+    .select("user_id, telegram_chat_id")
+    .eq("sos_event_id", event.id)
+    .is("acknowledged_at", null);
+
+  const userIds: string[] = [];
+  const chatIds: string[] = [];
+  for (const row of (pending ?? []) as any[]) {
+    if (row.user_id) userIds.push(row.user_id);
+    else if (row.telegram_chat_id) chatIds.push(row.telegram_chat_id);
+  }
+
+  if (userIds.length === 0 && chatIds.length === 0) {
+    return { pushSent: false, telegramSent: 0, ok: false, reason: "no_pending_recipients" };
+  }
+
+  const who = event.triggered_by_name || "Un miembro";
+  const title = "SOS cancelado";
+  const body = [
+    `${who} ha cancelado el aviso SOS.`,
+    event.note ? `Motivo: ${event.note}` : null,
+    "Ya no se enviarán recordatorios automáticos de este aviso.",
+  ].filter(Boolean).join("\n");
+
+  let pushSent = false;
+  try {
+    pushSent = await sendPushToUsers(supabase, userIds, { title, body, url: "/settings/emergency" });
+  } catch (err) {
+    console.error("SOS cancellation push send failed", err);
+  }
+
+  let telegramSent = 0;
+  try {
+    telegramSent += await sendTelegramToUsers(supabase, userIds, `${title}\n${body}`, undefined, null);
+    telegramSent += await sendTelegramToChatIds(chatIds, `${title}\n${body}`, undefined, null);
+  } catch (err) {
+    console.error("SOS cancellation Telegram send failed", err);
+  }
+
+  const ok = pushSent || telegramSent > 0;
+  return { pushSent, telegramSent, ok, reason: ok ? null : "delivery_failed" };
+}
+
 export async function sendSosAlert(
   supabase: any,
   householdId: string,
@@ -307,6 +389,12 @@ export async function sendSosAlert(
     note: string | null;
     created_at?: string;
     is_test?: boolean | null;
+    sos_type?: string | null;
+    battery_level?: number | null;
+    battery_charging?: boolean | null;
+    connection_type?: string | null;
+    location_source?: string | null;
+    last_known_location_used?: boolean | null;
   },
 ): Promise<SosNotificationStatus> {
   const eventId = info.id ?? null;
@@ -390,6 +478,12 @@ export async function sendSosAlert(
       location_accuracy: info.location_accuracy,
       note: info.note,
       created_at: info.created_at,
+      sos_type: info.sos_type ?? "urgency",
+      battery_level: info.battery_level ?? null,
+      battery_charging: info.battery_charging ?? null,
+      connection_type: info.connection_type ?? null,
+      location_source: info.location_source ?? null,
+      last_known_location_used: info.last_known_location_used ?? false,
       is_test: info.is_test ?? false,
     },
     0,

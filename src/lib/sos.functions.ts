@@ -7,6 +7,12 @@ const TriggerInput = z.object({
   longitude: z.number().min(-180).max(180).nullable().optional(),
   location_accuracy: z.number().nonnegative().nullable().optional(),
   note: z.string().max(500).nullable().optional(),
+  sos_type: z.enum(["urgency", "medical", "fall", "unsafe", "other"]).optional(),
+  battery_level: z.number().min(0).max(100).nullable().optional(),
+  battery_charging: z.boolean().nullable().optional(),
+  connection_type: z.string().max(40).nullable().optional(),
+  location_source: z.enum(["precise", "fallback", "last_known", "none"]).nullable().optional(),
+  last_known_location_used: z.boolean().optional(),
   is_test: z.boolean().optional(),
 });
 
@@ -33,6 +39,12 @@ export const triggerSos = createServerFn({ method: "POST" })
       longitude: data.longitude ?? null,
       location_accuracy: data.location_accuracy ?? null,
       note: data.note ?? null,
+      sos_type: data.sos_type ?? "urgency",
+      battery_level: data.battery_level ?? null,
+      battery_charging: data.battery_charging ?? null,
+      connection_type: data.connection_type ?? null,
+      location_source: data.location_source ?? null,
+      last_known_location_used: data.last_known_location_used ?? false,
       is_test: data.is_test ?? false,
     };
 
@@ -70,6 +82,12 @@ export const triggerSos = createServerFn({ method: "POST" })
         longitude: data.longitude ?? null,
         location_accuracy: data.location_accuracy ?? null,
         note: data.note ?? null,
+        sos_type: data.sos_type ?? "urgency",
+        battery_level: data.battery_level ?? null,
+        battery_charging: data.battery_charging ?? null,
+        connection_type: data.connection_type ?? null,
+        location_source: data.location_source ?? null,
+        last_known_location_used: data.last_known_location_used ?? false,
         is_test: data.is_test ?? false,
       });
 
@@ -111,6 +129,12 @@ export const triggerSosSimulation = createServerFn({ method: "POST" })
       longitude: null,
       location_accuracy: null,
       note: "Simulacro SOS desde Ajustes > Emergencia",
+      sos_type: "urgency",
+      battery_level: null,
+      battery_charging: null,
+      connection_type: null,
+      location_source: "none",
+      last_known_location_used: false,
       is_test: true,
     };
 
@@ -139,6 +163,12 @@ export const triggerSosSimulation = createServerFn({ method: "POST" })
         longitude: null,
         location_accuracy: null,
         note: payload.note,
+        sos_type: "urgency",
+        battery_level: null,
+        battery_charging: null,
+        connection_type: null,
+        location_source: "none",
+        last_known_location_used: false,
         is_test: true,
       });
     } catch (err) {
@@ -154,6 +184,59 @@ export const triggerSosSimulation = createServerFn({ method: "POST" })
     return { ...sos, notification_status: notificationStatus };
   });
 
+export const cancelSos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ sosEventId: z.string().uuid(), reason: z.string().max(300).nullable().optional() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data: event, error: eventError } = await context.supabase
+      .from("sos_events")
+      .select("id, household_id, triggered_by, triggered_by_name, acknowledged_at, cancelled_at, created_at")
+      .eq("id", data.sosEventId)
+      .eq("household_id", householdId)
+      .maybeSingle();
+    if (eventError) throw eventError;
+    if (!event) throw new Error("SOS no encontrado");
+    if ((event as any).triggered_by !== context.userId) {
+      throw new Error("Solo puede cancelar el SOS quien lo lanzó");
+    }
+    if ((event as any).cancelled_at) return { ok: true, alreadyCancelled: true };
+
+    const now = new Date().toISOString();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { dispatchSosCancellation } = await import("@/lib/notify.server");
+    await dispatchSosCancellation(supabaseAdmin, {
+      id: data.sosEventId,
+      household_id: householdId,
+      triggered_by_name: (event as any).triggered_by_name,
+      created_at: (event as any).created_at,
+      note: data.reason ?? null,
+    });
+
+    const { error } = await supabaseAdmin
+      .from("sos_events")
+      .update({
+        cancelled_at: now,
+        cancelled_by: context.userId,
+        cancel_reason: data.reason ?? null,
+        acknowledged_at: now,
+      })
+      .eq("id", data.sosEventId)
+      .eq("triggered_by", context.userId);
+    if (error) throw error;
+
+    await supabaseAdmin
+      .from("sos_acknowledgements")
+      .update({ acknowledged_at: now, channel: "cancelled" })
+      .eq("sos_event_id", data.sosEventId)
+      .is("acknowledged_at", null);
+
+    return { ok: true };
+  });
+
 export const listSosEvents = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -166,7 +249,10 @@ export const listSosEvents = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw error;
-    return data ?? [];
+    return (data ?? []).map((row: any) => ({
+      ...row,
+      can_cancel: row.triggered_by === context.userId && !row.cancelled_at && !row.acknowledged_at && !row.is_test,
+    }));
   });
 
 /** SOS alerts addressed to the current user that still need acknowledgement. */
@@ -175,7 +261,7 @@ export const listPendingSosAcks = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("sos_acknowledgements")
-      .select("id, sos_event_id, created_at, sos_events(id, triggered_by_name, latitude, longitude, note, created_at)")
+      .select("id, sos_event_id, created_at, sos_events(id, triggered_by_name, latitude, longitude, note, created_at, cancelled_at)")
       .eq("user_id", context.userId)
       .is("acknowledged_at", null)
       .order("created_at", { ascending: false })

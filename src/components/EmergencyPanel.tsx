@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Trash2, Plus, ShieldAlert, MapPin, Clock, Navigation, Radio, Send, Users, CheckCircle2 } from "lucide-react";
+import { Trash2, Plus, ShieldAlert, MapPin, Clock, Navigation, Radio, Send, Users, CheckCircle2, XCircle } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
   deleteEmergencyContact,
   setMemberEmergencyContact,
 } from "@/lib/emergency-contacts.functions";
-import { listSosEvents, triggerSosSimulation } from "@/lib/sos.functions";
+import { cancelSos, listSosEvents, triggerSosSimulation } from "@/lib/sos.functions";
 
 export function EmergencyPanel({ members }: { members: any[] }) {
   const qc = useQueryClient();
@@ -38,6 +38,7 @@ export function EmergencyPanel({ members }: { members: any[] }) {
   const doDelete = useServerFn(deleteEmergencyContact);
   const doToggle = useServerFn(setMemberEmergencyContact);
   const doSimulation = useServerFn(triggerSosSimulation);
+  const doCancelSos = useServerFn(cancelSos);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -303,6 +304,8 @@ export function EmergencyPanel({ members }: { members: any[] }) {
             const hasLoc = s.latitude != null && s.longitude != null;
             const isLatest = idx === 0;
             const isTest = Boolean(s.is_test);
+            const isCancelled = Boolean(s.cancelled_at);
+            const canCancel = Boolean(s.can_cancel && !s.cancelled_at && !s.acknowledged_at && !s.is_test);
             const acks = Array.isArray(s.sos_acknowledgements) ? s.sos_acknowledgements : [];
             const confirmed = acks.filter((a: any) => a.acknowledged_at);
             const pending = acks.length - confirmed.length;
@@ -322,6 +325,7 @@ export function EmergencyPanel({ members }: { members: any[] }) {
                   <p className="font-medium">{s.triggered_by_name}</p>
                   <div className="flex flex-wrap justify-end gap-1">
                     {isTest && <Badge variant="outline">Simulacro</Badge>}
+                    {isCancelled && <Badge variant="secondary">Cancelado</Badge>}
                     <Badge variant={isTest ? "secondary" : "destructive"} className="gap-1">
                       <ShieldAlert className="h-3 w-3" /> SOS
                     </Badge>
@@ -332,6 +336,7 @@ export function EmergencyPanel({ members }: { members: any[] }) {
                     <Clock className="h-3 w-3" />
                     {new Date(s.created_at).toLocaleString()}
                   </span>
+                  {s.sos_type && <span>Tipo: {sosTypeLabel(s.sos_type)}</span>}
                   {hasLoc && (
                     <>
                       <a
@@ -364,6 +369,16 @@ export function EmergencyPanel({ members }: { members: any[] }) {
                       Primer acuse: {firstAck.recipient_name ?? "Destinatario"} · {new Date(firstAck.acknowledged_at).toLocaleTimeString()}
                     </Badge>
                   )}
+                  {s.battery_level != null && (
+                    <Badge variant="secondary" className="font-normal">
+                      Batería {Math.round(Number(s.battery_level))}%{s.battery_charging ? " · cargando" : ""}
+                    </Badge>
+                  )}
+                  {s.last_known_location_used && (
+                    <Badge variant="outline" className="font-normal">
+                      Última ubicación conocida
+                    </Badge>
+                  )}
                   {hasLoc ? (
                     <>
                       <Badge variant="secondary" className="font-normal">
@@ -382,6 +397,34 @@ export function EmergencyPanel({ members }: { members: any[] }) {
                   )}
                 </div>
                 {s.note && <p className="mt-1 text-sm">{s.note}</p>}
+                {isCancelled && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Cancelado el {new Date(s.cancelled_at).toLocaleString()}
+                    {s.cancel_reason ? ` · ${s.cancel_reason}` : ""}
+                  </p>
+                )}
+                {canCancel && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 gap-2 border-destructive/40 text-destructive hover:bg-destructive/10"
+                    onClick={async () => {
+                      const ok = window.confirm("¿Cancelar este SOS y detener los recordatorios?");
+                      if (!ok) return;
+                      try {
+                        await doCancelSos({ data: { sosEventId: s.id, reason: "Cancelado por quien lanzó el aviso" } });
+                        toast.success("SOS cancelado");
+                        refreshSos();
+                        qc.invalidateQueries({ queryKey: ["sos-pending-acks"] });
+                      } catch (err: any) {
+                        toast.error(err?.message || "No se pudo cancelar el SOS");
+                      }
+                    }}
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Cancelar SOS
+                  </Button>
+                )}
                 {acks.length > 0 && (
                   <div className="mt-2 space-y-1">
                     <p className="text-xs font-medium">Acuse de recibo</p>
@@ -435,4 +478,20 @@ function ChannelBadge({ active, label }: { active: boolean; label: string }) {
       {active ? label : `Sin ${label.toLowerCase()}`}
     </Badge>
   );
+}
+
+function sosTypeLabel(type?: string | null) {
+  switch (type) {
+    case "medical":
+      return "Médico";
+    case "fall":
+      return "Caída";
+    case "unsafe":
+      return "Inseguridad";
+    case "other":
+      return "Otro";
+    case "urgency":
+    default:
+      return "Urgencia";
+  }
 }
