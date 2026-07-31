@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const DIAGNOSTIC_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com"]);
@@ -10,6 +11,14 @@ type DiagnosticCheck = {
   label: string;
   status: DiagnosticStatus;
   detail: string;
+};
+
+type DiagnosticTestResult = {
+  key: string;
+  status: DiagnosticStatus;
+  title: string;
+  detail: string;
+  checkedAt: string;
 };
 
 function hasEnv(name: string) {
@@ -65,6 +74,27 @@ async function maybeGoogleCalendarConnection(userId: string) {
     console.warn("Google Calendar diagnostic unavailable", err);
     return null;
   }
+}
+
+function testResult(
+  key: string,
+  status: DiagnosticStatus,
+  title: string,
+  detail: string,
+): DiagnosticTestResult {
+  return {
+    key,
+    status,
+    title,
+    detail,
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+async function requireHouseholdId(supabase: any): Promise<string> {
+  const householdId = (await supabase.rpc("current_household")).data as string | null;
+  if (!householdId) throw new Error("No household");
+  return householdId;
 }
 
 export const getDiagnostics = createServerFn({ method: "GET" })
@@ -247,4 +277,172 @@ export const getDiagnostics = createServerFn({ method: "GET" })
           : null,
       },
     };
+  });
+
+const DiagnosticTestInput = z.object({
+  test: z.enum(["telegram", "push", "google_calendar", "home_assistant", "supabase_admin", "cron"]),
+});
+
+export const runDiagnosticTest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => DiagnosticTestInput.parse(input))
+  .handler(async ({ data, context }): Promise<DiagnosticTestResult> => {
+    assertDiagnosticAdmin(context);
+
+    const householdId = await requireHouseholdId(context.supabase);
+
+    if (data.test === "telegram") {
+      const { sendTelegramToUsers } = await import("@/lib/notify.server");
+      const sent = await sendTelegramToUsers(
+        context.supabase,
+        [context.userId],
+        [
+          "Prueba de Telegram desde Diagnóstico",
+          "Si recibes este mensaje, el canal Telegram está funcionando.",
+          `Hora: ${new Date().toLocaleString("es-ES", { timeZone: "Europe/Madrid" })}`,
+        ].join("\n"),
+        undefined,
+        null,
+      );
+
+      return testResult(
+        "telegram",
+        sent > 0 ? "ok" : "warning",
+        "Telegram",
+        sent > 0
+          ? `Envío confirmado a ${sent} chat${sent === 1 ? "" : "s"}.`
+          : "No se pudo confirmar el envío. Revisa incidente de Lovable, conector o vinculación Telegram.",
+      );
+    }
+
+    if (data.test === "push") {
+      const { sendPushToUsers } = await import("@/lib/notify.server");
+      const sent = await sendPushToUsers(context.supabase, [context.userId], {
+        title: "Prueba de Diagnóstico",
+        body: "Las notificaciones push están funcionando en este dispositivo.",
+        url: "/settings/diagnostics",
+      });
+
+      return testResult(
+        "push",
+        sent ? "ok" : "warning",
+        "Push web",
+        sent
+          ? "Prueba push enviada al usuario actual."
+          : "No se confirmó envío push. Revisa permiso del navegador, suscripción o VAPID.",
+      );
+    }
+
+    if (data.test === "google_calendar") {
+      if (!hasEnv("GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY")) {
+        return testResult(
+          "google_calendar",
+          "warning",
+          "Google Calendar",
+          "El conector de Google Calendar no está visible en este runtime.",
+        );
+      }
+
+      const connected = await maybeGoogleCalendarConnection(context.userId);
+      if (connected !== true) {
+        return testResult(
+          "google_calendar",
+          "warning",
+          "Google Calendar",
+          connected === false ? "Usuario no conectado a Google Calendar." : "No se pudo verificar la conexión guardada.",
+        );
+      }
+
+      try {
+        const { listPrimaryEvents } = await import("@/lib/google-calendar.server");
+        const now = new Date();
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const events = await listPrimaryEvents(context.userId, {
+          timeMinISO: now.toISOString(),
+          timeMaxISO: tomorrow.toISOString(),
+        });
+        return testResult(
+          "google_calendar",
+          "ok",
+          "Google Calendar",
+          `Lectura correcta. Eventos próximos encontrados: ${events.length}.`,
+        );
+      } catch (err: any) {
+        return testResult(
+          "google_calendar",
+          "warning",
+          "Google Calendar",
+          `Conexión guardada, pero la lectura falló: ${err?.message ?? "error desconocido"}`,
+        );
+      }
+    }
+
+    if (data.test === "home_assistant") {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: row, error } = await supabaseAdmin
+        .from("home_assistant_connections")
+        .select("base_url, token_ciphertext")
+        .eq("household_id", householdId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!row) {
+        return testResult("home_assistant", "warning", "Home Assistant", "No hay conexión guardada para el hogar.");
+      }
+
+      try {
+        const { decryptToken } = await import("@/lib/ha-crypto.server");
+        const { haPing } = await import("@/lib/home-assistant.server");
+        await haPing(row.base_url, decryptToken(row.token_ciphertext));
+        return testResult("home_assistant", "ok", "Home Assistant", "Ping real completado correctamente.");
+      } catch (err: any) {
+        return testResult(
+          "home_assistant",
+          "warning",
+          "Home Assistant",
+          `No se pudo completar el ping: ${err?.message ?? "error desconocido"}`,
+        );
+      }
+    }
+
+    if (data.test === "supabase_admin") {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { error } = await supabaseAdmin
+          .from("households")
+          .select("id", { count: "exact", head: true })
+          .eq("id", householdId);
+        if (error) throw error;
+        return testResult("supabase_admin", "ok", "Supabase admin", "Service role disponible en servidor.");
+      } catch (err: any) {
+        return testResult(
+          "supabase_admin",
+          "warning",
+          "Supabase admin",
+          `No verificable desde este runtime: ${err?.message ?? "error desconocido"}`,
+        );
+      }
+    }
+
+    const cronConfigured = hasEnv("CRON_BEARER");
+    const latestSosReminder = await maybeLatest<any>(
+      context.supabase
+        .from("sos_events")
+        .select("last_reminder_sent_at, reminder_count")
+        .eq("household_id", householdId)
+        .not("last_reminder_sent_at", "is", null)
+        .order("last_reminder_sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    );
+
+    return testResult(
+      "cron",
+      cronConfigured ? "ok" : "warning",
+      "Cron interno",
+      cronConfigured
+        ? latestSosReminder
+          ? `CRON_BEARER visible. Último recordatorio SOS: ${new Date(latestSosReminder.last_reminder_sent_at).toLocaleString("es-ES")}.`
+          : "CRON_BEARER visible. Sin evidencia reciente de recordatorios SOS."
+        : "CRON_BEARER no está visible en este runtime.",
+    );
   });

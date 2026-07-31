@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -9,6 +11,9 @@ import {
   Clock,
   Home,
   KeyRound,
+  Loader2,
+  PlayCircle,
+  Send,
   Shield,
   ShieldAlert,
   Users,
@@ -16,8 +21,9 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDiagnostics } from "@/lib/diagnostics.functions";
+import { getDiagnostics, runDiagnosticTest } from "@/lib/diagnostics.functions";
 
 const diagnosticsQueryOptions = queryOptions({
   queryKey: ["diagnostics"],
@@ -73,6 +79,8 @@ function DiagnosticsPage() {
           ))}
         </CardContent>
       </Card>
+
+      <FunctionalTestsCard />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -172,6 +180,131 @@ function DiagnosticsPage() {
         Generado el {formatDate(data.generatedAt)}
       </p>
     </div>
+  );
+}
+
+type TestKey = "telegram" | "push" | "google_calendar" | "home_assistant" | "supabase_admin" | "cron";
+
+function FunctionalTestsCard() {
+  const runTest = useServerFn(runDiagnosticTest);
+  const [running, setRunning] = useState<TestKey | null>(null);
+  const [results, setResults] = useState<Record<string, any>>({});
+
+  const tests: Array<{
+    key: TestKey;
+    label: string;
+    description: string;
+    icon: any;
+  }> = [
+    {
+      key: "telegram",
+      label: "Probar Telegram",
+      description: "Envía un mensaje de prueba al Telegram vinculado del usuario actual.",
+      icon: Send,
+    },
+    {
+      key: "push",
+      label: "Probar push",
+      description: "Envía una notificación push al navegador/dispositivo actual.",
+      icon: Bell,
+    },
+    {
+      key: "google_calendar",
+      label: "Comprobar Calendar",
+      description: "Verifica conexión y lectura de eventos sin crear ni modificar nada.",
+      icon: Calendar,
+    },
+    {
+      key: "home_assistant",
+      label: "Comprobar Home Assistant",
+      description: "Hace un ping real con la conexión guardada del hogar.",
+      icon: Home,
+    },
+    {
+      key: "supabase_admin",
+      label: "Comprobar Supabase",
+      description: "Verifica que el service role está disponible solo en servidor.",
+      icon: KeyRound,
+    },
+    {
+      key: "cron",
+      label: "Comprobar cron",
+      description: "Comprueba secreto interno y evidencia reciente de recordatorios.",
+      icon: Clock,
+    },
+  ];
+
+  const handleRun = async (key: TestKey) => {
+    setRunning(key);
+    try {
+      const result = await runTest({ data: { test: key } });
+      setResults((prev) => ({ ...prev, [key]: result }));
+    } catch (err: any) {
+      setResults((prev) => ({
+        ...prev,
+        [key]: {
+          key,
+          status: "error",
+          title: "Prueba fallida",
+          detail: err?.message || "No se pudo ejecutar la prueba.",
+          checkedAt: new Date().toISOString(),
+        },
+      }));
+    } finally {
+      setRunning(null);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <PlayCircle className="h-5 w-5" />
+          Pruebas funcionales
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3 lg:grid-cols-2">
+        {tests.map((test) => {
+          const Icon = test.icon;
+          const result = results[test.key];
+          const isRunning = running === test.key;
+          return (
+            <div key={test.key} className="rounded-lg border p-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 font-medium">
+                    <Icon className="h-4 w-4" />
+                    {test.label}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{test.description}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleRun(test.key)}
+                  disabled={running !== null}
+                >
+                  {isRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+                  Ejecutar
+                </Button>
+              </div>
+              {result && (
+                <div className="mt-3 rounded-md bg-muted/40 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium">{result.title}</p>
+                    <StatusBadge status={result.status} />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{result.detail}</p>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Comprobado el {formatDate(result.checkedAt)}
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
 
