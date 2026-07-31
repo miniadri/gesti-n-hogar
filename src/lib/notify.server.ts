@@ -318,24 +318,26 @@ export async function sendSosAlert(
     // This is a trusted server-side step after triggerSos has authenticated the
     // caller and resolved their household. It needs service role because normal
     // users cannot insert acknowledgements for other household members.
-    const adults = await resolveHouseholdEscalationUserIds(serviceSupabase, householdId);
-    const recipientUserIds = Array.from(
-      new Set(
-        adults.filter((id) => {
-          if (!id) return false;
-          // A real SOS should notify other emergency recipients. A simulation
-          // must also reach the sender so a single-admin household can test
-          // Telegram/push delivery and acknowledgement end to end.
-          return info.is_test ? true : id !== info.userId;
-        }),
-      ),
-    );
-
     const { data: externals } = await serviceSupabase
       .from("emergency_contacts")
       .select("name, telegram_chat_id")
       .eq("household_id", householdId)
       .not("telegram_chat_id", "is", null);
+
+    const adults = await resolveHouseholdEscalationUserIds(serviceSupabase, householdId);
+    const adultUserIds = Array.from(new Set(adults.filter(Boolean)));
+    const externalChatIds = ((externals ?? []) as any[])
+      .map((e) => e.telegram_chat_id)
+      .filter(Boolean);
+    let recipientUserIds = adultUserIds.filter((id) => info.is_test || id !== info.userId);
+
+    if (!info.is_test && recipientUserIds.length === 0 && externalChatIds.length === 0 && info.userId) {
+      // Prefer notifying someone else for a real emergency. If the household
+      // only has the triggering user configured, still send the alert to them
+      // so the SOS delivery path is visible and testable instead of silently
+      // reporting no notification delivery.
+      recipientUserIds = [info.userId];
+    }
 
     const { data: members } = await serviceSupabase
       .from("household_members")
