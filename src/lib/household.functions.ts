@@ -76,18 +76,35 @@ export const renameMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => RenameMemberInput.parse(input))
   .handler(async ({ data, context }) => {
-    const householdId = (await context.supabase.rpc("current_household")).data;
-    if (!householdId) throw new Error("No household");
+    // Resolve the member's own household instead of assuming the caller's
+    // "current" household (users may belong to more than one).
+    const { data: target, error: targetError } = await context.supabase
+      .from("household_members")
+      .select("id, household_id, user_id")
+      .eq("id", data.member_id)
+      .maybeSingle();
+    if (targetError) throw targetError;
+    if (!target) throw new Error("Miembro no encontrado o sin acceso");
+
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin && target.user_id !== context.userId) {
+      throw new Error("Solo un administrador puede renombrar a otros miembros");
+    }
+
     const { data: member, error } = await context.supabase
       .from("household_members")
       .update({ display_name: data.display_name })
       .eq("id", data.member_id)
-      .eq("household_id", householdId)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!member) throw new Error("No se pudo actualizar el nombre (permisos insuficientes)");
     return member;
   });
+
 
 
 
