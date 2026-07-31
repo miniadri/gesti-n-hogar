@@ -183,7 +183,14 @@ function DiagnosticsPage() {
   );
 }
 
-type TestKey = "telegram" | "push" | "google_calendar" | "home_assistant" | "supabase_admin" | "cron";
+type TestKey =
+  | "telegram"
+  | "push"
+  | "google_calendar"
+  | "home_assistant"
+  | "supabase_admin"
+  | "cron"
+  | "sos_reminder";
 
 function FunctionalTestsCard() {
   const runTest = useServerFn(runDiagnosticTest);
@@ -231,6 +238,12 @@ function FunctionalTestsCard() {
       label: "Comprobar cron",
       description: "Comprueba secreto interno y evidencia reciente de recordatorios.",
       icon: Clock,
+    },
+    {
+      key: "sos_reminder",
+      label: "Forzar recordatorio SOS",
+      description: "Reenvía ahora el último SOS real pendiente para aislar si falla el cron automático.",
+      icon: ShieldAlert,
     },
   ];
 

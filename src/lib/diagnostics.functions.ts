@@ -280,7 +280,7 @@ export const getDiagnostics = createServerFn({ method: "GET" })
   });
 
 const DiagnosticTestInput = z.object({
-  test: z.enum(["telegram", "push", "google_calendar", "home_assistant", "supabase_admin", "cron"]),
+  test: z.enum(["telegram", "push", "google_calendar", "home_assistant", "supabase_admin", "cron", "sos_reminder"]),
 });
 
 export const runDiagnosticTest = createServerFn({ method: "POST" })
@@ -419,6 +419,96 @@ export const runDiagnosticTest = createServerFn({ method: "POST" })
           "warning",
           "Supabase admin",
           `No verificable desde este runtime: ${err?.message ?? "error desconocido"}`,
+        );
+      }
+    }
+
+    if (data.test === "sos_reminder") {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { dispatchSosNotifications } = await import("@/lib/notify.server");
+
+        const { data: event, error } = await supabaseAdmin
+          .from("sos_events")
+          .select(
+            "id, household_id, triggered_by_name, latitude, longitude, location_accuracy, note, created_at, acknowledged_at, last_reminder_sent_at, reminder_count, is_test",
+          )
+          .eq("household_id", householdId)
+          .is("acknowledged_at", null)
+          .eq("is_test", false)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (!event) {
+          return testResult(
+            "sos_reminder",
+            "warning",
+            "Recordatorio SOS",
+            "No hay ningún SOS real pendiente sin acuse para reenviar.",
+          );
+        }
+
+        const [{ count: acknowledged }, { count: pending }] = await Promise.all([
+          supabaseAdmin
+            .from("sos_acknowledgements")
+            .select("id", { count: "exact", head: true })
+            .eq("sos_event_id", event.id)
+            .not("acknowledged_at", "is", null),
+          supabaseAdmin
+            .from("sos_acknowledgements")
+            .select("id", { count: "exact", head: true })
+            .eq("sos_event_id", event.id)
+            .is("acknowledged_at", null),
+        ]);
+
+        if ((acknowledged ?? 0) > 0) {
+          await supabaseAdmin
+            .from("sos_events")
+            .update({ acknowledged_at: new Date().toISOString() })
+            .eq("id", event.id)
+            .is("acknowledged_at", null);
+          return testResult(
+            "sos_reminder",
+            "warning",
+            "Recordatorio SOS",
+            "El SOS ya tiene al menos un acuse; por diseño no se reenvían más recordatorios.",
+          );
+        }
+
+        if (!pending) {
+          return testResult(
+            "sos_reminder",
+            "warning",
+            "Recordatorio SOS",
+            "El SOS pendiente no tiene destinatarios sin acuse. Revisa contactos SOS.",
+          );
+        }
+
+        const reminderNumber = (event.reminder_count ?? 0) + 1;
+        const status = await dispatchSosNotifications(supabaseAdmin, event, reminderNumber);
+        await supabaseAdmin
+          .from("sos_events")
+          .update({
+            last_reminder_sent_at: new Date().toISOString(),
+            reminder_count: reminderNumber,
+          })
+          .eq("id", event.id);
+
+        return testResult(
+          "sos_reminder",
+          status.ok ? "ok" : "warning",
+          "Recordatorio SOS",
+          status.ok
+            ? `Recordatorio manual enviado. Telegram: ${status.telegramSent}. Push: ${status.pushSent ? "sí" : "no"}. Pendientes: ${pending}.`
+            : `Se encontró SOS pendiente, pero no se confirmó envío. Motivo: ${status.reason ?? "desconocido"}. Pendientes: ${pending}.`,
+        );
+      } catch (err: any) {
+        return testResult(
+          "sos_reminder",
+          "error",
+          "Recordatorio SOS",
+          `No se pudo ejecutar el recordatorio manual: ${err?.message ?? "error desconocido"}`,
         );
       }
     }
