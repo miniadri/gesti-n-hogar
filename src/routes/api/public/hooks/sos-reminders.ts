@@ -29,9 +29,10 @@ export const Route = createFileRoute("/api/public/hooks/sos-reminders")({
         const { data: events, error } = await supabase
           .from("sos_events")
           .select(
-            "id, household_id, triggered_by_name, latitude, longitude, location_accuracy, note, created_at, acknowledged_at, last_reminder_sent_at, reminder_count",
+            "id, household_id, triggered_by_name, latitude, longitude, location_accuracy, note, created_at, acknowledged_at, last_reminder_sent_at, reminder_count, is_test",
           )
           .is("acknowledged_at", null)
+          .eq("is_test", false)
           .gte("created_at", new Date(now - MAX_AGE_MS).toISOString())
           .order("created_at", { ascending: false })
           .limit(20);

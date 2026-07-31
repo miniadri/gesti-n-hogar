@@ -7,6 +7,7 @@ const TriggerInput = z.object({
   longitude: z.number().min(-180).max(180).nullable().optional(),
   location_accuracy: z.number().nonnegative().nullable().optional(),
   note: z.string().max(500).nullable().optional(),
+  is_test: z.boolean().optional(),
 });
 
 export const triggerSos = createServerFn({ method: "POST" })
@@ -32,6 +33,7 @@ export const triggerSos = createServerFn({ method: "POST" })
       longitude: data.longitude ?? null,
       location_accuracy: data.location_accuracy ?? null,
       note: data.note ?? null,
+      is_test: data.is_test ?? false,
     };
 
     const { data: sos, error } = await context.supabase
@@ -68,6 +70,7 @@ export const triggerSos = createServerFn({ method: "POST" })
         longitude: data.longitude ?? null,
         location_accuracy: data.location_accuracy ?? null,
         note: data.note ?? null,
+        is_test: data.is_test ?? false,
       });
 
     } catch (err) {
@@ -84,6 +87,71 @@ export const triggerSos = createServerFn({ method: "POST" })
       ...(sos ?? { ...payload, id: null, created_at: new Date().toISOString(), history_saved: false }),
       notification_status: notificationStatus,
     };
+  });
+
+export const triggerSosSimulation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data: member } = await context.supabase
+      .from("household_members")
+      .select("display_name")
+      .eq("household_id", householdId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    const triggeredByName = member?.display_name || "Un miembro";
+
+    const payload = {
+      household_id: householdId,
+      triggered_by: context.userId,
+      triggered_by_name: triggeredByName,
+      latitude: null,
+      longitude: null,
+      location_accuracy: null,
+      note: "Simulacro SOS desde Ajustes > Emergencia",
+      is_test: true,
+    };
+
+    const { data: sos, error } = await context.supabase
+      .from("sos_events")
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+
+    let notificationStatus = {
+      pushSent: false,
+      telegramSent: 0,
+      ok: false,
+      reason: "not_attempted" as string | null,
+    };
+
+    try {
+      const { sendSosAlert } = await import("@/lib/notify.server");
+      notificationStatus = await sendSosAlert(context.supabase, householdId, {
+        id: (sos as any)?.id ?? null,
+        created_at: (sos as any)?.created_at,
+        name: triggeredByName,
+        userId: context.userId,
+        latitude: null,
+        longitude: null,
+        location_accuracy: null,
+        note: payload.note,
+        is_test: true,
+      });
+    } catch (err) {
+      console.error("SOS simulation notify error", err);
+      notificationStatus = {
+        pushSent: false,
+        telegramSent: 0,
+        ok: false,
+        reason: err instanceof Error ? err.message : "notification_error",
+      };
+    }
+
+    return { ...sos, notification_status: notificationStatus };
   });
 
 export const listSosEvents = createServerFn({ method: "GET" })

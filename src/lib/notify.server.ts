@@ -177,10 +177,12 @@ type SosEventInfo = {
   note: string | null;
   created_at?: string;
   reminder_count?: number | null;
+  is_test?: boolean | null;
 };
 
 export function buildSosMessage(event: SosEventInfo, reminderNumber: number): { title: string; body: string } {
   const who = event.triggered_by_name || event.name || "Un miembro";
+  const isTest = Boolean(event.is_test);
   const mapsLink =
     event.latitude != null && event.longitude != null
       ? `https://maps.google.com/?q=${event.latitude},${event.longitude}`
@@ -189,12 +191,18 @@ export function buildSosMessage(event: SosEventInfo, reminderNumber: number): { 
     event.latitude != null && event.longitude != null
       ? `https://www.google.com/maps/dir/?api=1&destination=${event.latitude},${event.longitude}`
       : null;
-  const title = reminderNumber > 0 ? `🚨 SOS SIN CONFIRMAR (aviso ${reminderNumber + 1})` : "🚨 SOS activado";
+  const title = isTest
+    ? "SIMULACRO SOS de HomeSync"
+    : reminderNumber > 0
+      ? `🚨 SOS SIN CONFIRMAR (aviso ${reminderNumber + 1})`
+      : "🚨 SOS activado";
   const when = new Date(event.created_at ?? Date.now()).toLocaleString("es-ES", {
     timeZone: "Europe/Madrid",
   });
   const body = [
-    `${who} ha pulsado el botón SOS.`,
+    isTest
+      ? `${who} ha enviado un simulacro SOS. No es una emergencia real.`
+      : `${who} ha pulsado el botón SOS.`,
     event.note ? `Nota: ${event.note}` : null,
     mapsLink ? `Ubicación: ${mapsLink}` : "Ubicación: no disponible",
     directionsLink ? `Cómo llegar: ${directionsLink}` : null,
@@ -202,7 +210,9 @@ export function buildSosMessage(event: SosEventInfo, reminderNumber: number): { 
       ? `Precisión aproximada: ${Math.round(event.location_accuracy)} m`
       : null,
     `Hora: ${when}`,
-    "⚠️ Confirma que has recibido el aviso. Si nadie confirma, se reenviará cada 2 minutos.",
+    isTest
+      ? "Confirma si quieres probar el acuse de recibo. Este simulacro no genera recordatorios automáticos."
+      : "⚠️ Confirma que has recibido el aviso. Si nadie confirma, se reenviará cada 2 minutos.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -296,6 +306,7 @@ export async function sendSosAlert(
     location_accuracy: number | null;
     note: string | null;
     created_at?: string;
+    is_test?: boolean | null;
   },
 ): Promise<SosNotificationStatus> {
   const eventId = info.id ?? null;
@@ -367,15 +378,21 @@ export async function sendSosAlert(
       location_accuracy: info.location_accuracy,
       note: info.note,
       created_at: info.created_at,
+      is_test: info.is_test ?? false,
     },
     0,
   );
 
   if (eventId) {
-    await serviceSupabase
-      .from("sos_events")
-      .update({ last_reminder_sent_at: new Date().toISOString() })
-      .eq("id", eventId);
+    const patch: { last_reminder_sent_at: string; acknowledged_at?: string } = {
+      last_reminder_sent_at: new Date().toISOString(),
+    };
+    if (info.is_test) {
+      // Simulations send one visible test alert but do not enter the automatic
+      // reminder loop.
+      patch.acknowledged_at = new Date().toISOString();
+    }
+    await serviceSupabase.from("sos_events").update(patch).eq("id", eventId);
   }
 
   return status;

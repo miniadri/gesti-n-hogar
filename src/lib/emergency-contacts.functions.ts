@@ -25,6 +25,78 @@ export const listEmergencyContacts = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+export const listEmergencyRecipients = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) return { members: [], externalContacts: [], totalReachable: 0 };
+
+    const { data: members, error: membersError } = await context.supabase
+      .from("household_members")
+      .select("id, user_id, display_name, is_child, is_emergency_contact")
+      .eq("household_id", householdId)
+      .eq("is_child", false)
+      .not("user_id", "is", null)
+      .order("display_name");
+    if (membersError) throw membersError;
+
+    const userIds = ((members ?? []) as any[]).map((m) => m.user_id).filter(Boolean);
+    const [{ data: telegramProfiles }, { data: pushSubscriptions }, { data: externalContacts, error: contactsError }] =
+      await Promise.all([
+        context.supabase
+          .from("telegram_profiles")
+          .select("user_id")
+          .in("user_id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]),
+        context.supabase
+          .from("push_subscriptions")
+          .select("user_id")
+          .in("user_id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]),
+        context.supabase
+          .from("emergency_contacts")
+          .select("id, name, phone, telegram_chat_id")
+          .eq("household_id", householdId)
+          .order("name"),
+      ]);
+    if (contactsError) throw contactsError;
+
+    const telegramUsers = new Set(((telegramProfiles ?? []) as any[]).map((p) => p.user_id));
+    const pushUsers = new Set(((pushSubscriptions ?? []) as any[]).map((p) => p.user_id));
+    const adults = (members ?? []) as any[];
+    const flagged = adults.filter((m) => m.is_emergency_contact);
+    const targetMemberIds = new Set((flagged.length ? flagged : adults).map((m) => m.id));
+
+    const memberRecipients = adults.map((m) => {
+      const telegram = telegramUsers.has(m.user_id);
+      const push = pushUsers.has(m.user_id);
+      return {
+        id: m.id,
+        name: m.display_name ?? "Miembro",
+        selected: targetMemberIds.has(m.id),
+        fallback: flagged.length === 0,
+        telegram,
+        push,
+        reachable: targetMemberIds.has(m.id) && (telegram || push),
+      };
+    });
+
+    const externalRecipients = ((externalContacts ?? []) as any[]).map((c) => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone ?? null,
+      telegram: Boolean(c.telegram_chat_id),
+      push: false,
+      reachable: Boolean(c.telegram_chat_id),
+    }));
+
+    return {
+      members: memberRecipients,
+      externalContacts: externalRecipients,
+      totalReachable:
+        memberRecipients.filter((m) => m.reachable).length +
+        externalRecipients.filter((c) => c.reachable).length,
+    };
+  });
+
 export const createEmergencyContact = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => ContactInput.parse(i))

@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Trash2, Plus, ShieldAlert, MapPin, Clock, Navigation } from "lucide-react";
+import { Trash2, Plus, ShieldAlert, MapPin, Clock, Navigation, Radio, Send, Users, CheckCircle2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,12 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   listEmergencyContacts,
+  listEmergencyRecipients,
   createEmergencyContact,
   deleteEmergencyContact,
   setMemberEmergencyContact,
 } from "@/lib/emergency-contacts.functions";
-import { listSosEvents } from "@/lib/sos.functions";
+import { listSosEvents, triggerSosSimulation } from "@/lib/sos.functions";
 
 export function EmergencyPanel({ members }: { members: any[] }) {
   const qc = useQueryClient();
@@ -28,20 +29,32 @@ export function EmergencyPanel({ members }: { members: any[] }) {
     queryKey: ["sos-events"],
     queryFn: () => listSosEvents(),
   });
+  const { data: recipients } = useQuery({
+    queryKey: ["emergency-recipients"],
+    queryFn: () => listEmergencyRecipients(),
+  });
 
   const doCreate = useServerFn(createEmergencyContact);
   const doDelete = useServerFn(deleteEmergencyContact);
   const doToggle = useServerFn(setMemberEmergencyContact);
+  const doSimulation = useServerFn(triggerSosSimulation);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [telegram, setTelegram] = useState("");
+  const [simulationLoading, setSimulationLoading] = useState(false);
 
   const adults = members.filter((m) => !m.is_child);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["emergency-contacts"] });
+    qc.invalidateQueries({ queryKey: ["emergency-recipients"] });
     qc.invalidateQueries({ queryKey: ["household"] });
+  };
+
+  const refreshSos = () => {
+    qc.invalidateQueries({ queryKey: ["sos-events"] });
+    qc.invalidateQueries({ queryKey: ["emergency-recipients"] });
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -65,8 +78,63 @@ export function EmergencyPanel({ members }: { members: any[] }) {
     }
   };
 
+  const runSimulation = async () => {
+    const ok = window.confirm(
+      "Se enviará un SIMULACRO SOS a los destinatarios configurados. El mensaje indicará claramente que no es una emergencia real.",
+    );
+    if (!ok) return;
+
+    setSimulationLoading(true);
+    try {
+      const result: any = await doSimulation();
+      refreshSos();
+      const status = result?.notification_status;
+      if (status?.ok) {
+        const channels = [
+          status.telegramSent ? `${status.telegramSent} Telegram` : null,
+          status.pushSent ? "push" : null,
+        ].filter(Boolean).join(" + ");
+        toast.success(`Simulacro SOS enviado${channels ? ` por ${channels}` : ""}`);
+      } else {
+        toast.warning("Simulacro registrado, pero no se pudo confirmar el envío de notificaciones");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "No se pudo lanzar el simulacro");
+    } finally {
+      setSimulationLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Radio className="h-5 w-5 text-destructive" />
+            Simulacro SOS
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">
+              Envía una alerta marcada como simulacro para comprobar destinatarios y acuse sin generar recordatorios automáticos.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Receptores disponibles ahora: {recipients?.totalReachable ?? 0}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={runSimulation}
+            disabled={simulationLoading || (recipients?.totalReachable ?? 0) === 0}
+            className="shrink-0"
+          >
+            <Send className="mr-2 h-4 w-4" />
+            {simulationLoading ? "Enviando..." : "Enviar simulacro"}
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -102,6 +170,63 @@ export function EmergencyPanel({ members }: { members: any[] }) {
           <p className="text-xs text-muted-foreground">
             Si no marcas ninguno, las alertas van a todos los adultos por defecto.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Users className="h-5 w-5" />
+            Receptores SOS reales
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(recipients?.totalReachable ?? 0) === 0 && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+              No hay ningún receptor con Telegram o push activo. El SOS se registrará, pero no podrá confirmar envío.
+            </div>
+          )}
+          {(recipients?.members ?? []).map((r: any) => (
+            <div key={r.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+              <div className="min-w-0">
+                <p className="font-medium">{r.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {r.selected
+                    ? r.fallback
+                      ? "Recibe por fallback: no hay adultos marcados como contacto SOS"
+                      : "Marcado como contacto SOS"
+                    : "No seleccionado para SOS"}
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                <ChannelBadge active={r.telegram} label="Telegram" />
+                <ChannelBadge active={r.push} label="Push" />
+                {r.reachable && (
+                  <Badge variant="secondary" className="gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Recibe
+                  </Badge>
+                )}
+              </div>
+            </div>
+          ))}
+          {(recipients?.externalContacts ?? []).map((r: any) => (
+            <div key={r.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+              <div className="min-w-0">
+                <p className="font-medium truncate">{r.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  Contacto externo{r.phone ? ` · ${r.phone}` : ""}
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                <ChannelBadge active={r.telegram} label="Telegram" />
+                {r.reachable && (
+                  <Badge variant="secondary" className="gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Recibe
+                  </Badge>
+                )}
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
@@ -177,6 +302,13 @@ export function EmergencyPanel({ members }: { members: any[] }) {
           {sosEvents.map((s: any, idx: number) => {
             const hasLoc = s.latitude != null && s.longitude != null;
             const isLatest = idx === 0;
+            const isTest = Boolean(s.is_test);
+            const acks = Array.isArray(s.sos_acknowledgements) ? s.sos_acknowledgements : [];
+            const confirmed = acks.filter((a: any) => a.acknowledged_at);
+            const pending = acks.length - confirmed.length;
+            const firstAck = confirmed
+              .slice()
+              .sort((a: any, b: any) => new Date(a.acknowledged_at).getTime() - new Date(b.acknowledged_at).getTime())[0];
             const lat = Number(s.latitude);
             const lng = Number(s.longitude);
             const accuracy = s.location_accuracy != null ? Number(s.location_accuracy) : null;
@@ -188,9 +320,12 @@ export function EmergencyPanel({ members }: { members: any[] }) {
               <div key={s.id} className="rounded-lg border p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium">{s.triggered_by_name}</p>
-                  <Badge variant="destructive" className="gap-1">
-                    <ShieldAlert className="h-3 w-3" /> SOS
-                  </Badge>
+                  <div className="flex flex-wrap justify-end gap-1">
+                    {isTest && <Badge variant="outline">Simulacro</Badge>}
+                    <Badge variant={isTest ? "secondary" : "destructive"} className="gap-1">
+                      <ShieldAlert className="h-3 w-3" /> SOS
+                    </Badge>
+                  </div>
                 </div>
                 <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
@@ -219,6 +354,16 @@ export function EmergencyPanel({ members }: { members: any[] }) {
                   )}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  {acks.length > 0 && (
+                    <Badge variant={pending === 0 ? "secondary" : firstAck ? "outline" : "destructive"} className="font-normal">
+                      {confirmed.length}/{acks.length} confirmados
+                    </Badge>
+                  )}
+                  {firstAck && (
+                    <Badge variant="secondary" className="font-normal">
+                      Primer acuse: {firstAck.recipient_name ?? "Destinatario"} · {new Date(firstAck.acknowledged_at).toLocaleTimeString()}
+                    </Badge>
+                  )}
                   {hasLoc ? (
                     <>
                       <Badge variant="secondary" className="font-normal">
@@ -237,11 +382,11 @@ export function EmergencyPanel({ members }: { members: any[] }) {
                   )}
                 </div>
                 {s.note && <p className="mt-1 text-sm">{s.note}</p>}
-                {Array.isArray(s.sos_acknowledgements) && s.sos_acknowledgements.length > 0 && (
+                {acks.length > 0 && (
                   <div className="mt-2 space-y-1">
                     <p className="text-xs font-medium">Acuse de recibo</p>
                     <div className="flex flex-wrap gap-1">
-                      {s.sos_acknowledgements.map((a: any) => (
+                      {acks.map((a: any) => (
                         <Badge
                           key={a.id}
                           variant={a.acknowledged_at ? "secondary" : "outline"}
@@ -257,7 +402,7 @@ export function EmergencyPanel({ members }: { members: any[] }) {
                   </div>
                 )}
 
-                {isLatest && hasLoc && bbox && (
+                {isLatest && !isTest && hasLoc && bbox && (
                   <div className="mt-3 overflow-hidden rounded-lg border">
                     <iframe
                       title={`Mapa SOS ${s.id}`}
@@ -281,5 +426,13 @@ export function EmergencyPanel({ members }: { members: any[] }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function ChannelBadge({ active, label }: { active: boolean; label: string }) {
+  return (
+    <Badge variant={active ? "secondary" : "outline"} className="font-normal">
+      {active ? label : `Sin ${label.toLowerCase()}`}
+    </Badge>
   );
 }
