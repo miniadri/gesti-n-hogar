@@ -319,7 +319,17 @@ export async function sendSosAlert(
     // caller and resolved their household. It needs service role because normal
     // users cannot insert acknowledgements for other household members.
     const adults = await resolveHouseholdEscalationUserIds(serviceSupabase, householdId);
-    const recipientUserIds = Array.from(new Set(adults.filter((id) => id && id !== info.userId)));
+    const recipientUserIds = Array.from(
+      new Set(
+        adults.filter((id) => {
+          if (!id) return false;
+          // A real SOS should notify other emergency recipients. A simulation
+          // must also reach the sender so a single-admin household can test
+          // Telegram/push delivery and acknowledgement end to end.
+          return info.is_test ? true : id !== info.userId;
+        }),
+      ),
+    );
 
     const { data: externals } = await serviceSupabase
       .from("emergency_contacts")
