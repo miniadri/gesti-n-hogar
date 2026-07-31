@@ -2067,7 +2067,6 @@ export type Database = {
           created_at: string
           household_id: string
           id: string
-          is_test: boolean
           last_reminder_sent_at: string | null
           latitude: number | null
           location_accuracy: number | null
@@ -2082,7 +2081,6 @@ export type Database = {
           created_at?: string
           household_id: string
           id?: string
-          is_test?: boolean
           last_reminder_sent_at?: string | null
           latitude?: number | null
           location_accuracy?: number | null
@@ -2097,7 +2095,6 @@ export type Database = {
           created_at?: string
           household_id?: string
           id?: string
-          is_test?: boolean
           last_reminder_sent_at?: string | null
           latitude?: number | null
           location_accuracy?: number | null
