@@ -771,25 +771,6 @@ function DashboardPage() {
           </Card>
         ),
       },
-      recipes: {
-        key: "recipes",
-        title: SECTION_LABELS.recipes,
-        visible: inventory.length > 0,
-        size: "third",
-        node: (
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Recetas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Sugerencias basadas en tu inventario.</p>
-              <Button className="mt-4 w-full" variant="outline" asChild>
-                <Link to="/recipes">Ver recetas</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ),
-      },
     };
 
     return sectionPrefs.order
