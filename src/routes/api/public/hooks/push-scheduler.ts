@@ -139,6 +139,8 @@ export const Route = createFileRoute("/api/public/hooks/push-scheduler")({
             .eq("id", med.id);
         }
 
+        sent += await sendScheduleNotifications(supabase, now);
+
         return new Response(JSON.stringify({ ok: true, sent }), {
           headers: { "content-type": "application/json" },
         });
@@ -194,6 +196,184 @@ async function sendTo(
       }
     }
   }
-  await sendTelegramToUsers(supabase, userIds, `<b>${payload.title}</b>\n${payload.body}`);
-  return any;
+  const telegramSent = await sendTelegramToUsers(supabase, userIds, `<b>${payload.title}</b>\n${payload.body}`);
+  return any || telegramSent > 0;
+}
+
+const WORK_SLOT_KINDS = new Set(["work", "subject", "extracurricular"]);
+
+async function sendScheduleNotifications(supabase: any, now: Date): Promise<number> {
+  const rangeStart = new Date(now.getTime() - 20 * 60 * 1000);
+  const rangeEnd = new Date(now.getTime() + 70 * 60 * 1000);
+  const fromDate = toDateKey(new Date(rangeStart.getTime() - 24 * 60 * 60 * 1000));
+  const toDate = toDateKey(new Date(rangeEnd.getTime() + 24 * 60 * 60 * 1000));
+
+  const [{ data: members }, { data: daySlots }, { data: templateSlots }, { data: statuses }, { data: settings }] =
+    await Promise.all([
+      supabase.from("household_members").select("id, display_name, household_id, user_id").not("user_id", "is", null),
+      supabase
+        .from("schedule_day_slots")
+        .select("id, member_id, household_id, date, start_time, end_time, slot_kind, label")
+        .gte("date", fromDate)
+        .lte("date", toDate),
+      supabase.from("schedule_template_slots").select("id, member_id, household_id, day_of_week, start_time, end_time, slot_kind, label"),
+      supabase.from("schedule_day_status").select("member_id, date, state, use_day_override").gte("date", fromDate).lte("date", toDate),
+      supabase.from("schedule_settings").select("member_id, use_template, target_hours_per_day"),
+    ]);
+
+  const settingsByMember = new Map<string, any>((settings ?? []).map((row: any) => [row.member_id, row]));
+  let sent = 0;
+
+  for (const member of members ?? []) {
+    const memberSettings: any = settingsByMember.get(member.id) ?? { use_template: true, target_hours_per_day: 8 };
+    const dates = datesBetween(fromDate, toDate);
+    for (const date of dates) {
+      const slots = resolveSlotsForMemberDate({
+        memberId: member.id,
+        date,
+        daySlots: daySlots ?? [],
+        templateSlots: templateSlots ?? [],
+        statuses: statuses ?? [],
+        useTemplate: memberSettings.use_template !== false,
+      });
+      for (const slot of slots) {
+        const startAt = dateTimeForSlot(date, slot.start_time, false);
+        const endAt = dateTimeForSlot(date, slot.end_time, slotCrossesMidnight(slot));
+        const minutesUntilStart = (startAt.getTime() - now.getTime()) / 60000;
+        const minutesAfterEnd = (now.getTime() - endAt.getTime()) / 60000;
+        const slotKey = `${slot.source}:${slot.id}:${date}`;
+
+        if (minutesUntilStart >= 55 && minutesUntilStart <= 65) {
+          sent += await sendScheduleNoticeOnce(supabase, member, slotKey, "start_60", {
+            title: "Turno en 1 hora",
+            body: `${member.display_name}: ${formatTime(slot.start_time)}-${formatTime(slot.end_time)}${slot.label ? ` · ${slot.label}` : ""}`,
+          });
+        }
+        if (minutesUntilStart >= 25 && minutesUntilStart <= 35) {
+          sent += await sendScheduleNoticeOnce(supabase, member, slotKey, "start_30", {
+            title: "Turno en 30 minutos",
+            body: `${member.display_name}: ${formatTime(slot.start_time)}-${formatTime(slot.end_time)}${slot.label ? ` · ${slot.label}` : ""}`,
+          });
+        }
+        if (minutesAfterEnd >= 0 && minutesAfterEnd <= 15) {
+          const plannedHours = slotHours(slot);
+          const target = Number(memberSettings.target_hours_per_day ?? 8);
+          const prompt =
+            plannedHours > target
+              ? "Confirma si hiciste todas las horas o si saliste antes."
+              : "Confirma si hiciste horas extra.";
+          sent += await sendScheduleNoticeOnce(supabase, member, slotKey, "ended", {
+            title: "Turno finalizado",
+            body: `${member.display_name}: ${formatTime(slot.start_time)}-${formatTime(slot.end_time)}. ${prompt}`,
+          });
+        }
+      }
+    }
+  }
+
+  return sent;
+}
+
+async function sendScheduleNoticeOnce(
+  supabase: any,
+  member: any,
+  slotKey: string,
+  noticeType: string,
+  payload: { title: string; body: string },
+): Promise<number> {
+  if (!member.user_id) return 0;
+  const { error } = await supabase.from("schedule_notification_log").insert({
+    household_id: member.household_id,
+    member_id: member.id,
+    user_id: member.user_id,
+    slot_key: slotKey,
+    notice_type: noticeType,
+  });
+  if (error) {
+    if (String(error.code) === "23505") return 0;
+    console.error("schedule notification log failed", error);
+    return 0;
+  }
+  const ok = await sendTo(supabase, [member.user_id], {
+    title: payload.title,
+    body: payload.body,
+    url: "/calendar/schedule",
+  });
+  return ok ? 1 : 0;
+}
+
+function resolveSlotsForMemberDate({
+  memberId,
+  date,
+  daySlots,
+  templateSlots,
+  statuses,
+  useTemplate,
+}: {
+  memberId: string;
+  date: string;
+  daySlots: any[];
+  templateSlots: any[];
+  statuses: any[];
+  useTemplate: boolean;
+}) {
+  const status = statuses.find((row) => row.member_id === memberId && row.date === date);
+  if (status && ["vacation", "holiday", "sick", "off"].includes(status.state)) return [];
+  const overrides = daySlots.filter((slot) => slot.member_id === memberId && slot.date === date && WORK_SLOT_KINDS.has(slot.slot_kind));
+  if (overrides.length > 0 || status?.use_day_override) {
+    return overrides.map((slot) => ({ ...slot, source: "day" }));
+  }
+  if (!useTemplate) return [];
+  return templateSlots
+    .filter((slot) => slot.member_id === memberId && slot.day_of_week === dayOfWeek(date) && WORK_SLOT_KINDS.has(slot.slot_kind))
+    .map((slot) => ({ ...slot, source: "template" }));
+}
+
+function datesBetween(from: string, to: string) {
+  const out: string[] = [];
+  const cursor = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  while (cursor <= end) {
+    out.push(toDateKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
+}
+
+function toDateKey(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function dayOfWeek(date: string) {
+  const d = new Date(`${date}T00:00:00`);
+  return (d.getDay() + 6) % 7;
+}
+
+function dateTimeForSlot(date: string, time: string, nextDay: boolean) {
+  const value = new Date(`${date}T${formatTime(time)}:00`);
+  if (nextDay) value.setDate(value.getDate() + 1);
+  return value;
+}
+
+function slotCrossesMidnight(slot: { start_time: string; end_time: string }) {
+  return timeToMinutes(slot.end_time) <= timeToMinutes(slot.start_time);
+}
+
+function slotHours(slot: { start_time: string; end_time: string }) {
+  let start = timeToMinutes(slot.start_time);
+  let end = timeToMinutes(slot.end_time);
+  if (end <= start) end += 24 * 60;
+  return (end - start) / 60;
+}
+
+function timeToMinutes(value: string) {
+  const [h, m] = formatTime(value).split(":").map(Number);
+  return h * 60 + m;
+}
+
+function formatTime(value: string) {
+  return value?.slice(0, 5) ?? "--:--";
 }

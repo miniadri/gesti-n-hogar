@@ -2,12 +2,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useMemo, useState } from "react";
+import type { ComponentType, ReactNode } from "react";
 import {
   ShoppingCart,
   ListTodo,
   Calendar,
+  CalendarDays,
   Wallet,
   ArrowRight,
+  ArrowDown,
+  ArrowUp,
   Sparkles,
   Pill,
   AlertTriangle,
@@ -21,6 +26,8 @@ import {
   Activity,
   Star,
   PackageOpen,
+  SlidersHorizontal,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,6 +47,12 @@ import { SosButton } from "@/components/SosButton";
 
 
 const MONTHLY_BUDGET = 1000;
+const DASHBOARD_PREFS_KEY = "homesync.dashboard.sections.v1";
+
+type DashboardSectionKey = "calendar" | "schedule";
+
+const DEFAULT_SECTION_ORDER: DashboardSectionKey[] = ["calendar", "schedule"];
+const WORK_SLOT_KINDS = new Set(["work", "subject", "extracurricular"]);
 
 const dashboardQueryOptions = queryOptions({
   queryKey: ["dashboard"],
@@ -47,7 +60,11 @@ const dashboardQueryOptions = queryOptions({
     const householdId = (await supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
 
-    const [{ data: tasks }, { data: shopping }, { data: events }, { data: expenses }] =
+    const user = (await supabase.auth.getUser()).data.user;
+    const todayStart = startOfLocalDay(new Date());
+    const afterTomorrow = addDays(todayStart, 2);
+
+    const [{ data: tasks }, { data: shopping }, { data: events }, { data: expenses }, { data: agendaEvents }, { data: currentMember }] =
       await Promise.all([
         supabase.from("tasks").select("*").eq("household_id", householdId).eq("status", "pending").limit(5),
         supabase
@@ -68,9 +85,63 @@ const dashboardQueryOptions = queryOptions({
           .eq("household_id", householdId)
           .gte("date", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
           .limit(5),
+        supabase
+          .from("calendar_events")
+          .select("*")
+          .eq("household_id", householdId)
+          .gte("start_at", todayStart.toISOString())
+          .lt("start_at", afterTomorrow.toISOString())
+          .order("start_at", { ascending: true }),
+        user?.id
+          ? supabase
+              .from("household_members")
+              .select("id, display_name, is_child, user_id")
+              .eq("household_id", householdId)
+              .eq("user_id", user.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null } as any),
       ]);
 
-    return { tasks: tasks ?? [], shopping: shopping ?? [], events: events ?? [], expenses: expenses ?? [], householdId };
+    let schedule: any = null;
+    if (currentMember?.id) {
+      const yesterday = addDays(todayStart, -1);
+      const tomorrow = addDays(todayStart, 1);
+      const [settingsRes, templateRes, daySlotsRes, statusRes] = await Promise.all([
+        supabase.from("schedule_settings").select("*").eq("member_id", currentMember.id).maybeSingle(),
+        supabase.from("schedule_template_slots").select("*").eq("member_id", currentMember.id).order("day_of_week").order("start_time"),
+        supabase
+          .from("schedule_day_slots")
+          .select("*")
+          .eq("member_id", currentMember.id)
+          .gte("date", dateKey(yesterday))
+          .lte("date", dateKey(tomorrow))
+          .order("date")
+          .order("start_time"),
+        supabase
+          .from("schedule_day_status")
+          .select("*")
+          .eq("member_id", currentMember.id)
+          .gte("date", dateKey(yesterday))
+          .lte("date", dateKey(tomorrow)),
+      ]);
+      schedule = {
+        member: currentMember,
+        settings: settingsRes.data,
+        template: templateRes.data ?? [],
+        daySlots: daySlotsRes.data ?? [],
+        status: statusRes.data ?? [],
+      };
+    }
+
+    return {
+      tasks: tasks ?? [],
+      shopping: shopping ?? [],
+      events: events ?? [],
+      expenses: expenses ?? [],
+      agendaEvents: agendaEvents ?? [],
+      schedule,
+      householdId,
+    };
   },
 });
 
@@ -189,6 +260,53 @@ function DashboardPage() {
     .filter((d) => d.quick_access && !d.hidden)
     .slice(0, 5);
 
+  const agendaEvents = splitEventsTodayTomorrow(data.agendaEvents);
+  const scheduleDays = buildScheduleTodayTomorrow(data.schedule);
+  const [sectionPrefs, setSectionPrefs] = useState(() => loadDashboardPrefs());
+  const [customizing, setCustomizing] = useState(false);
+
+  useEffect(() => {
+    saveDashboardPrefs(sectionPrefs);
+  }, [sectionPrefs]);
+
+  const dashboardSections = useMemo(() => {
+    const byKey: Record<DashboardSectionKey, { key: DashboardSectionKey; title: string; visible: boolean; node: ReactNode }> = {
+      calendar: {
+        key: "calendar",
+        title: "Calendario hoy/mañana",
+        visible: agendaEvents.today.length > 0 || agendaEvents.tomorrow.length > 0,
+        node: <CalendarTodayTomorrowCard today={agendaEvents.today} tomorrow={agendaEvents.tomorrow} />,
+      },
+      schedule: {
+        key: "schedule",
+        title: "Cuadrante hoy/mañana",
+        visible: scheduleDays.length > 0,
+        node: <ScheduleTodayTomorrowCard days={scheduleDays} memberName={data.schedule?.member?.display_name ?? "Tu turno"} />,
+      },
+    };
+    return sectionPrefs.order
+      .map((key) => byKey[key])
+      .filter((section) => section && section.visible && !sectionPrefs.hidden.includes(section.key));
+  }, [agendaEvents, scheduleDays, sectionPrefs, data.schedule]);
+
+  const moveSection = (key: DashboardSectionKey, direction: -1 | 1) => {
+    setSectionPrefs((prev) => {
+      const order = [...prev.order];
+      const idx = order.indexOf(key);
+      const nextIdx = idx + direction;
+      if (idx < 0 || nextIdx < 0 || nextIdx >= order.length) return prev;
+      [order[idx], order[nextIdx]] = [order[nextIdx], order[idx]];
+      return { ...prev, order };
+    });
+  };
+
+  const toggleSection = (key: DashboardSectionKey) => {
+    setSectionPrefs((prev) => ({
+      ...prev,
+      hidden: prev.hidden.includes(key) ? prev.hidden.filter((item) => item !== key) : [...prev.hidden, key],
+    }));
+  };
+
   const handleRecord = async (intake: any, status: string) => {
     try {
       await doRecord({ data: { intake_id: intake.id, status } });
@@ -235,8 +353,55 @@ function DashboardPage() {
           <h2 className="text-2xl font-bold tracking-tight">Buenos días</h2>
           <p className="text-muted-foreground">Resumen de tu hogar hoy</p>
         </div>
-        <SosButton variant="compact" />
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => setCustomizing((value) => !value)}>
+            <SlidersHorizontal className="mr-2 h-4 w-4" />
+            Personalizar
+          </Button>
+          <SosButton variant="compact" />
+        </div>
       </section>
+
+      {customizing && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Ajustar dashboard</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {sectionPrefs.order.map((key) => {
+              const label = key === "calendar" ? "Calendario hoy/mañana" : "Cuadrante hoy/mañana";
+              const hidden = sectionPrefs.hidden.includes(key);
+              return (
+                <div key={key} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-muted-foreground">{hidden ? "Oculto por usuario" : "Visible si tiene contenido"}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="icon" onClick={() => moveSection(key, -1)} title="Subir">
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => moveSection(key, 1)} title="Bajar">
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                    <Button variant={hidden ? "secondary" : "outline"} size="icon" onClick={() => toggleSection(key)} title={hidden ? "Mostrar" : "Ocultar"}>
+                      <EyeOff className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {dashboardSections.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {dashboardSections.map((section) => (
+            <div key={section.key}>{section.node}</div>
+          ))}
+        </div>
+      )}
 
       {prepAhead.length > 0 && (
         <Card className="border-primary/40 bg-primary/5">
@@ -604,6 +769,214 @@ function DashboardPage() {
   );
 }
 
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function dateKey(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function localDayIndex(date: Date) {
+  return (date.getDay() + 6) % 7;
+}
+
+function timeToMinutes(value: string) {
+  const [h, m] = value.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function slotCrossesMidnight(slot: any) {
+  return timeToMinutes(slot.end_time) <= timeToMinutes(slot.start_time);
+}
+
+function formatTime(value: string) {
+  return value?.slice(0, 5) ?? "--:--";
+}
+
+function eventDayLabel(date: Date) {
+  return dateKey(date) === dateKey(new Date()) ? "Hoy" : "Mañana";
+}
+
+function splitEventsTodayTomorrow(events: any[]) {
+  const today = dateKey(new Date());
+  const tomorrow = dateKey(addDays(new Date(), 1));
+  const grouped = { today: [] as any[], tomorrow: [] as any[] };
+  for (const event of events ?? []) {
+    const key = dateKey(new Date(event.start_at));
+    if (key === today) grouped.today.push(event);
+    if (key === tomorrow) grouped.tomorrow.push(event);
+  }
+  return grouped;
+}
+
+function resolveScheduleSlotsForDate(schedule: any, date: Date) {
+  if (!schedule) return [];
+  const key = dateKey(date);
+  const status = (schedule.status ?? []).find((row: any) => row.date === key);
+  if (status && ["vacation", "holiday", "sick", "off"].includes(status.state)) return [];
+
+  const daySlots = schedule.daySlots ?? [];
+  const overrides = daySlots.filter((slot: any) => slot.date === key);
+  if (overrides.length > 0 || status?.use_day_override) return overrides;
+
+  const settings = schedule.settings ?? { use_template: true };
+  if (!settings.use_template) return [];
+  return (schedule.template ?? []).filter((slot: any) => slot.day_of_week === localDayIndex(date));
+}
+
+function buildScheduleTodayTomorrow(schedule: any) {
+  if (!schedule?.member?.id) return [];
+  const today = startOfLocalDay(new Date());
+  const days = [today, addDays(today, 1)];
+  return days
+    .map((day) => {
+      const ownSlots = resolveScheduleSlotsForDate(schedule, day)
+        .filter((slot: any) => WORK_SLOT_KINDS.has(slot.slot_kind))
+        .map((slot: any) => ({ ...slot, carried: false }));
+      const carrySlots = resolveScheduleSlotsForDate(schedule, addDays(day, -1))
+        .filter((slot: any) => WORK_SLOT_KINDS.has(slot.slot_kind) && slotCrossesMidnight(slot))
+        .map((slot: any) => ({ ...slot, carried: true }));
+      const slots = [...carrySlots, ...ownSlots].sort((a, b) => {
+        const aStart = a.carried ? 0 : timeToMinutes(a.start_time);
+        const bStart = b.carried ? 0 : timeToMinutes(b.start_time);
+        return aStart - bStart;
+      });
+      return {
+        date: day,
+        label: eventDayLabel(day),
+        slots,
+      };
+    })
+    .filter((day) => day.slots.length > 0);
+}
+
+function loadDashboardPrefs(): { order: DashboardSectionKey[]; hidden: DashboardSectionKey[] } {
+  if (typeof window === "undefined") return { order: DEFAULT_SECTION_ORDER, hidden: [] };
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(DASHBOARD_PREFS_KEY) || "");
+    const order = Array.isArray(parsed?.order)
+      ? [
+          ...parsed.order.filter((key: string) => DEFAULT_SECTION_ORDER.includes(key as DashboardSectionKey)),
+          ...DEFAULT_SECTION_ORDER.filter((key) => !parsed.order.includes(key)),
+        ]
+      : DEFAULT_SECTION_ORDER;
+    const hidden = Array.isArray(parsed?.hidden)
+      ? parsed.hidden.filter((key: string) => DEFAULT_SECTION_ORDER.includes(key as DashboardSectionKey))
+      : [];
+    return { order, hidden };
+  } catch {
+    return { order: DEFAULT_SECTION_ORDER, hidden: [] };
+  }
+}
+
+function saveDashboardPrefs(value: { order: DashboardSectionKey[]; hidden: DashboardSectionKey[] }) {
+  try {
+    window.localStorage.setItem(DASHBOARD_PREFS_KEY, JSON.stringify(value));
+  } catch {
+    // Local dashboard preference only.
+  }
+}
+
+function CalendarTodayTomorrowCard({ today, tomorrow }: { today: any[]; tomorrow: any[] }) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Calendar className="h-4 w-4 text-primary" />
+          Calendario
+        </CardTitle>
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/calendar">Ver calendario</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {today.length > 0 && <EventGroup label="Hoy" events={today} />}
+        {tomorrow.length > 0 && <EventGroup label="Mañana" events={tomorrow} />}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EventGroup({ label, events }: { label: string; events: any[] }) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <div className="space-y-2">
+        {events.slice(0, 5).map((event) => {
+          const start = new Date(event.start_at);
+          return (
+            <div key={event.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{event.title}</p>
+                <p className="text-xs text-muted-foreground">
+                  {start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {event.category ? ` · ${event.category}` : ""}
+                </p>
+              </div>
+              <Badge variant="outline">{event.source === "google" ? "Google" : "App"}</Badge>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ScheduleTodayTomorrowCard({ days, memberName }: { days: any[]; memberName: string }) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <CalendarDays className="h-4 w-4 text-primary" />
+          Cuadrante
+        </CardTitle>
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/calendar/schedule">Ver cuadrante</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">{memberName}</p>
+        {days.map((day) => (
+          <div key={dateKey(day.date)}>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{day.label}</p>
+            <div className="space-y-2">
+              {day.slots.map((slot: any, index: number) => (
+                <div key={`${slot.id}-${index}-${day.label}`} className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">
+                        {slot.carried ? `00:00-${formatTime(slot.end_time)}` : `${formatTime(slot.start_time)}-${formatTime(slot.end_time)}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {slot.carried
+                          ? "Viene del día anterior"
+                          : slotCrossesMidnight(slot)
+                            ? "Cruza medianoche"
+                            : slot.label || "Turno programado"}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">{slot.slot_kind === "subject" ? "Clase" : "Turno"}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 function SummaryCard({
   title,
   value,
@@ -613,7 +986,7 @@ function SummaryCard({
 }: {
   title: string;
   value: string | number;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   href: string;
   color: string;
 }) {
