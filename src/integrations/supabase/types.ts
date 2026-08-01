@@ -1779,6 +1779,54 @@ export type Database = {
           },
         ]
       }
+      schedule_notification_log: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          member_id: string
+          notice_type: string
+          sent_at: string
+          slot_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          member_id: string
+          notice_type: string
+          sent_at?: string
+          slot_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          member_id?: string
+          notice_type?: string
+          sent_at?: string
+          slot_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_notification_log_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_notification_log_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schedule_settings: {
         Row: {
           created_at: string
