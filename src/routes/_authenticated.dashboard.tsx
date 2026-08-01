@@ -47,7 +47,7 @@ import { SosButton } from "@/components/SosButton";
 
 
 const MONTHLY_BUDGET = 1000;
-const DASHBOARD_PREFS_KEY = "homesync.dashboard.sections.v1";
+const DASHBOARD_PREFS_KEY = "homesync.dashboard.sections.v2";
 
 type DashboardSectionKey =
   | "summary"
@@ -59,8 +59,7 @@ type DashboardSectionKey =
   | "pharmacy"
   | "expiry"
   | "tasks"
-  | "inventory"
-  | "recipes";
+  | "inventory";
 
 const DEFAULT_SECTION_ORDER: DashboardSectionKey[] = [
   "summary",
@@ -73,7 +72,6 @@ const DEFAULT_SECTION_ORDER: DashboardSectionKey[] = [
   "expiry",
   "tasks",
   "inventory",
-  "recipes",
 ];
 const SECTION_LABELS: Record<DashboardSectionKey, string> = {
   summary: "Resumen",
@@ -86,7 +84,6 @@ const SECTION_LABELS: Record<DashboardSectionKey, string> = {
   expiry: "Caducidad próxima",
   tasks: "Tareas",
   inventory: "Inventario bajo",
-  recipes: "Recetas",
 };
 const WORK_SLOT_KINDS = new Set(["work", "subject", "extracurricular"]);
 
