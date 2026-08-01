@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList, Calendar, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList, Calendar, ShieldAlert, ShieldCheck, FlaskConical } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 
-const DIAGNOSTIC_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com"]);
+const PRIVATE_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com"]);
 
 export const Route = createFileRoute("/_authenticated/settings/")({
   head: () => ({
@@ -16,12 +16,12 @@ export const Route = createFileRoute("/_authenticated/settings/")({
 
 function SettingsHubPage() {
   const { t } = useTranslation();
-  const [canSeeDiagnostics, setCanSeeDiagnostics] = useState(false);
+  const [canSeePrivateTools, setCanSeePrivateTools] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       const email = data.user?.email?.toLowerCase();
-      setCanSeeDiagnostics(Boolean(email && DIAGNOSTIC_ADMIN_EMAILS.has(email)));
+      setCanSeePrivateTools(Boolean(email && PRIVATE_ADMIN_EMAILS.has(email)));
     });
   }, []);
 
@@ -74,7 +74,7 @@ function SettingsHubPage() {
       description: "Reordena u oculta las secciones del menú",
       icon: LayoutList,
     },
-    ...(canSeeDiagnostics
+    ...(canSeePrivateTools
       ? [
           {
             to: "/settings/diagnostics",
@@ -82,9 +82,15 @@ function SettingsHubPage() {
             description: "Estado técnico privado de integraciones y avisos",
             icon: ShieldCheck,
           },
+          {
+            to: "/settings/experimental",
+            label: "Experimental",
+            description: "Pruebas privadas de sensores y funciones sensibles",
+            icon: FlaskConical,
+          },
         ]
       : []),
-  ], [canSeeDiagnostics, t]);
+  ], [canSeePrivateTools, t]);
 
   return (
     <div className="space-y-6">
