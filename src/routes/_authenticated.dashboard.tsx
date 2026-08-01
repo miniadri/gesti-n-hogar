@@ -49,9 +49,45 @@ import { SosButton } from "@/components/SosButton";
 const MONTHLY_BUDGET = 1000;
 const DASHBOARD_PREFS_KEY = "homesync.dashboard.sections.v1";
 
-type DashboardSectionKey = "calendar" | "schedule";
+type DashboardSectionKey =
+  | "summary"
+  | "calendar"
+  | "schedule"
+  | "prep"
+  | "medications"
+  | "devices"
+  | "pharmacy"
+  | "expiry"
+  | "tasks"
+  | "inventory"
+  | "recipes";
 
-const DEFAULT_SECTION_ORDER: DashboardSectionKey[] = ["calendar", "schedule"];
+const DEFAULT_SECTION_ORDER: DashboardSectionKey[] = [
+  "summary",
+  "calendar",
+  "schedule",
+  "medications",
+  "devices",
+  "prep",
+  "pharmacy",
+  "expiry",
+  "tasks",
+  "inventory",
+  "recipes",
+];
+const SECTION_LABELS: Record<DashboardSectionKey, string> = {
+  summary: "Resumen",
+  calendar: "Calendario hoy/mañana",
+  schedule: "Cuadrante hoy/mañana",
+  prep: "Adelanta para mañana",
+  medications: "Próxima toma",
+  devices: "Accesos rápidos",
+  pharmacy: "Farmacia",
+  expiry: "Caducidad próxima",
+  tasks: "Tareas",
+  inventory: "Inventario bajo",
+  recipes: "Recetas",
+};
 const WORK_SLOT_KINDS = new Set(["work", "subject", "extracurricular"]);
 
 const dashboardQueryOptions = queryOptions({
@@ -269,26 +305,6 @@ function DashboardPage() {
     saveDashboardPrefs(sectionPrefs);
   }, [sectionPrefs]);
 
-  const dashboardSections = useMemo(() => {
-    const byKey: Record<DashboardSectionKey, { key: DashboardSectionKey; title: string; visible: boolean; node: ReactNode }> = {
-      calendar: {
-        key: "calendar",
-        title: "Calendario hoy/mañana",
-        visible: agendaEvents.today.length > 0 || agendaEvents.tomorrow.length > 0,
-        node: <CalendarTodayTomorrowCard today={agendaEvents.today} tomorrow={agendaEvents.tomorrow} />,
-      },
-      schedule: {
-        key: "schedule",
-        title: "Cuadrante hoy/mañana",
-        visible: scheduleDays.length > 0,
-        node: <ScheduleTodayTomorrowCard days={scheduleDays} memberName={data.schedule?.member?.display_name ?? "Tu turno"} />,
-      },
-    };
-    return sectionPrefs.order
-      .map((key) => byKey[key])
-      .filter((section) => section && section.visible && !sectionPrefs.hidden.includes(section.key));
-  }, [agendaEvents, scheduleDays, sectionPrefs, data.schedule]);
-
   const moveSection = (key: DashboardSectionKey, direction: -1 | 1) => {
     setSectionPrefs((prev) => {
       const order = [...prev.order];
@@ -345,6 +361,462 @@ function DashboardPage() {
     }
   };
 
+  const dashboardSections = useMemo(() => {
+    type DashboardSection = {
+      key: DashboardSectionKey;
+      title: string;
+      visible: boolean;
+      size: "full" | "half" | "third";
+      node: ReactNode;
+    };
+
+    const byKey: Record<DashboardSectionKey, DashboardSection> = {
+      summary: {
+        key: "summary",
+        title: SECTION_LABELS.summary,
+        visible: data.shopping.length > 0 || data.events.length > 0 || totalExpenses > 0,
+        size: "full",
+        node: (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <SummaryCard
+              title="Por comprar"
+              value={data.shopping.length}
+              icon={ShoppingCart}
+              href="/shopping"
+              color="text-chart-1"
+            />
+            <SummaryCard
+              title="Próximos eventos"
+              value={data.events.length}
+              icon={Calendar}
+              href="/calendar"
+              color="text-chart-2"
+            />
+            <Link to="/finances">
+              <Card className="transition-colors hover:bg-accent/50">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-secondary">
+                    <Wallet className="h-5 w-5 text-chart-3" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-muted-foreground">Gastos y presupuesto</p>
+                    <p className="text-2xl font-bold">€{totalExpenses.toFixed(2)}</p>
+                    <Progress value={Math.min((totalExpenses / MONTHLY_BUDGET) * 100, 100)} className="mt-2 h-1.5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        ),
+      },
+      calendar: {
+        key: "calendar",
+        title: SECTION_LABELS.calendar,
+        visible: agendaEvents.today.length > 0 || agendaEvents.tomorrow.length > 0,
+        size: "half",
+        node: <CalendarTodayTomorrowCard today={agendaEvents.today} tomorrow={agendaEvents.tomorrow} />,
+      },
+      schedule: {
+        key: "schedule",
+        title: SECTION_LABELS.schedule,
+        visible: scheduleDays.length > 0,
+        size: "half",
+        node: <ScheduleTodayTomorrowCard days={scheduleDays} memberName={data.schedule?.member?.display_name ?? "Tu turno"} />,
+      },
+      prep: {
+        key: "prep",
+        title: SECTION_LABELS.prep,
+        visible: prepAhead.length > 0,
+        size: "full",
+        node: (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Adelanta para mañana
+              </CardTitle>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/recipes/planner">Ver planner</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {prepAhead.map((s: any) => (
+                <div key={s.id} className="rounded-lg border border-border bg-card p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {s.recipes?.title}
+                  </p>
+                  <p className="mt-1 text-sm">{s.text}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ),
+      },
+      medications: {
+        key: "medications",
+        title: SECTION_LABELS.medications,
+        visible: nextIntakes.length > 0,
+        size: "full",
+        node: (
+          <Card className="border-primary/30">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Pill className="h-4 w-4 text-primary" />
+                Próxima toma
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <SosButton variant="compact" />
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/medications">Ver medicación</Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {nextIntakes.map((intake: any) => {
+                const when = new Date(intake.scheduled_for);
+                const overdue = when.getTime() < nowMs;
+                const memberName = intake.medication.household_members?.display_name ?? "Miembro";
+                return (
+                  <div
+                    key={intake.id}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-lg border bg-card p-3",
+                      overdue && "border-amber-500/50 bg-amber-500/5",
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">
+                        {memberName} · {intake.medication.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {intake.medication.dose_amount} {intake.medication.unit} ·{" "}
+                        {when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {overdue && " · vencida"}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
+                        <Clock3 className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" title="Omitir" onClick={() => handleRecord(intake, "skipped")}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" title="Confirmar" onClick={() => handleRecord(intake, "taken")}>
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        ),
+      },
+      devices: {
+        key: "devices",
+        title: SECTION_LABELS.devices,
+        visible: quickDevices.length > 0,
+        size: "full",
+        node: (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Star className="h-4 w-4 text-amber-500" />
+                Accesos rápidos
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/devices" search={{ panel: 1 } as any}>Panel</Link>
+                </Button>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/devices" search={{ panel: 0 }}>Gestionar</Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {quickDevices.map((d: any) => {
+                  const isSensor = d.type === "sensor" || d.domain === "sensor" || d.domain === "binary_sensor";
+                  const Icon = isSensor
+                    ? Activity
+                    : d.type === "light"
+                      ? Lightbulb
+                      : d.type === "thermostat"
+                        ? Thermometer
+                        : d.type === "security"
+                          ? Shield
+                          : Power;
+                  const attrs = d.attributes ?? {};
+                  const stateLabel = isSensor
+                    ? `${attrs.state ?? "-"}${attrs.unit_of_measurement ? ` ${attrs.unit_of_measurement}` : ""}`
+                    : d.status === "on"
+                      ? "Encendido"
+                      : "Apagado";
+                  return (
+                    <div key={d.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className={cn(
+                            "grid h-10 w-10 shrink-0 place-items-center rounded-2xl",
+                            d.status === "on" ? "bg-primary text-primary-foreground" : "bg-secondary",
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{d.name}</p>
+                          <p className="text-xs text-muted-foreground">{stateLabel}</p>
+                        </div>
+                      </div>
+                      {!isSensor && (
+                        <Button size="sm" variant="outline" onClick={() => toggleQuickDevice(d)}>
+                          {d.status === "on" ? "Apagar" : "Encender"}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        ),
+      },
+      pharmacy: {
+        key: "pharmacy",
+        title: SECTION_LABELS.pharmacy,
+        visible: pharmacyToBuy.length > 0,
+        size: "half",
+        node: (
+          <Card className="border-primary/30">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="flex items-center gap-2 text-base uppercase tracking-wide">
+                <Pill className="h-4 w-4 text-primary" />
+                Farmacia
+                <Badge variant="secondary" className="ml-2">{pharmacyToBuy.length}</Badge>
+              </CardTitle>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/shopping">Ver lista</Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {pharmacyToBuy.slice(0, 8).map((m: any) => (
+                  <span key={m.id} className="inline-flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 text-xs">
+                    <Pill className="h-3 w-3" />
+                    {m.name}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ),
+      },
+      expiry: {
+        key: "expiry",
+        title: SECTION_LABELS.expiry,
+        visible: expiringFoods.length > 0 || expiringMeds.length > 0,
+        size: "half",
+        node: (
+          <Card className="border-amber-500/40 bg-amber-500/5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                Caducidad próxima
+              </CardTitle>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/inventory">Abrir inventario</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {expiringFoods.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Alimentos ({expiringFoods.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {expiringFoods.slice(0, 8).map((i: any) => (
+                      <Link
+                        key={i.id}
+                        to="/inventory"
+                        className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs hover:bg-accent"
+                      >
+                        {i.name}
+                        <span className="text-muted-foreground">
+                          · {i._expiry.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {expiringMeds.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Medicinas ({expiringMeds.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {expiringMeds.slice(0, 8).map((m: any) => (
+                      <Link
+                        key={m.id}
+                        to="/inventory"
+                        className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs hover:bg-accent"
+                      >
+                        <Pill className="h-3 w-3" />
+                        {m.name}
+                        <span className="text-muted-foreground">
+                          · {String(m.expiry_month).padStart(2, "0")}/{m.expiry_year}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ),
+      },
+      tasks: {
+        key: "tasks",
+        title: SECTION_LABELS.tasks,
+        visible: data.tasks.length > 0,
+        size: "third",
+        node: (
+          <Card className="h-full">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-semibold">Tareas</CardTitle>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/tasks">Ver todas</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <ListTodo className="h-4 w-4 text-chart-4" />
+                <span className="text-sm text-muted-foreground">
+                  {data.tasks.length} pendientes
+                  {urgentTasks.length > 0 && ` · ${urgentTasks.length} urgentes`}
+                </span>
+              </div>
+              {data.tasks.length === 0 && (
+                <p className="text-sm text-muted-foreground">No hay tareas pendientes.</p>
+              )}
+              {data.tasks.slice(0, 4).map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-center justify-between rounded-lg border border-border p-3"
+                >
+                  <div>
+                    <p className="font-medium">{task.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {task.due_date ? new Date(task.due_date).toLocaleDateString("es-ES") : "Sin fecha"}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ),
+      },
+      inventory: {
+        key: "inventory",
+        title: SECTION_LABELS.inventory,
+        visible: lowStockItems.length > 0 || expiringFoods.length > 0,
+        size: "third",
+        node: (
+          <Card className="h-full">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-semibold">Inventario bajo</CardTitle>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/inventory">Ver</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {lowStockItems.length === 0 && expiringFoods.length === 0 && (
+                <p className="text-sm text-muted-foreground">Todo en orden por ahora.</p>
+              )}
+              {lowStockItems.length > 0 && (
+                <div>
+                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <PackageOpen className="h-3.5 w-3.5" />
+                    Stock mínimo ({lowStockItems.length})
+                  </p>
+                  <div className="space-y-1.5">
+                    {lowStockItems.slice(0, 5).map((i: any) => (
+                      <div key={i.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+                        <span className="truncate">{i.name}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {Number(i.quantity)}/{Number(i.min_stock)} {i.unit || "ud."}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {expiringFoods.length > 0 && (
+                <div>
+                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                    Caducidad próxima ({expiringFoods.length})
+                  </p>
+                  <div className="space-y-1.5">
+                    {expiringFoods.slice(0, 5).map((i: any) => (
+                      <div key={i.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+                        <span className="truncate">{i.name}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {i._expiry.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ),
+      },
+      recipes: {
+        key: "recipes",
+        title: SECTION_LABELS.recipes,
+        visible: inventory.length > 0,
+        size: "third",
+        node: (
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Recetas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Sugerencias basadas en tu inventario.</p>
+              <Button className="mt-4 w-full" variant="outline" asChild>
+                <Link to="/recipes">Ver recetas</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ),
+      },
+    };
+
+    return sectionPrefs.order
+      .map((key) => byKey[key])
+      .filter((section): section is DashboardSection => Boolean(section) && section.visible && !sectionPrefs.hidden.includes(section.key));
+  }, [
+    agendaEvents,
+    data.events.length,
+    data.schedule,
+    data.shopping.length,
+    expiringFoods,
+    expiringMeds,
+    lowStockItems,
+    nextIntakes,
+    nowMs,
+    pharmacyToBuy,
+    prepAhead,
+    quickDevices,
+    scheduleDays,
+    sectionPrefs,
+    totalExpenses,
+    urgentTasks.length,
+  ]);
+
 
   return (
     <div className="space-y-6">
@@ -362,6 +834,11 @@ function DashboardPage() {
         </div>
       </section>
 
+      <div className="rounded-lg border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        Las tarjetas sin información relevante se ocultan automáticamente. Si no has ocultado una tarjeta manualmente,
+        volverá a aparecer cuando tenga algo importante que mostrar.
+      </div>
+
       {customizing && (
         <Card>
           <CardHeader className="pb-2">
@@ -369,15 +846,17 @@ function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {sectionPrefs.order.map((key) => {
-              const label = key === "calendar" ? "Calendario hoy/mañana" : "Cuadrante hoy/mañana";
               const hidden = sectionPrefs.hidden.includes(key);
+              const liveSection = dashboardSections.find((section) => section.key === key);
               return (
                 <div key={key} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                  <div>
-                    <p className="text-sm font-medium">{label}</p>
-                    <p className="text-xs text-muted-foreground">{hidden ? "Oculto por usuario" : "Visible si tiene contenido"}</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{SECTION_LABELS[key]}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {hidden ? "Oculto por usuario" : liveSection ? "Visible ahora" : "Se mostrará cuando tenga contenido"}
+                    </p>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex shrink-0 gap-1">
                     <Button variant="outline" size="icon" onClick={() => moveSection(key, -1)} title="Subir">
                       <ArrowUp className="h-4 w-4" />
                     </Button>
@@ -396,375 +875,21 @@ function DashboardPage() {
       )}
 
       {dashboardSections.length > 0 && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-6">
           {dashboardSections.map((section) => (
-            <div key={section.key}>{section.node}</div>
+            <div
+              key={section.key}
+              className={cn(
+                section.size === "full" && "lg:col-span-6",
+                section.size === "half" && "lg:col-span-3",
+                section.size === "third" && "lg:col-span-2",
+              )}
+            >
+              {section.node}
+            </div>
           ))}
         </div>
       )}
-
-      {prepAhead.length > 0 && (
-        <Card className="border-primary/40 bg-primary/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-primary" />
-              Adelanta para mañana
-            </CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/recipes/planner">Ver planner</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {prepAhead.map((s: any) => (
-              <div key={s.id} className="rounded-lg border border-border bg-card p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {s.recipes?.title}
-                </p>
-                <p className="mt-1 text-sm">{s.text}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <SummaryCard
-          title="Por comprar"
-          value={data.shopping.length}
-          icon={ShoppingCart}
-          href="/shopping"
-          color="text-chart-1"
-        />
-        <SummaryCard
-          title="Próximos eventos"
-          value={data.events.length}
-          icon={Calendar}
-          href="/calendar"
-          color="text-chart-2"
-        />
-        <Link to="/finances">
-          <Card className="transition-colors hover:bg-accent/50">
-            <CardContent className="flex items-center gap-4 p-5">
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-secondary">
-                <Wallet className="h-5 w-5 text-chart-3" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-muted-foreground">Gastos y presupuesto</p>
-                <p className="text-2xl font-bold">€{totalExpenses.toFixed(2)}</p>
-                <Progress value={Math.min((totalExpenses / MONTHLY_BUDGET) * 100, 100)} className="mt-2 h-1.5" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-      {nextIntakes.length > 0 && (
-        <Card className="border-primary/30">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Pill className="h-4 w-4 text-primary" />
-              Próxima toma
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <SosButton variant="compact" />
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/medications">Ver medicación</Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {nextIntakes.map((intake: any) => {
-              const when = new Date(intake.scheduled_for);
-              const overdue = when.getTime() < nowMs;
-              const memberName = intake.medication.household_members?.display_name ?? "Miembro";
-              return (
-                <div
-                  key={intake.id}
-                  className={cn(
-                    "flex items-center justify-between gap-3 rounded-lg border bg-card p-3",
-                    overdue && "border-amber-500/50 bg-amber-500/5",
-                  )}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">
-                      {memberName} · {intake.medication.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {intake.medication.dose_amount} {intake.medication.unit} ·{" "}
-                      {when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      {overdue && " · vencida"}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 gap-1">
-                    <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
-                      <Clock3 className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="outline" title="Omitir" onClick={() => handleRecord(intake, "skipped")}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" title="Confirmar" onClick={() => handleRecord(intake, "taken")}>
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
-
-      {quickDevices.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Star className="h-4 w-4 text-amber-500" />
-              Accesos rápidos
-            </CardTitle>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/devices" search={{ panel: 1 } as any}>Panel</Link>
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/devices" search={{ panel: 0 }}>Gestionar</Link>
-              </Button>
-
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {quickDevices.map((d: any) => {
-                const isSensor = d.type === "sensor" || d.domain === "sensor" || d.domain === "binary_sensor";
-                const Icon = isSensor
-                  ? Activity
-                  : d.type === "light"
-                    ? Lightbulb
-                    : d.type === "thermostat"
-                      ? Thermometer
-                      : d.type === "security"
-                        ? Shield
-                        : Power;
-                const attrs = d.attributes ?? {};
-                const stateLabel = isSensor
-                  ? `${attrs.state ?? "-"}${attrs.unit_of_measurement ? ` ${attrs.unit_of_measurement}` : ""}`
-                  : d.status === "on"
-                    ? "Encendido"
-                    : "Apagado";
-                return (
-                  <div key={d.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div
-                        className={cn(
-                          "grid h-10 w-10 shrink-0 place-items-center rounded-2xl",
-                          d.status === "on" ? "bg-primary text-primary-foreground" : "bg-secondary",
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{d.name}</p>
-                        <p className="text-xs text-muted-foreground">{stateLabel}</p>
-                      </div>
-                    </div>
-                    {!isSensor && (
-                      <Button size="sm" variant="outline" onClick={() => toggleQuickDevice(d)}>
-                        {d.status === "on" ? "Apagar" : "Encender"}
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {pharmacyToBuy.length > 0 && (
-        <Card className="border-primary/30">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="flex items-center gap-2 text-base uppercase tracking-wide">
-              <Pill className="h-4 w-4 text-primary" />
-              Farmacia
-              <Badge variant="secondary" className="ml-2">{pharmacyToBuy.length}</Badge>
-            </CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/shopping">Ver lista</Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {pharmacyToBuy.slice(0, 8).map((m: any) => (
-                <span key={m.id} className="inline-flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 text-xs">
-                  <Pill className="h-3 w-3" />
-                  {m.name}
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {(expiringFoods.length > 0 || expiringMeds.length > 0) && (
-        <Card className="border-amber-500/40 bg-amber-500/5">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              Caducidad próxima
-            </CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/inventory">Abrir inventario</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {expiringFoods.length > 0 && (
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Alimentos ({expiringFoods.length})
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {expiringFoods.slice(0, 8).map((i: any) => (
-                    <Link
-                      key={i.id}
-                      to="/inventory"
-                      className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs hover:bg-accent"
-                    >
-                      {i.name}
-                      <span className="text-muted-foreground">
-                        · {i._expiry.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-            {expiringMeds.length > 0 && (
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Medicinas ({expiringMeds.length})
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {expiringMeds.slice(0, 8).map((m: any) => (
-                    <Link
-                      key={m.id}
-                      to="/inventory"
-                      className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs hover:bg-accent"
-                    >
-                      <Pill className="h-3 w-3" />
-                      {m.name}
-                      <span className="text-muted-foreground">
-                        · {String(m.expiry_month).padStart(2, "0")}/{m.expiry_year}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-
-
-
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Tareas</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/tasks">Ver todas</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-2">
-              <ListTodo className="h-4 w-4 text-chart-4" />
-              <span className="text-sm text-muted-foreground">
-                {data.tasks.length} pendientes
-                {urgentTasks.length > 0 && ` · ${urgentTasks.length} urgentes`}
-              </span>
-            </div>
-            {data.tasks.length === 0 && (
-              <p className="text-sm text-muted-foreground">No hay tareas pendientes.</p>
-            )}
-            {data.tasks.slice(0, 4).map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center justify-between rounded-lg border border-border p-3"
-              >
-                <div>
-                  <p className="font-medium">{task.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {task.due_date ? new Date(task.due_date).toLocaleDateString("es-ES") : "Sin fecha"}
-                  </p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Inventario bajo</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/inventory">Ver</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {lowStockItems.length === 0 && expiringFoods.length === 0 && (
-              <p className="text-sm text-muted-foreground">Todo en orden por ahora.</p>
-            )}
-            {lowStockItems.length > 0 && (
-              <div>
-                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <PackageOpen className="h-3.5 w-3.5" />
-                  Stock mínimo ({lowStockItems.length})
-                </p>
-                <div className="space-y-1.5">
-                  {lowStockItems.slice(0, 5).map((i: any) => (
-                    <div key={i.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
-                      <span className="truncate">{i.name}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {Number(i.quantity)}/{Number(i.min_stock)} {i.unit || "ud."}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {expiringFoods.length > 0 && (
-              <div>
-                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                  Caducidad próxima ({expiringFoods.length})
-                </p>
-                <div className="space-y-1.5">
-                  {expiringFoods.slice(0, 5).map((i: any) => (
-                    <div key={i.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
-                      <span className="truncate">{i.name}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {i._expiry.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Recetas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Sugerencias basadas en tu inventario.</p>
-            <Button className="mt-4 w-full" variant="outline" asChild>
-              <Link to="/recipes">Ver recetas</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
