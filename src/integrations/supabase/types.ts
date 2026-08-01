@@ -2064,46 +2064,73 @@ export type Database = {
       sos_events: {
         Row: {
           acknowledged_at: string | null
+          battery_charging: boolean | null
+          battery_level: number | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          connection_type: string | null
           created_at: string
           household_id: string
           id: string
           is_test: boolean
+          last_known_location_used: boolean
           last_reminder_sent_at: string | null
           latitude: number | null
           location_accuracy: number | null
+          location_source: string | null
           longitude: number | null
           note: string | null
           reminder_count: number
+          sos_type: string
           triggered_by: string | null
           triggered_by_name: string
         }
         Insert: {
           acknowledged_at?: string | null
+          battery_charging?: boolean | null
+          battery_level?: number | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          connection_type?: string | null
           created_at?: string
           household_id: string
           id?: string
           is_test?: boolean
+          last_known_location_used?: boolean
           last_reminder_sent_at?: string | null
           latitude?: number | null
           location_accuracy?: number | null
+          location_source?: string | null
           longitude?: number | null
           note?: string | null
           reminder_count?: number
+          sos_type?: string
           triggered_by?: string | null
           triggered_by_name: string
         }
         Update: {
           acknowledged_at?: string | null
+          battery_charging?: boolean | null
+          battery_level?: number | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          connection_type?: string | null
           created_at?: string
           household_id?: string
           id?: string
           is_test?: boolean
+          last_known_location_used?: boolean
           last_reminder_sent_at?: string | null
           latitude?: number | null
           location_accuracy?: number | null
+          location_source?: string | null
           longitude?: number | null
           note?: string | null
           reminder_count?: number
+          sos_type?: string
           triggered_by?: string | null
           triggered_by_name?: string
         }
