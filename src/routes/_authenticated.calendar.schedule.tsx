@@ -119,7 +119,10 @@ function actualOvertime(actualHours: number, targetHours: number): number {
   return Math.max(0, actualHours - targetHours);
 }
 function crossesMidnight(s: { start_time: string; end_time: string }): boolean {
-  return timeToMinutes(s.end_time) <= timeToMinutes(s.start_time);
+  const end = timeToMinutes(s.end_time);
+  // Ending exactly at midnight closes the same day: it does not spill into the next one.
+  if (end === 0) return false;
+  return end <= timeToMinutes(s.start_time);
 }
 function fmtTime(t: string) {
   return t.slice(0, 5);
