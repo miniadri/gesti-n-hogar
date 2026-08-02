@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Save } from "lucide-react";
@@ -60,6 +60,8 @@ function ScanAddPage() {
     store_id: "",
   });
   const [scanPaused, setScanPaused] = useState(false);
+  const [scanWarning, setScanWarning] = useState<string | null>(null);
+  const lastRejectedScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
 
   const pricePerKg = (() => {
     const p = Number(form.price);
@@ -76,12 +78,17 @@ function ScanAddPage() {
     try {
       normalizedCode = normalizeProductCode(code);
     } catch (e: any) {
-      toast.error(e.message);
+      const now = Date.now();
+      if (code === lastRejectedScanRef.current.code && now - lastRejectedScanRef.current.at < 5000) return;
+      lastRejectedScanRef.current = { code, at: now };
+      setScanPaused(true);
+      setScanWarning(e.message || "El QR no contiene un código EAN/UPC válido de producto.");
       return;
     }
     if (busy || normalizedCode === ean) return;
     setBusy(true);
     setScanPaused(true);
+    setScanWarning(null);
     setEan(normalizedCode);
     try {
       const res: any = await doLookup({ data: { ean: normalizedCode } });
@@ -204,6 +211,28 @@ function ScanAddPage() {
 
       <BarcodeScanner onDetected={handleDetected} paused={scanPaused} />
 
+      {scanWarning && !ean && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="space-y-3 p-4">
+            <div>
+              <p className="font-medium text-amber-700">Código no compatible</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {scanWarning} Si es un QR promocional o una URL del fabricante, no siempre incluye el código de producto.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setScanWarning(null);
+                setScanPaused(false);
+              }}
+            >
+              Volver a escanear
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {ean && (
         <Card>
           <CardHeader className="pb-3">
@@ -316,6 +345,7 @@ function ScanAddPage() {
                 variant="outline"
                 onClick={() => {
                   setEan("");
+                  setScanWarning(null);
                   setScanPaused(false);
                 }}
               >

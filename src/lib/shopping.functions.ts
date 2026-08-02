@@ -27,6 +27,9 @@ const ToggleItemInput = z.object({
 const DeleteItemInput = z.object({
   id: z.string().uuid(),
 });
+const AddInventorySuggestionInput = z.object({
+  inventory_item_id: z.string().uuid(),
+});
 
 export const listStores = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -151,6 +154,102 @@ export const createShoppingItem = createServerFn({ method: "POST" })
     if (error) throw error;
     return item;
   });
+
+export const addInventorySuggestionToShopping = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => AddInventorySuggestionInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data: invItem, error: invError } = await context.supabase
+      .from("inventory_items")
+      .select("id, name, category, quantity, unit, min_stock")
+      .eq("household_id", householdId)
+      .eq("id", data.inventory_item_id)
+      .single();
+    if (invError) throw invError;
+
+    let storeId: string | null = null;
+    const { data: defaultStore } = await context.supabase
+      .from("stores")
+      .select("id")
+      .eq("household_id", householdId)
+      .eq("is_default", true)
+      .maybeSingle();
+    storeId = defaultStore?.id ?? null;
+    if (!storeId) {
+      const { data: created, error } = await context.supabase
+        .from("stores")
+        .insert({ household_id: householdId, name: "Sin tienda", is_default: true })
+        .select("id")
+        .single();
+      if (error) throw error;
+      storeId = created?.id ?? null;
+    }
+    if (!storeId) throw new Error("No se pudo preparar la lista de compra");
+
+    let listId: string | null = null;
+    const { data: list } = await context.supabase
+      .from("shopping_lists")
+      .select("id")
+      .eq("household_id", householdId)
+      .eq("store_id", storeId)
+      .eq("is_archived", false)
+      .maybeSingle();
+    if (list) listId = list.id;
+    else {
+      const { data: newList, error } = await context.supabase
+        .from("shopping_lists")
+        .insert({ household_id: householdId, store_id: storeId, name: "Sin tienda" })
+        .select("id")
+        .single();
+      if (error) throw error;
+      listId = newList?.id ?? null;
+    }
+    if (!listId) throw new Error("No se pudo preparar la lista de compra");
+
+    const { data: activeItems } = await context.supabase
+      .from("shopping_list_items")
+      .select("id, name, linked_inventory_item_id")
+      .eq("shopping_list_id", listId)
+      .eq("checked", false)
+      .limit(200);
+    const normalizedName = normalizeShoppingName(invItem.name);
+    const duplicate = (activeItems ?? []).some(
+      (item: any) =>
+        item.linked_inventory_item_id === invItem.id ||
+        normalizeShoppingName(item.name) === normalizedName,
+    );
+    if (duplicate) return { added: false, duplicate: true };
+
+    const targetQty = Number(invItem.min_stock ?? 0) > 0
+      ? Math.max(1, Number(invItem.min_stock ?? 0) - Number(invItem.quantity ?? 0) + 1)
+      : 1;
+    const { data: item, error } = await context.supabase
+      .from("shopping_list_items")
+      .insert({
+        shopping_list_id: listId,
+        name: invItem.name,
+        category: invItem.category ?? null,
+        quantity: targetQty,
+        unit: invItem.unit ?? null,
+        linked_inventory_item_id: invItem.id,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return { added: true, duplicate: false, item };
+  });
+
+function normalizeShoppingName(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 export const toggleShoppingItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

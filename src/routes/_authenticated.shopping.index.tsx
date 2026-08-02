@@ -19,6 +19,13 @@ import {
   Pill,
   ShoppingBag,
   CreditCard,
+  Carrot,
+  Croissant,
+  Egg,
+  SprayCan,
+  Baby,
+  Dog,
+  Shirt,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -53,10 +60,11 @@ import {
   toggleShoppingItem,
   deleteShoppingItem,
   restoreShoppingItem,
+  addInventorySuggestionToShopping,
 } from "@/lib/shopping.functions";
 import { undoableToast } from "@/hooks/use-undoable";
 import { listMedicines, updateMedicine } from "@/lib/medicines.functions";
-import { createInventoryItem } from "@/lib/inventory.functions";
+import { createInventoryItem, listInventory } from "@/lib/inventory.functions";
 import { INVENTORY_LOCATIONS, suggestLocation } from "@/lib/inventory-locations";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -77,16 +85,42 @@ function normalizeKey(s: string): string {
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Lácteos: Milk,
   Frutas: Apple,
-  Verduras: Apple,
+  Verduras: Carrot,
   Carne: Beef,
   Pescado: Fish,
-  Panadería: Cookie,
+  Panadería: Croissant,
   Bebidas: Droplets,
   Alcohol: Wine,
   Farmacia: Pill,
   Congelados: SnowflakeIcon,
+  Limpieza: SprayCan,
+  Bebé: Baby,
+  Mascotas: Dog,
+  Ropa: Shirt,
   default: Package,
 };
+
+const keywordIcons: Array<[RegExp, React.ComponentType<{ className?: string }>]> = [
+  [/leche|yogur|queso|lacteo|lácteo/i, Milk],
+  [/manzana|platano|plátano|naranja|fruta/i, Apple],
+  [/zanahoria|tomate|lechuga|verdura|ensalada/i, Carrot],
+  [/huevo/i, Egg],
+  [/pan|croissant|bolleria|bollería/i, Croissant],
+  [/pollo|ternera|carne|jamon|jamón/i, Beef],
+  [/pescado|atun|atún|salmon|salmón/i, Fish],
+  [/galleta|chocolate|dulce/i, Cookie],
+  [/agua|zumo|refresco|bebida/i, Droplets],
+  [/detergente|limpieza|lejia|lejía|suavizante/i, SprayCan],
+  [/pañal|toallita|bebe|bebé/i, Baby],
+  [/perro|gato|mascota/i, Dog],
+];
+
+function iconForShoppingItem(item: { name?: string; category?: string | null }) {
+  const byCategory = item.category ? categoryIcons[item.category] : null;
+  if (byCategory) return byCategory;
+  const name = item.name ?? "";
+  return keywordIcons.find(([pattern]) => pattern.test(name))?.[1] ?? Package;
+}
 
 function SnowflakeIcon({ className }: { className?: string }) {
   return (
@@ -114,15 +148,16 @@ const shoppingQueryOptions = queryOptions({
   queryKey: ["shopping"],
   queryFn: async () => {
     await ensureDefaultLists();
-    const [stores, items, recent, medicines] = await Promise.all([
+    const [stores, items, recent, medicines, inventory] = await Promise.all([
       listStores(),
       listShoppingItems(),
       listRecentItems(),
       listMedicines(),
+      listInventory(),
     ]);
     const names = Array.from(new Set((items ?? []).map((i: any) => i.name).filter(Boolean)));
     const prices = names.length > 0 ? await comparePrices({ data: { names } }) : {};
-    return { stores, items, recent, medicines, prices };
+    return { stores, items, recent, medicines, inventory, prices };
   },
 });
 
@@ -217,6 +252,12 @@ function ShoppingPage() {
         ))
       )}
 
+      <SmartShoppingSuggestions
+        inventory={data.inventory}
+        activeNames={new Set(data.items.map((i: any) => normalizeKey(i.name)))}
+        onAdded={refresh}
+      />
+
       <PharmacySection medicines={data.medicines} />
 
       <RecentItemsSection
@@ -229,6 +270,112 @@ function ShoppingPage() {
       <AddItemDialog open={addOpen} onOpenChange={setAddOpen} stores={data.stores} onAdded={refresh} />
       <ManageStoresDialog open={storeOpen} onOpenChange={setStoreOpen} stores={data.stores} onChange={refresh} />
     </div>
+  );
+}
+
+function SmartShoppingSuggestions({
+  inventory,
+  activeNames,
+  onAdded,
+}: {
+  inventory: any[];
+  activeNames: Set<string>;
+  onAdded: () => void;
+}) {
+  const doAddSuggestion = useServerFn(addInventorySuggestionToShopping);
+  const [busy, setBusy] = useState<string | null>(null);
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const soon = new Date(todayStart);
+  soon.setDate(soon.getDate() + 7);
+
+  const suggestions = inventory
+    .map((item: any) => {
+      const quantity = Number(item.quantity ?? 0);
+      const minStock = Number(item.min_stock ?? 0);
+      const low = minStock > 0 && quantity <= minStock;
+      const expiry = item.expiry_date ? new Date(`${item.expiry_date}T00:00:00`) : null;
+      const expired = Boolean(expiry && expiry < todayStart);
+      const expiring = Boolean(expiry && expiry >= todayStart && expiry <= soon);
+      const alreadyListed = activeNames.has(normalizeKey(item.name));
+      if ((!low && !expired && !expiring) || alreadyListed) return null;
+      const reason = expired
+        ? "Caducado"
+        : expiring
+          ? "Caduca pronto"
+          : "Stock crítico";
+      const detail = expired || expiring
+        ? item.expiry_date
+          ? new Date(`${item.expiry_date}T00:00:00`).toLocaleDateString("es-ES")
+          : ""
+        : `${quantity}/${minStock} ${item.unit || "ud."}`;
+      const priority = expired ? 0 : low ? 1 : 2;
+      return { item, reason, detail, priority };
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => a.priority - b.priority || a.item.name.localeCompare(b.item.name))
+    .slice(0, 12);
+
+  if (suggestions.length === 0) return null;
+
+  const handleAdd = async (inventoryItemId: string) => {
+    setBusy(inventoryItemId);
+    try {
+      const res: any = await doAddSuggestion({ data: { inventory_item_id: inventoryItemId } });
+      if (res.duplicate) toast.info("Ya estaba en la lista");
+      else toast.success("Añadido a la lista");
+      onAdded();
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo añadir a la lista");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <AlertTriangleIcon className="h-4 w-4 text-amber-600" />
+        <h3 className="font-semibold">Sugerencias inteligentes</h3>
+        <span className="text-xs text-muted-foreground">
+          Stock crítico y productos próximos a caducar
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        {suggestions.map(({ item, reason, detail }: any) => {
+          const Icon = iconForShoppingItem(item);
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleAdd(item.id)}
+              disabled={busy === item.id}
+              className={cn(
+                "group flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center transition-all",
+                "hover:border-primary hover:bg-accent disabled:opacity-50",
+              )}
+            >
+              <div className="grid h-11 w-11 place-items-center rounded-full bg-secondary text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground">
+                <Icon className="h-5 w-5" />
+              </div>
+              <span className="line-clamp-2 text-xs font-semibold leading-tight">{item.name}</span>
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                {reason}
+              </span>
+              {detail && <span className="text-[10px] text-muted-foreground">{detail}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function AlertTriangleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="m21.7 18.6-8.5-15a1.4 1.4 0 0 0-2.4 0l-8.5 15A1.4 1.4 0 0 0 3.5 21h17a1.4 1.4 0 0 0 1.2-2.4Z" />
+      <path d="M12 9v4M12 17h.01" />
+    </svg>
   );
 }
 
@@ -290,7 +437,7 @@ function RecentItemsSection({
       </div>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
         {unique.map((it) => {
-          const Icon = categoryIcons[it.category || "default"] || Package;
+          const Icon = iconForShoppingItem(it);
           return (
             <button
               key={it.id}
@@ -395,7 +542,7 @@ function ShoppingItemCard({
     }
   };
 
-  const Icon = categoryIcons[item.category || "default"] || Package;
+  const Icon = iconForShoppingItem(item);
   const price = item.manual_price ?? item.ocr_price;
   const cheapest = quotes[0];
 
@@ -809,4 +956,3 @@ function PriceComparePopover({ name, quotes }: { name: string; quotes: PriceQuot
     </Popover>
   );
 }
-
