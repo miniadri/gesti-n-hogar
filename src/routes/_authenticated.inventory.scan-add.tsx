@@ -22,6 +22,7 @@ import { lookupProduct, upsertProduct, upsertProductPrice } from "@/lib/products
 import { createInventoryItem } from "@/lib/inventory.functions";
 import { listStores } from "@/lib/shopping.functions";
 import { INVENTORY_LOCATIONS, suggestLocation } from "@/lib/inventory-locations";
+import { normalizeProductCode } from "@/lib/product-codes";
 
 export const Route = createFileRoute("/_authenticated/inventory/scan-add")({
   head: () => ({ meta: [{ title: "Escanear producto - HomeSync" }] }),
@@ -71,12 +72,19 @@ function ScanAddPage() {
   })();
 
   const handleDetected = async (code: string) => {
-    if (busy || code === ean) return;
+    let normalizedCode: string;
+    try {
+      normalizedCode = normalizeProductCode(code);
+    } catch (e: any) {
+      toast.error(e.message);
+      return;
+    }
+    if (busy || normalizedCode === ean) return;
     setBusy(true);
     setScanPaused(true);
-    setEan(code);
+    setEan(normalizedCode);
     try {
-      const res: any = await doLookup({ data: { ean: code } });
+      const res: any = await doLookup({ data: { ean: normalizedCode } });
       if (res.product) {
         setForm((f) => ({
           ...f,
@@ -104,7 +112,7 @@ function ScanAddPage() {
         toast.warning("Producto desconocido. Rellena los datos y se añadirá al catálogo.");
       }
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(e?.message || "No se pudo reconocer el producto");
     } finally {
       setBusy(false);
     }

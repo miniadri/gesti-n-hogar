@@ -27,6 +27,7 @@ import {
   lookupProduct,
   addToShoppingListByEan,
 } from "@/lib/products.functions";
+import { normalizeProductCode } from "@/lib/product-codes";
 import { listInventory, restoreInventoryItem } from "@/lib/inventory.functions";
 import { undoableToast } from "@/hooks/use-undoable";
 
@@ -127,17 +128,24 @@ function KitchenPage() {
 
   const handleDetected = async (code: string) => {
     if (busy || pending) return;
+    let normalizedCode: string;
+    try {
+      normalizedCode = normalizeProductCode(code);
+    } catch (e: any) {
+      toast.error(e.message);
+      return;
+    }
     setBusy(true);
     try {
-      const res: any = await doLookup({ data: { ean: code } });
+      const res: any = await doLookup({ data: { ean: normalizedCode } });
       const name =
         res.inventory?.name ??
         res.product?.name ??
         res.suggestion?.name ??
-        `Producto ${code}`;
-      setPending({ ean: code, name, qty: 1 });
+        `Producto ${normalizedCode}`;
+      setPending({ ean: normalizedCode, name, qty: 1 });
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(e?.message || "No se pudo reconocer el producto");
     } finally {
       setBusy(false);
     }
