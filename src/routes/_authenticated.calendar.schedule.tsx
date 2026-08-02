@@ -699,15 +699,45 @@ function TemplateEditor({
               <CardContent className="space-y-2">
                 {slots.length === 0 && <p className="text-xs text-muted-foreground">Sin franjas</p>}
                 {slots.map((s) => (
-                  <button
+                  <div
                     key={s.id}
-                    onClick={() => onEdit(s, dow)}
-                    className={`w-full text-left rounded border px-2 py-1 text-xs ${kindColor(s.slot_kind)}`}
+                    className={`flex items-center justify-between gap-2 rounded border px-2 py-1 text-xs ${kindColor(s.slot_kind)}`}
                   >
-                    <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
-                    {s.label && <div className="opacity-80">{s.label}</div>}
-                  </button>
+                    <button className="min-w-0 flex-1 text-left" onClick={() => onEdit(s, dow)} title="Editar">
+                      <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
+                      {s.label && <div className="opacity-80">{s.label}</div>}
+                    </button>
+                    <button
+                      className="shrink-0 opacity-60 hover:opacity-100"
+                      title="Eliminar franja de la plantilla"
+                      onClick={async () => {
+                        try {
+                          await delFn({ data: { id: s.id } });
+                          toast.success("Franja eliminada");
+                          qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+                        } catch (e: any) { toast.error(e?.message ?? "Error"); }
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 ))}
+                {slots.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={async () => {
+                      try {
+                        for (const s of slots) await delFn({ data: { id: s.id } });
+                        toast.success(`${label}: franjas eliminadas`);
+                        qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+                      } catch (e: any) { toast.error(e?.message ?? "Error"); }
+                    }}
+                  >
+                    <Trash2 className="mr-1 h-3 w-3" /> Vaciar día
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" className="w-full" onClick={() => onAdd(dow)}>
                   <Plus className="mr-1 h-3 w-3" /> Franja
                 </Button>
