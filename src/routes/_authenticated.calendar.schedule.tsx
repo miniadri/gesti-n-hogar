@@ -550,6 +550,11 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                       <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setStatusDialog({ date: dateStr, status })} title="Estado del día">
                         <CalendarDays className="h-3.5 w-3.5" />
                       </Button>
+                      {hasOverride && (
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => resetDayToTemplate(day)} title="Deshacer cambios de este día (volver a la plantilla)">
+                          <Undo2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
