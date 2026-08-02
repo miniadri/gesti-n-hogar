@@ -228,7 +228,7 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
 
   for (const member of members ?? []) {
     const memberSettings: any = settingsByMember.get(member.id) ?? { use_template: true, target_hours_per_day: 8 };
-    const timezone = timezoneByUser.get(member.user_id) || "Europe/Madrid";
+    const timezone = scheduleTimezone(timezoneByUser.get(member.user_id));
     const dates = datesBetween(fromDate, toDate);
     for (const date of dates) {
       const slots = resolveSlotsForMemberDate({
@@ -401,4 +401,16 @@ function timeToMinutes(value: string) {
 
 function formatTime(value: string) {
   return value?.slice(0, 5) ?? "--:--";
+}
+
+function scheduleTimezone(timezone: string | null | undefined) {
+  const value = timezone?.trim();
+  // Older profiles were created with UTC as a generic default, not as an
+  // explicit user preference. Work schedules are entered as local household
+  // times, so default them to Spain time until the app has a dedicated
+  // schedule timezone setting.
+  if (!value || value.toUpperCase() === "UTC" || value === "Etc/UTC") {
+    return "Europe/Madrid";
+  }
+  return value;
 }
