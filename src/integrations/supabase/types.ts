@@ -1849,6 +1849,7 @@ export type Database = {
           target_hours_per_day: number
           updated_at: string
           use_template: boolean
+          vacation_balance_adjustment: number
           vacation_days_per_month: number
           vacation_start_date: string
         }
@@ -1864,6 +1865,7 @@ export type Database = {
           target_hours_per_day?: number
           updated_at?: string
           use_template?: boolean
+          vacation_balance_adjustment?: number
           vacation_days_per_month?: number
           vacation_start_date?: string
         }
@@ -1879,6 +1881,7 @@ export type Database = {
           target_hours_per_day?: number
           updated_at?: string
           use_template?: boolean
+          vacation_balance_adjustment?: number
           vacation_days_per_month?: number
           vacation_start_date?: string
         }
