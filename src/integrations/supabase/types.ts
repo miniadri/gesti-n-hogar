@@ -677,10 +677,13 @@ export type Database = {
           front_image_url: string | null
           household_id: string | null
           id: string
+          is_favorite: boolean
           is_shared: boolean
+          last_used_at: string | null
           merchant: string
           notes: string | null
           updated_at: string
+          use_count: number
           user_id: string
         }
         Insert: {
@@ -693,10 +696,13 @@ export type Database = {
           front_image_url?: string | null
           household_id?: string | null
           id?: string
+          is_favorite?: boolean
           is_shared?: boolean
+          last_used_at?: string | null
           merchant: string
           notes?: string | null
           updated_at?: string
+          use_count?: number
           user_id: string
         }
         Update: {
@@ -709,10 +715,13 @@ export type Database = {
           front_image_url?: string | null
           household_id?: string | null
           id?: string
+          is_favorite?: boolean
           is_shared?: boolean
+          last_used_at?: string | null
           merchant?: string
           notes?: string | null
           updated_at?: string
+          use_count?: number
           user_id?: string
         }
         Relationships: [

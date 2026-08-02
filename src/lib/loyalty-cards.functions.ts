@@ -15,6 +15,7 @@ const CardInput = z.object({
   front_image_url: z.string().url().nullish(),
   back_image_url: z.string().url().nullish(),
   is_shared: z.boolean().optional(),
+  is_favorite: z.boolean().optional(),
 });
 
 export const listLoyaltyCards = createServerFn({ method: "GET" })
@@ -24,6 +25,8 @@ export const listLoyaltyCards = createServerFn({ method: "GET" })
     const query = context.supabase
       .from("loyalty_cards")
       .select("*")
+      .order("is_favorite", { ascending: false })
+      .order("last_used_at", { ascending: false, nullsFirst: false })
       .order("merchant", { ascending: true });
     const { data, error } = householdId
       ? await query.or(`user_id.eq.${context.userId},and(is_shared.eq.true,household_id.eq.${householdId})`)
@@ -48,6 +51,7 @@ export const upsertLoyaltyCard = createServerFn({ method: "POST" })
       front_image_url: data.front_image_url ?? null,
       back_image_url: data.back_image_url ?? null,
       is_shared: data.is_shared ?? false,
+      is_favorite: data.is_favorite ?? false,
       household_id: householdId ?? null,
     };
     if (data.id) {
@@ -81,6 +85,48 @@ export const deleteLoyaltyCard = createServerFn({ method: "POST" })
       .eq("user_id", context.userId);
     if (error) throw error;
     return { ok: true };
+  });
+
+export const toggleLoyaltyFavorite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ id: z.string().uuid(), is_favorite: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("loyalty_cards")
+      .update({ is_favorite: data.is_favorite })
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .select()
+      .single();
+    if (error) throw error;
+    return row;
+  });
+
+export const markLoyaltyCardUsed = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: existing, error: readError } = await context.supabase
+      .from("loyalty_cards")
+      .select("id,user_id,use_count")
+      .eq("id", data.id)
+      .single();
+    if (readError) throw readError;
+
+    const { data: row, error } = await context.supabase
+      .from("loyalty_cards")
+      .update({
+        last_used_at: new Date().toISOString(),
+        use_count: (existing?.use_count ?? 0) + 1,
+      })
+      .eq("id", data.id)
+      .eq("user_id", existing.user_id)
+      .select()
+      .single();
+    if (error) throw error;
+    return row;
   });
 
 const ScanInput = z.object({ imageUrl: z.string().url() });

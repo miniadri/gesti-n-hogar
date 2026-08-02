@@ -13,6 +13,9 @@ import {
   Pencil,
   Search,
   ShieldAlert,
+  Star,
+  Maximize2,
+  Clock,
   Users,
   Check,
   ChevronsUpDown,
@@ -59,6 +62,8 @@ import {
   upsertLoyaltyCard,
   deleteLoyaltyCard,
   scanLoyaltyCard,
+  markLoyaltyCardUsed,
+  toggleLoyaltyFavorite,
 } from "@/lib/loyalty-cards.functions";
 import { submitMerchantSuggestion } from "@/lib/merchants.functions";
 import { BarcodeDisplay } from "@/components/BarcodeDisplay";
@@ -107,6 +112,9 @@ type LoyaltyCard = {
   front_image_url: string | null;
   back_image_url: string | null;
   is_shared?: boolean | null;
+  is_favorite?: boolean | null;
+  last_used_at?: string | null;
+  use_count?: number | null;
   household_id?: string | null;
 };
 
@@ -135,6 +143,8 @@ function LoyaltyPage() {
   const qc = useQueryClient();
   const doList = useServerFn(listLoyaltyCards);
   const doDelete = useServerFn(deleteLoyaltyCard);
+  const doMarkUsed = useServerFn(markLoyaltyCardUsed);
+  const doFavorite = useServerFn(toggleLoyaltyFavorite);
 
   const { data: cards = [], isLoading } = useQuery({
     queryKey: ["loyalty-cards"],
@@ -150,13 +160,23 @@ function LoyaltyPage() {
   const [editing, setEditing] = useState<LoyaltyCard | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewing, setViewing] = useState<LoyaltyCard | null>(null);
+  const [fullscreenCard, setFullscreenCard] = useState<LoyaltyCard | null>(null);
 
-  const filtered = cards.filter((c: LoyaltyCard) =>
-    !search ||
-    c.merchant.toLowerCase().includes(search.toLowerCase()) ||
-    (c.card_number ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    (c.barcode ?? "").toLowerCase().includes(search.toLowerCase()),
-  );
+  const filtered = cards
+    .filter((c: LoyaltyCard) =>
+      !search ||
+      c.merchant.toLowerCase().includes(search.toLowerCase()) ||
+      (c.card_number ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.barcode ?? "").toLowerCase().includes(search.toLowerCase()),
+    )
+    .slice()
+    .sort((a: LoyaltyCard, b: LoyaltyCard) => {
+      if (!!a.is_favorite !== !!b.is_favorite) return a.is_favorite ? -1 : 1;
+      const aUsed = a.last_used_at ? new Date(a.last_used_at).getTime() : 0;
+      const bUsed = b.last_used_at ? new Date(b.last_used_at).getTime() : 0;
+      if (aUsed !== bUsed) return bUsed - aUsed;
+      return a.merchant.localeCompare(b.merchant, "es", { sensitivity: "base" });
+    });
 
   const openNew = () => {
     setEditing(null);
@@ -178,6 +198,25 @@ function LoyaltyPage() {
       toast.success("Tarjeta eliminada");
     } catch (e: any) {
       toast.error(e.message || "No se pudo eliminar");
+    }
+  };
+
+  const handleUseCard = async (c: LoyaltyCard) => {
+    setFullscreenCard(c);
+    try {
+      await doMarkUsed({ data: { id: c.id } });
+      qc.invalidateQueries({ queryKey: ["loyalty-cards"] });
+    } catch {
+      // Shared cards may not be writable by this user; still open the code for use.
+    }
+  };
+
+  const handleToggleFavorite = async (c: LoyaltyCard) => {
+    try {
+      await doFavorite({ data: { id: c.id, is_favorite: !c.is_favorite } });
+      qc.invalidateQueries({ queryKey: ["loyalty-cards"] });
+    } catch (e: any) {
+      toast.error(e.message || "No se pudo actualizar favorito");
     }
   };
 
@@ -237,10 +276,8 @@ function LoyaltyPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((c: LoyaltyCard) => (
-            <button
+            <div
               key={c.id}
-              type="button"
-              onClick={() => setViewing(c)}
               className="group text-left"
             >
               <div
@@ -254,10 +291,24 @@ function LoyaltyPage() {
               >
                 <div className="flex h-full flex-col justify-between">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-lg font-semibold leading-tight drop-shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setViewing(c)}
+                      className="min-w-0 flex-1 text-left text-lg font-semibold leading-tight drop-shadow-sm"
+                    >
                       {c.merchant}
-                    </span>
+                    </button>
                     <div className="flex items-center gap-1">
+                      {currentUserId && c.user_id === currentUserId && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFavorite(c)}
+                          className="rounded-full bg-white/20 p-1 backdrop-blur transition hover:bg-white/30"
+                          title={c.is_favorite ? "Quitar favorito" : "Marcar favorito"}
+                        >
+                          <Star className={cn("h-4 w-4", c.is_favorite && "fill-white")} />
+                        </button>
+                      )}
                       {c.is_shared && (
                         <span
                           title="Compartida con el hogar"
@@ -285,8 +336,21 @@ function LoyaltyPage() {
                     )}
                   </div>
                 </div>
+                <div className="absolute bottom-3 right-3 flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="h-8 bg-white/90 px-2 text-xs text-foreground hover:bg-white"
+                    onClick={() => handleUseCard(c)}
+                    disabled={!c.barcode}
+                  >
+                    <Maximize2 className="mr-1 h-3.5 w-3.5" />
+                    Usar
+                  </Button>
+                </div>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
@@ -313,7 +377,11 @@ function LoyaltyPage() {
           setViewing(null);
           handleDelete(c);
         }}
+        onUse={handleUseCard}
+        onToggleFavorite={handleToggleFavorite}
       />
+
+      <FullscreenCodeDialog card={fullscreenCard} onClose={() => setFullscreenCard(null)} />
 
       <SuggestMerchantDialog open={suggestOpen} onOpenChange={setSuggestOpen} />
     </div>
@@ -326,12 +394,16 @@ function ViewCardDialog({
   onClose,
   onEdit,
   onDelete,
+  onUse,
+  onToggleFavorite,
 }: {
   card: LoyaltyCard | null;
   isOwner: boolean;
   onClose: () => void;
   onEdit: (c: LoyaltyCard) => void;
   onDelete: (c: LoyaltyCard) => void;
+  onUse: (c: LoyaltyCard) => void;
+  onToggleFavorite: (c: LoyaltyCard) => void;
 }) {
   return (
     <Dialog open={!!card} onOpenChange={(o) => !o && onClose()}>
@@ -339,14 +411,28 @@ function ViewCardDialog({
         {card && (
           <>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {card.merchant}
-                {card.is_shared && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                    <Users className="h-3 w-3" /> Hogar
-                  </span>
+              <div className="flex items-start justify-between gap-3">
+                <DialogTitle className="flex items-center gap-2">
+                  {card.merchant}
+                  {card.is_shared && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      <Users className="h-3 w-3" /> Hogar
+                    </span>
+                  )}
+                </DialogTitle>
+                {isOwner && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onToggleFavorite(card)}
+                    title={card.is_favorite ? "Quitar favorito" : "Marcar favorito"}
+                  >
+                    <Star className={cn("h-4 w-4", card.is_favorite && "fill-current text-amber-500")} />
+                  </Button>
                 )}
-              </DialogTitle>
+              </div>
               {card.card_number && (
                 <DialogDescription className="font-mono">{card.card_number}</DialogDescription>
               )}
@@ -371,6 +457,18 @@ function ViewCardDialog({
                 Esta tarjeta la ha compartido otro miembro del hogar. Solo su propietario puede editarla o borrarla.
               </p>
             )}
+            <div className="flex flex-wrap gap-2">
+              <Button className="flex-1" onClick={() => onUse(card)} disabled={!card.barcode}>
+                <Maximize2 className="mr-2 h-4 w-4" />
+                Usar en pantalla completa
+              </Button>
+              {card.last_used_at && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  Último uso {new Date(card.last_used_at).toLocaleDateString("es-ES")}
+                </div>
+              )}
+            </div>
             {isOwner && (
               <DialogFooter className="flex flex-row justify-between gap-2 sm:justify-between">
                 <Button variant="destructive" size="sm" onClick={() => onDelete(card)}>
@@ -382,6 +480,78 @@ function ViewCardDialog({
               </DialogFooter>
             )}
           </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FullscreenCodeDialog({ card, onClose }: { card: LoyaltyCard | null; onClose: () => void }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const wakeLockRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!card) return;
+    let cancelled = false;
+    const enablePresentationMode = async () => {
+      try {
+        if (containerRef.current?.requestFullscreen) {
+          await containerRef.current.requestFullscreen();
+        }
+      } catch {
+        // Fullscreen can be blocked by the browser; the dialog still works.
+      }
+      try {
+        const wakeLock = (navigator as any).wakeLock;
+        if (!cancelled && wakeLock?.request) {
+          wakeLockRef.current = await wakeLock.request("screen");
+        }
+      } catch {
+        // Wake lock is optional.
+      }
+    };
+    const id = window.setTimeout(() => void enablePresentationMode(), 50);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+      wakeLockRef.current?.release?.().catch?.(() => {});
+      wakeLockRef.current = null;
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+  }, [card]);
+
+  return (
+    <Dialog open={!!card} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl border-0 bg-white p-0 text-black sm:max-w-4xl">
+        {card && (
+          <div ref={containerRef} className="min-h-[80vh] bg-white p-4 text-black sm:p-8">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm uppercase tracking-wide text-slate-500">Tarjeta de fidelización</p>
+                <h3 className="text-2xl font-bold">{card.merchant}</h3>
+                {card.card_number && <p className="font-mono text-sm text-slate-600">{card.card_number}</p>}
+              </div>
+              <Button type="button" variant="outline" onClick={onClose}>
+                <X className="mr-2 h-4 w-4" />
+                Cerrar
+              </Button>
+            </div>
+            <div className="flex min-h-[55vh] items-center justify-center rounded-lg border bg-white p-4">
+              {card.barcode ? (
+                <BarcodeDisplay value={card.barcode} format={card.barcode_format} className="w-full [&_canvas]:!h-auto [&_canvas]:!max-w-[80vw] [&_canvas]:!w-[min(520px,80vw)] [&_svg]:!h-auto [&_svg]:!max-h-[50vh] [&_svg]:!w-full" />
+              ) : (
+                <p className="text-slate-500">Sin código guardado</p>
+              )}
+            </div>
+            {card.barcode && (
+              <p className="mt-4 break-all text-center font-mono text-sm text-slate-600">{card.barcode}</p>
+            )}
+            <p className="mt-4 text-center text-xs text-slate-500">
+              El navegador no permite subir el brillo del sistema directamente. Esta vista usa fondo blanco y mantiene la pantalla activa si el dispositivo lo permite.
+            </p>
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -410,6 +580,7 @@ function CardDialog({
   const [color, setColor] = useState<string>(CARD_COLORS[0]);
   const [frontUrl, setFrontUrl] = useState<string | null>(null);
   const [isShared, setIsShared] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -456,6 +627,7 @@ function CardDialog({
       setColor(editing.color || CARD_COLORS[0]);
       setFrontUrl(editing.front_image_url);
       setIsShared(!!editing.is_shared);
+      setIsFavorite(!!editing.is_favorite);
     } else {
       setMerchant("");
       setCardNumber("");
@@ -465,6 +637,7 @@ function CardDialog({
       setColor(CARD_COLORS[Math.floor(Math.random() * CARD_COLORS.length)]);
       setFrontUrl(null);
       setIsShared(false);
+      setIsFavorite(false);
     }
   }, [open, editing]);
 
@@ -517,6 +690,7 @@ function CardDialog({
           color,
           front_image_url: frontUrl,
           is_shared: isShared,
+          is_favorite: isFavorite,
         },
       });
       toast.success(editing ? "Tarjeta actualizada" : "Tarjeta añadida");
@@ -671,6 +845,18 @@ function CardDialog({
               </p>
             </div>
             <Switch id="shared" checked={isShared} onCheckedChange={setIsShared} />
+          </div>
+
+          <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="favorite" className="flex items-center gap-2">
+                <Star className="h-4 w-4" /> Favorita
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Las favoritas aparecen primero, antes que las usadas recientemente.
+              </p>
+            </div>
+            <Switch id="favorite" checked={isFavorite} onCheckedChange={setIsFavorite} />
           </div>
 
           <div className="space-y-2 rounded-md border p-3">

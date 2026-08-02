@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { FlaskConical } from "lucide-react";
 
+import { DeviceCapabilityExperiment } from "@/components/DeviceCapabilityExperiment";
 import { FallDetectionExperiment } from "@/components/FallDetectionExperiment";
 
 const EXPERIMENTAL_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com"]);
@@ -30,6 +31,8 @@ function ExperimentalPage() {
           Pruebas privadas de funciones sensibles antes de llevarlas al uso diario.
         </p>
       </div>
+
+      <DeviceCapabilityExperiment />
 
       <FallDetectionExperiment />
     </div>
