@@ -79,6 +79,7 @@ type Settings = {
   kind: "work" | "school";
   target_hours_per_day: number;
   vacation_days_per_month: number;
+  vacation_balance_adjustment: number;
   vacation_start_date: string;
   use_template: boolean;
   is_shared: boolean;
@@ -241,6 +242,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
     kind: member.is_child ? "school" : "work",
     target_hours_per_day: 8,
     vacation_days_per_month: 2.5,
+    vacation_balance_adjustment: 0,
     vacation_start_date: format(new Date(), "yyyy-MM-dd"),
     use_template: true,
     is_shared: true,
@@ -381,13 +383,14 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
     return { worked, extra, vacations };
   }, [weekStart, template, daySlots, statuses, settings]);
 
-  // Accumulated vacation days: months since vacation_start_date * per-month allowance − used
+  // Accumulated vacation days: months since vacation_start_date * per-month allowance + manual adjustment - used
   const accruedVacation = useMemo(() => {
     if (!settings.vacation_start_date) return 0;
     const monthsElapsed = Math.max(0, differenceInCalendarMonths(new Date(), parseISO(settings.vacation_start_date)) + (new Date().getDate() >= parseISO(settings.vacation_start_date).getDate() ? 1 : 0));
     const earned = monthsElapsed * settings.vacation_days_per_month;
     const used = statuses.filter((s) => s.state === "vacation").length;
-    return { earned, used, balance: earned - used };
+    const adjustment = Number(settings.vacation_balance_adjustment ?? 0);
+    return { earned, used, adjustment, balance: earned + adjustment - used };
   }, [settings, statuses]);
 
   return (
@@ -593,6 +596,9 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                   <div className="text-2xl font-bold">{accruedVacation.balance.toFixed(1)}d</div>
                   <div className="text-xs text-muted-foreground">
                     Ganados: {accruedVacation.earned.toFixed(1)} · Usados: {accruedVacation.used}
+                    {accruedVacation.adjustment !== 0 && (
+                      <> · Ajuste: {accruedVacation.adjustment > 0 ? "+" : ""}{accruedVacation.adjustment.toFixed(1)}</>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -913,6 +919,7 @@ function SettingsDialog({
   const [kind, setKind] = useState(settings.kind);
   const [target, setTarget] = useState(String(settings.target_hours_per_day));
   const [vac, setVac] = useState(String(settings.vacation_days_per_month));
+  const [vacAdjustment, setVacAdjustment] = useState(String(settings.vacation_balance_adjustment ?? 0));
   const [vacStart, setVacStart] = useState(settings.vacation_start_date || format(new Date(), "yyyy-MM-dd"));
   const [useTpl, setUseTpl] = useState(settings.use_template);
   const [shared, setShared] = useState(settings.is_shared);
@@ -949,9 +956,24 @@ function SettingsDialog({
             )}
           </div>
           {kind === "work" && (
-            <div className="grid gap-1.5">
-              <Label>Inicio cómputo vacaciones</Label>
-              <Input type="date" value={vacStart} onChange={(e) => setVacStart(e.target.value)} />
+            <div className="grid gap-3 rounded border p-3">
+              <div className="grid gap-1.5">
+                <Label>Inicio cómputo vacaciones</Label>
+                <Input type="date" value={vacStart} onChange={(e) => setVacStart(e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Ajuste manual de saldo</Label>
+                <Input
+                  type="number"
+                  step="0.5"
+                  value={vacAdjustment}
+                  onChange={(e) => setVacAdjustment(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Usa valores negativos para descontar días ya regularizados o positivos para añadir días reconocidos.
+                  Los días marcados como vacaciones en el calendario se descuentan automáticamente.
+                </p>
+              </div>
             </div>
           )}
           <div className="flex items-center justify-between rounded border p-2">
@@ -989,6 +1011,7 @@ function SettingsDialog({
                     kind,
                     target_hours_per_day: Number(target) || 8,
                     vacation_days_per_month: Number(vac) || 0,
+                    vacation_balance_adjustment: Number(vacAdjustment) || 0,
                     vacation_start_date: vacStart,
                     use_template: useTpl,
                     is_shared: shared,
