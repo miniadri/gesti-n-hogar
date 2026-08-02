@@ -1851,7 +1851,7 @@ export type Database = {
           use_template: boolean
           vacation_balance_adjustment: number
           vacation_days_per_month: number
-          vacation_start_date: string
+          vacation_start_date: string | null
         }
         Insert: {
           created_at?: string
@@ -1867,7 +1867,7 @@ export type Database = {
           use_template?: boolean
           vacation_balance_adjustment?: number
           vacation_days_per_month?: number
-          vacation_start_date?: string
+          vacation_start_date?: string | null
         }
         Update: {
           created_at?: string
@@ -1883,7 +1883,7 @@ export type Database = {
           use_template?: boolean
           vacation_balance_adjustment?: number
           vacation_days_per_month?: number
-          vacation_start_date?: string
+          vacation_start_date?: string | null
         }
         Relationships: [
           {
