@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -150,6 +150,15 @@ function SchedulePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = members.find((m) => m.id === selectedId) ?? members[0];
 
+  useEffect(() => {
+    if (typeof window === "undefined" || selectedId || members.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const requestedMemberId = params.get("adjustMemberId");
+    if (requestedMemberId && members.some((m) => m.id === requestedMemberId)) {
+      setSelectedId(requestedMemberId);
+    }
+  }, [members, selectedId]);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -204,6 +213,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
     slot?: Slot;
   } | null>(null);
   const [statusDialog, setStatusDialog] = useState<{ date: string; status?: DayStatus } | null>(null);
+  const handledAdjustLink = useRef<string | null>(null);
 
   // Load a wide range: week + surrounding month for month totals
   const monthStart = startOfMonth(weekStart);
@@ -231,6 +241,20 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
   const daySlots: Slot[] = (data?.days as Slot[]) ?? [];
   const statuses: DayStatus[] = (data?.status as DayStatus[]) ?? [];
   const statusByDate = new Map<string, DayStatus>(statuses.map((s) => [s.date, s]));
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !data) return;
+    const params = new URLSearchParams(window.location.search);
+    const requestedMemberId = params.get("adjustMemberId");
+    const requestedDate = params.get("adjustDate");
+    if (!requestedMemberId || !requestedDate || requestedMemberId !== member.id) return;
+    const key = `${requestedMemberId}:${requestedDate}`;
+    if (handledAdjustLink.current === key) return;
+    handledAdjustLink.current = key;
+    setWeekStart(startOfWeek(parseISO(requestedDate), { weekStartsOn: 1 }));
+    setMode("week");
+    setStatusDialog({ date: requestedDate, status: statusByDate.get(requestedDate) });
+  }, [data, member.id, statusByDate]);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 

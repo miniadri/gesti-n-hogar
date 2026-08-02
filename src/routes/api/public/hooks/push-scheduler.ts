@@ -208,9 +208,10 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
   const fromDate = toDateKey(new Date(rangeStart.getTime() - 24 * 60 * 60 * 1000));
   const toDate = toDateKey(new Date(rangeEnd.getTime() + 24 * 60 * 60 * 1000));
 
-  const [{ data: members }, { data: daySlots }, { data: templateSlots }, { data: statuses }, { data: settings }] =
+  const [{ data: members }, { data: profiles }, { data: daySlots }, { data: templateSlots }, { data: statuses }, { data: settings }] =
     await Promise.all([
       supabase.from("household_members").select("id, display_name, household_id, user_id").not("user_id", "is", null),
+      supabase.from("profiles").select("id, timezone"),
       supabase
         .from("schedule_day_slots")
         .select("id, member_id, household_id, date, start_time, end_time, slot_kind, label")
@@ -222,10 +223,12 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
     ]);
 
   const settingsByMember = new Map<string, any>((settings ?? []).map((row: any) => [row.member_id, row]));
+  const timezoneByUser = new Map<string, string>((profiles ?? []).map((row: any) => [row.id, row.timezone || "Europe/Madrid"]));
   let sent = 0;
 
   for (const member of members ?? []) {
     const memberSettings: any = settingsByMember.get(member.id) ?? { use_template: true, target_hours_per_day: 8 };
+    const timezone = timezoneByUser.get(member.user_id) || "Europe/Madrid";
     const dates = datesBetween(fromDate, toDate);
     for (const date of dates) {
       const slots = resolveSlotsForMemberDate({
@@ -237,25 +240,27 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
         useTemplate: memberSettings.use_template !== false,
       });
       for (const slot of slots) {
-        const startAt = dateTimeForSlot(date, slot.start_time, false);
-        const endAt = dateTimeForSlot(date, slot.end_time, slotCrossesMidnight(slot));
+        const startAt = dateTimeForSlot(date, slot.start_time, false, timezone);
+        const endAt = dateTimeForSlot(date, slot.end_time, slotCrossesMidnight(slot), timezone);
         const minutesUntilStart = (startAt.getTime() - now.getTime()) / 60000;
         const minutesAfterEnd = (now.getTime() - endAt.getTime()) / 60000;
         const slotKey = `${slot.source}:${slot.id}:${date}`;
 
-        if (minutesUntilStart >= 55 && minutesUntilStart <= 65) {
+        if (minutesUntilStart > 35 && minutesUntilStart <= 60) {
           sent += await sendScheduleNoticeOnce(supabase, member, slotKey, "start_60", {
             title: "Turno en 1 hora",
             body: `${member.display_name}: ${formatTime(slot.start_time)}-${formatTime(slot.end_time)}${slot.label ? ` · ${slot.label}` : ""}`,
+            url: "/calendar/schedule",
           });
         }
-        if (minutesUntilStart >= 25 && minutesUntilStart <= 35) {
+        if (minutesUntilStart > 0 && minutesUntilStart <= 30) {
           sent += await sendScheduleNoticeOnce(supabase, member, slotKey, "start_30", {
             title: "Turno en 30 minutos",
             body: `${member.display_name}: ${formatTime(slot.start_time)}-${formatTime(slot.end_time)}${slot.label ? ` · ${slot.label}` : ""}`,
+            url: "/calendar/schedule",
           });
         }
-        if (minutesAfterEnd >= 0 && minutesAfterEnd <= 15) {
+        if (minutesAfterEnd >= 0 && minutesAfterEnd <= 120) {
           const plannedHours = slotHours(slot);
           const target = Number(memberSettings.target_hours_per_day ?? 8);
           const prompt =
@@ -265,6 +270,7 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
           sent += await sendScheduleNoticeOnce(supabase, member, slotKey, "ended", {
             title: "Turno finalizado",
             body: `${member.display_name}: ${formatTime(slot.start_time)}-${formatTime(slot.end_time)}. ${prompt}`,
+            url: `/calendar/schedule?adjustMemberId=${encodeURIComponent(member.id)}&adjustDate=${encodeURIComponent(date)}`,
           });
         }
       }
@@ -279,7 +285,7 @@ async function sendScheduleNoticeOnce(
   member: any,
   slotKey: string,
   noticeType: string,
-  payload: { title: string; body: string },
+  payload: { title: string; body: string; url: string },
 ): Promise<number> {
   if (!member.user_id) return 0;
   const { error } = await supabase.from("schedule_notification_log").insert({
@@ -297,7 +303,7 @@ async function sendScheduleNoticeOnce(
   const ok = await sendTo(supabase, [member.user_id], {
     title: payload.title,
     body: payload.body,
-    url: "/calendar/schedule",
+    url: payload.url,
   });
   return ok ? 1 : 0;
 }
@@ -352,10 +358,29 @@ function dayOfWeek(date: string) {
   return (d.getDay() + 6) % 7;
 }
 
-function dateTimeForSlot(date: string, time: string, nextDay: boolean) {
-  const value = new Date(`${date}T${formatTime(time)}:00`);
-  if (nextDay) value.setDate(value.getDate() + 1);
-  return value;
+function dateTimeForSlot(date: string, time: string, nextDay: boolean, timezone: string) {
+  const localDate = nextDay ? addDaysToDateKey(date, 1) : date;
+  const [year, month, day] = localDate.split("-").map(Number);
+  const [hour, minute] = formatTime(time).split(":").map(Number);
+  return zonedTimeToUtc(year, month - 1, day, hour, minute, timezone);
+}
+
+function addDaysToDateKey(date: string, days: number) {
+  const [year, month, day] = date.split("-").map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day + days, 12, 0, 0));
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+}
+
+function zonedTimeToUtc(year: number, month: number, day: number, hour: number, minute: number, timezone: string): Date {
+  const naive = new Date(Date.UTC(year, month, day, hour, minute, 0, 0));
+  try {
+    const tzString = naive.toLocaleString("en-US", { timeZone: timezone });
+    const utcString = naive.toLocaleString("en-US", { timeZone: "UTC" });
+    const offset = new Date(tzString).getTime() - new Date(utcString).getTime();
+    return new Date(naive.getTime() - offset);
+  } catch {
+    return naive;
+  }
 }
 
 function slotCrossesMidnight(slot: { start_time: string; end_time: string }) {
