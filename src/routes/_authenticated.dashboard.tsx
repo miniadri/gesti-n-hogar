@@ -94,10 +94,12 @@ const dashboardQueryOptions = queryOptions({
     if (!householdId) throw new Error("No household");
 
     const user = (await supabase.auth.getUser()).data.user;
-    const todayStart = startOfLocalDay(new Date());
+    const now = new Date();
+    const todayStart = startOfLocalDay(now);
     const afterTomorrow = addDays(todayStart, 2);
+    const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-    const [{ data: tasks }, { data: shopping }, { data: events }, { data: expenses }, { data: agendaEvents }, { data: currentMember }] =
+    const [{ data: tasks }, { data: shopping }, { data: events }, { data: expenses }, { data: agendaEvents }, { data: members }] =
       await Promise.all([
         supabase.from("tasks").select("*").eq("household_id", householdId).eq("status", "pending").limit(5),
         supabase
@@ -122,44 +124,41 @@ const dashboardQueryOptions = queryOptions({
           .from("calendar_events")
           .select("*")
           .eq("household_id", householdId)
-          .gte("start_at", todayStart.toISOString())
-          .lt("start_at", afterTomorrow.toISOString())
+          .gte("start_at", now.toISOString())
+          .lt("start_at", next24h.toISOString())
           .order("start_at", { ascending: true }),
-        user?.id
-          ? supabase
-              .from("household_members")
-              .select("id, display_name, is_child, user_id")
-              .eq("household_id", householdId)
-              .eq("user_id", user.id)
-              .maybeSingle()
-          : Promise.resolve({ data: null } as any),
+        supabase
+          .from("household_members")
+          .select("id, display_name, is_child, user_id")
+          .eq("household_id", householdId),
       ]);
 
     let schedule: any = null;
-    if (currentMember?.id) {
+    const memberIds = (members ?? []).map((member: any) => member.id);
+    if (memberIds.length > 0) {
       const yesterday = addDays(todayStart, -1);
-      const tomorrow = addDays(todayStart, 1);
       const [settingsRes, templateRes, daySlotsRes, statusRes] = await Promise.all([
-        supabase.from("schedule_settings").select("*").eq("member_id", currentMember.id).maybeSingle(),
-        supabase.from("schedule_template_slots").select("*").eq("member_id", currentMember.id).order("day_of_week").order("start_time"),
+        supabase.from("schedule_settings").select("*").in("member_id", memberIds),
+        supabase.from("schedule_template_slots").select("*").in("member_id", memberIds).order("day_of_week").order("start_time"),
         supabase
           .from("schedule_day_slots")
           .select("*")
-          .eq("member_id", currentMember.id)
+          .in("member_id", memberIds)
           .gte("date", dateKey(yesterday))
-          .lte("date", dateKey(tomorrow))
+          .lte("date", dateKey(afterTomorrow))
           .order("date")
           .order("start_time"),
         supabase
           .from("schedule_day_status")
           .select("*")
-          .eq("member_id", currentMember.id)
+          .in("member_id", memberIds)
           .gte("date", dateKey(yesterday))
-          .lte("date", dateKey(tomorrow)),
+          .lte("date", dateKey(afterTomorrow)),
       ]);
       schedule = {
-        member: currentMember,
-        settings: settingsRes.data,
+        members: members ?? [],
+        currentUserId: user?.id ?? null,
+        settings: settingsRes.data ?? [],
         template: templateRes.data ?? [],
         daySlots: daySlotsRes.data ?? [],
         status: statusRes.data ?? [],
@@ -293,8 +292,8 @@ function DashboardPage() {
     .filter((d) => d.quick_access && !d.hidden)
     .slice(0, 5);
 
-  const agendaEvents = splitEventsTodayTomorrow(data.agendaEvents);
-  const scheduleDays = buildScheduleTodayTomorrow(data.schedule);
+  const agendaEvents = splitEventsUpcoming(data.agendaEvents);
+  const scheduleDays = buildScheduleUpcoming(data.schedule);
   const [sectionPrefs, setSectionPrefs] = useState(() => loadDashboardPrefs());
   const [customizing, setCustomizing] = useState(false);
 
@@ -418,7 +417,7 @@ function DashboardPage() {
         title: SECTION_LABELS.schedule,
         visible: scheduleDays.length > 0,
         size: "half",
-        node: <ScheduleTodayTomorrowCard days={scheduleDays} memberName={data.schedule?.member?.display_name ?? "Tu turno"} />,
+        node: <ScheduleTodayTomorrowCard days={scheduleDays} />,
       },
       prep: {
         key: "prep",
@@ -910,57 +909,86 @@ function eventDayLabel(date: Date) {
   return dateKey(date) === dateKey(new Date()) ? "Hoy" : "Mañana";
 }
 
-function splitEventsTodayTomorrow(events: any[]) {
-  const today = dateKey(new Date());
-  const tomorrow = dateKey(addDays(new Date(), 1));
+function splitEventsUpcoming(events: any[]) {
+  const now = new Date();
+  const max = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const grouped = { today: [] as any[], tomorrow: [] as any[] };
   for (const event of events ?? []) {
-    const key = dateKey(new Date(event.start_at));
-    if (key === today) grouped.today.push(event);
-    if (key === tomorrow) grouped.tomorrow.push(event);
+    const start = new Date(event.start_at);
+    if (start < now || start > max) continue;
+    if (dateKey(start) === dateKey(now)) grouped.today.push(event);
+    else grouped.tomorrow.push(event);
   }
   return grouped;
 }
 
-function resolveScheduleSlotsForDate(schedule: any, date: Date) {
-  if (!schedule) return [];
+function resolveScheduleSlotsForDate(schedule: any, memberId: string, date: Date, settings: any) {
   const key = dateKey(date);
-  const status = (schedule.status ?? []).find((row: any) => row.date === key);
+  const status = (schedule.status ?? []).find((row: any) => row.member_id === memberId && row.date === key);
   if (status && ["vacation", "holiday", "sick", "off"].includes(status.state)) return [];
 
   const daySlots = schedule.daySlots ?? [];
-  const overrides = daySlots.filter((slot: any) => slot.date === key);
+  const overrides = daySlots.filter((slot: any) => slot.member_id === memberId && slot.date === key);
   if (overrides.length > 0 || status?.use_day_override) return overrides;
 
-  const settings = schedule.settings ?? { use_template: true };
   if (!settings.use_template) return [];
-  return (schedule.template ?? []).filter((slot: any) => slot.day_of_week === localDayIndex(date));
+  return (schedule.template ?? []).filter((slot: any) => slot.member_id === memberId && slot.day_of_week === localDayIndex(date));
 }
 
-function buildScheduleTodayTomorrow(schedule: any) {
-  if (!schedule?.member?.id) return [];
-  const today = startOfLocalDay(new Date());
-  const days = [today, addDays(today, 1)];
-  return days
-    .map((day) => {
-      const ownSlots = resolveScheduleSlotsForDate(schedule, day)
-        .filter((slot: any) => WORK_SLOT_KINDS.has(slot.slot_kind))
-        .map((slot: any) => ({ ...slot, carried: false }));
-      const carrySlots = resolveScheduleSlotsForDate(schedule, addDays(day, -1))
-        .filter((slot: any) => WORK_SLOT_KINDS.has(slot.slot_kind) && slotCrossesMidnight(slot))
-        .map((slot: any) => ({ ...slot, carried: true }));
-      const slots = [...carrySlots, ...ownSlots].sort((a, b) => {
-        const aStart = a.carried ? 0 : timeToMinutes(a.start_time);
-        const bStart = b.carried ? 0 : timeToMinutes(b.start_time);
-        return aStart - bStart;
-      });
-      return {
-        date: day,
-        label: eventDayLabel(day),
-        slots,
-      };
-    })
-    .filter((day) => day.slots.length > 0);
+function buildScheduleUpcoming(schedule: any) {
+  if (!schedule?.members?.length) return [];
+  const now = new Date();
+  const max = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const today = startOfLocalDay(now);
+  const dates = [addDays(today, -1), today, addDays(today, 1)];
+  const settingsByMember = new Map<string, any>((schedule.settings ?? []).map((row: any) => [row.member_id, row]));
+  const upcoming: any[] = [];
+
+  for (const member of schedule.members ?? []) {
+    const settings = settingsByMember.get(member.id) ?? { use_template: true, notify_household: false };
+    const relevantForUser = member.user_id === schedule.currentUserId || member.is_child || settings.notify_household;
+    if (!relevantForUser) continue;
+
+    for (const day of dates) {
+      const slots = resolveScheduleSlotsForDate(schedule, member.id, day, settings).filter((slot: any) =>
+        WORK_SLOT_KINDS.has(slot.slot_kind),
+      );
+      for (const slot of slots) {
+        const start = slotDateTime(day, slot.start_time, false);
+        const end = slotDateTime(day, slot.end_time, slotCrossesMidnight(slot));
+        if (end <= now || start > max) continue;
+        upcoming.push({
+          ...slot,
+          memberName: member.display_name,
+          isChild: member.is_child,
+          displayDate: start < now ? now : start,
+          startAt: start,
+          endAt: end,
+          carried: start < startOfLocalDay(now),
+        });
+      }
+    }
+  }
+
+  const grouped = new Map<string, any>();
+  for (const slot of upcoming.sort((a, b) => a.startAt.getTime() - b.startAt.getTime())) {
+    const key = dateKey(slot.displayDate);
+    const existing = grouped.get(key) ?? {
+      date: startOfLocalDay(slot.displayDate),
+      label: eventDayLabel(slot.displayDate),
+      slots: [],
+    };
+    existing.slots.push(slot);
+    grouped.set(key, existing);
+  }
+
+  return Array.from(grouped.values());
+}
+
+function slotDateTime(date: Date, time: string, nextDay: boolean) {
+  const base = nextDay ? addDays(date, 1) : date;
+  const [hour, minute] = formatTime(time).split(":").map(Number);
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hour, minute, 0, 0);
 }
 
 function loadDashboardPrefs(): { order: DashboardSectionKey[]; hidden: DashboardSectionKey[] } {
@@ -1035,7 +1063,7 @@ function EventGroup({ label, events }: { label: string; events: any[] }) {
   );
 }
 
-function ScheduleTodayTomorrowCard({ days, memberName }: { days: any[]; memberName: string }) {
+function ScheduleTodayTomorrowCard({ days }: { days: any[] }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -1048,7 +1076,6 @@ function ScheduleTodayTomorrowCard({ days, memberName }: { days: any[]; memberNa
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-xs text-muted-foreground">{memberName}</p>
         {days.map((day) => (
           <div key={dateKey(day.date)}>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{day.label}</p>
@@ -1061,6 +1088,8 @@ function ScheduleTodayTomorrowCard({ days, memberName }: { days: any[]; memberNa
                         {slot.carried ? `00:00-${formatTime(slot.end_time)}` : `${formatTime(slot.start_time)}-${formatTime(slot.end_time)}`}
                       </p>
                       <p className="text-xs text-muted-foreground">
+                        {slot.memberName}
+                        {" · "}
                         {slot.carried
                           ? "Viene del día anterior"
                           : slotCrossesMidnight(slot)
@@ -1068,7 +1097,9 @@ function ScheduleTodayTomorrowCard({ days, memberName }: { days: any[]; memberNa
                             : slot.label || "Turno programado"}
                       </p>
                     </div>
-                    <Badge variant="secondary">{slot.slot_kind === "subject" ? "Clase" : "Turno"}</Badge>
+                    <Badge variant="secondary">
+                      {slot.slot_kind === "subject" ? "Clase" : slot.slot_kind === "extracurricular" ? "Extraescolar" : "Turno"}
+                    </Badge>
                   </div>
                 </div>
               ))}
