@@ -34,6 +34,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,6 +66,7 @@ import {
   deleteDaySlot,
   upsertDayStatus,
   copyTemplateDay,
+  applyTemplateDayToRange,
 } from "@/lib/schedule.functions";
 
 export const Route = createFileRoute("/_authenticated/calendar/schedule")({
@@ -80,6 +82,7 @@ type Settings = {
   vacation_start_date: string;
   use_template: boolean;
   is_shared: boolean;
+  notify_household: boolean;
   notes: string | null;
 };
 type Slot = {
@@ -241,6 +244,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
     vacation_start_date: format(new Date(), "yyyy-MM-dd"),
     use_template: true,
     is_shared: true,
+    notify_household: member.is_child,
     notes: null,
   };
 
@@ -649,41 +653,123 @@ function TemplateEditor({
 }) {
   const qc = useQueryClient();
   const copyFn = useServerFn(copyTemplateDay);
+  const applyRangeFn = useServerFn(applyTemplateDayToRange);
   const delFn = useServerFn(deleteTemplateSlot);
   const [copyFrom, setCopyFrom] = useState<number>(0);
+  const [rangeStart, setRangeStart] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [rangeEnd, setRangeEnd] = useState(format(addWeeks(new Date(), 2), "yyyy-MM-dd"));
+  const [rangeDays, setRangeDays] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [replaceRange, setReplaceRange] = useState(true);
+
+  const toggleRangeDay = (day: number, checked: boolean) => {
+    setRangeDays((current) =>
+      checked
+        ? Array.from(new Set([...current, day])).sort((a, b) => a - b)
+        : current.filter((d) => d !== day),
+    );
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 rounded border p-2">
-        <span className="text-xs text-muted-foreground">Copiar día:</span>
-        <Select value={String(copyFrom)} onValueChange={(v) => setCopyFrom(Number(v))}>
-          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {DAY_LABELS.map((l, i) => <SelectItem key={i} value={String(i)}>{l}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={async () => {
-            const targets = [0,1,2,3,4].filter((d) => d !== copyFrom);
-            await copyFn({ data: { member_id: member.id, from_day: copyFrom, to_days: targets } });
-            toast.success("Copiado a L–V");
-            qc.invalidateQueries({ queryKey: ["schedule", member.id] });
-          }}
-        >
-          <Copy className="mr-1 h-3 w-3" /> a L–V
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={async () => {
-            await copyFn({ data: { member_id: member.id, from_day: copyFrom, to_days: [0,1,2,3,4,5,6].filter((d) => d !== copyFrom) } });
-            toast.success("Copiado a toda la semana");
-            qc.invalidateQueries({ queryKey: ["schedule", member.id] });
-          }}
-        >
-          <Copy className="mr-1 h-3 w-3" /> a toda la semana
-        </Button>
+      <div className="grid gap-3 rounded border p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Copiar día de plantilla:</span>
+          <Select value={String(copyFrom)} onValueChange={(v) => setCopyFrom(Number(v))}>
+            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {DAY_LABELS.map((l, i) => <SelectItem key={i} value={String(i)}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const targets = [0,1,2,3,4].filter((d) => d !== copyFrom);
+              await copyFn({ data: { member_id: member.id, from_day: copyFrom, to_days: targets } });
+              toast.success("Copiado a L–V");
+              qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+            }}
+          >
+            <Copy className="mr-1 h-3 w-3" /> a L–V
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              await copyFn({ data: { member_id: member.id, from_day: copyFrom, to_days: [0,1,2,3,4,5,6].filter((d) => d !== copyFrom) } });
+              toast.success("Copiado a toda la semana");
+              qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+            }}
+          >
+            <Copy className="mr-1 h-3 w-3" /> a toda la semana
+          </Button>
+        </div>
+        <div className="grid gap-3 border-t pt-3">
+          <div>
+            <div className="text-sm font-medium">Aplicar a rango concreto</div>
+            <p className="text-xs text-muted-foreground">
+              Crea franjas puntuales entre dos fechas. Útil para extraescolares, campus o turnos temporales sin repetir la plantilla indefinidamente.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
+            <div className="grid gap-1.5">
+              <Label>Desde</Label>
+              <Input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Hasta</Label>
+              <Input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Días</Label>
+              <div className="flex flex-wrap gap-2">
+                {DAY_LABELS.map((label, day) => (
+                  <label key={day} className="flex items-center gap-1 rounded border px-2 py-1 text-xs">
+                    <Checkbox
+                      checked={rangeDays.includes(day)}
+                      onCheckedChange={(checked) => toggleRangeDay(day, checked === true)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox checked={replaceRange} onCheckedChange={(checked) => setReplaceRange(checked === true)} />
+              Reemplazar franjas puntuales existentes en esos días
+            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  if (rangeDays.length === 0) {
+                    toast.error("Elige al menos un día");
+                    return;
+                  }
+                  const result = await applyRangeFn({
+                    data: {
+                      member_id: member.id,
+                      from_day: copyFrom,
+                      start_date: rangeStart,
+                      end_date: rangeEnd,
+                      weekdays: rangeDays,
+                      replace_existing: replaceRange,
+                    },
+                  });
+                  toast.success(`Aplicado a ${result.dates} días (${result.inserted} franjas)`);
+                  qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+                } catch (e: any) {
+                  toast.error(e?.message ?? "Error");
+                }
+              }}
+            >
+              <Copy className="mr-1 h-3 w-3" /> Aplicar rango
+            </Button>
+          </div>
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
         {DAY_LABELS.map((label, dow) => {
@@ -769,6 +855,7 @@ function SettingsDialog({
   const [vacStart, setVacStart] = useState(settings.vacation_start_date || format(new Date(), "yyyy-MM-dd"));
   const [useTpl, setUseTpl] = useState(settings.use_template);
   const [shared, setShared] = useState(settings.is_shared);
+  const [notifyHousehold, setNotifyHousehold] = useState(settings.notify_household ?? false);
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -820,6 +907,15 @@ function SettingsDialog({
             </div>
             <Switch checked={shared} onCheckedChange={setShared} />
           </div>
+          <div className="flex items-center justify-between rounded border p-2">
+            <div>
+              <div className="text-sm font-medium">Avisar a todo el hogar</div>
+              <div className="text-xs text-muted-foreground">
+                Envía avisos de inicio y fin de turno a todos. Los perfiles infantiles ya se avisan así automáticamente.
+              </div>
+            </div>
+            <Switch checked={notifyHousehold || member.is_child} onCheckedChange={setNotifyHousehold} disabled={member.is_child} />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
@@ -835,6 +931,7 @@ function SettingsDialog({
                     vacation_start_date: vacStart,
                     use_template: useTpl,
                     is_shared: shared,
+                    notify_household: member.is_child ? true : notifyHousehold,
                   },
                 });
                 toast.success("Ajustes guardados");

@@ -1845,6 +1845,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["schedule_kind"]
           member_id: string
           notes: string | null
+          notify_household: boolean
           target_hours_per_day: number
           updated_at: string
           use_template: boolean
@@ -1859,6 +1860,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["schedule_kind"]
           member_id: string
           notes?: string | null
+          notify_household?: boolean
           target_hours_per_day?: number
           updated_at?: string
           use_template?: boolean
@@ -1873,6 +1875,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["schedule_kind"]
           member_id?: string
           notes?: string | null
+          notify_household?: boolean
           target_hours_per_day?: number
           updated_at?: string
           use_template?: boolean

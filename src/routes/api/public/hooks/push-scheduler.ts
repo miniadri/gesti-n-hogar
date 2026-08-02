@@ -210,7 +210,7 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
 
   const [{ data: members }, { data: profiles }, { data: daySlots }, { data: templateSlots }, { data: statuses }, { data: settings }] =
     await Promise.all([
-      supabase.from("household_members").select("id, display_name, household_id, user_id").not("user_id", "is", null),
+      supabase.from("household_members").select("id, display_name, household_id, user_id, is_child"),
       supabase.from("profiles").select("id, timezone"),
       supabase
         .from("schedule_day_slots")
@@ -219,7 +219,7 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
         .lte("date", toDate),
       supabase.from("schedule_template_slots").select("id, member_id, household_id, day_of_week, start_time, end_time, slot_kind, label"),
       supabase.from("schedule_day_status").select("member_id, date, state, use_day_override").gte("date", fromDate).lte("date", toDate),
-      supabase.from("schedule_settings").select("member_id, use_template, target_hours_per_day"),
+      supabase.from("schedule_settings").select("member_id, use_template, target_hours_per_day, notify_household"),
     ]);
 
   const settingsByMember = new Map<string, any>((settings ?? []).map((row: any) => [row.member_id, row]));
@@ -247,14 +247,14 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
         const slotKey = `${slot.source}:${slot.id}:${date}`;
 
         if (minutesUntilStart > 35 && minutesUntilStart <= 60) {
-          sent += await sendScheduleNoticeOnce(supabase, member, slotKey, "start_60", {
+          sent += await sendScheduleNoticeOnce(supabase, member, memberSettings, slotKey, "start_60", {
             title: "Turno en 1 hora",
             body: `${member.display_name}: ${formatTime(slot.start_time)}-${formatTime(slot.end_time)}${slot.label ? ` · ${slot.label}` : ""}`,
             url: "/calendar/schedule",
           });
         }
         if (minutesUntilStart > 0 && minutesUntilStart <= 30) {
-          sent += await sendScheduleNoticeOnce(supabase, member, slotKey, "start_30", {
+          sent += await sendScheduleNoticeOnce(supabase, member, memberSettings, slotKey, "start_30", {
             title: "Turno en 30 minutos",
             body: `${member.display_name}: ${formatTime(slot.start_time)}-${formatTime(slot.end_time)}${slot.label ? ` · ${slot.label}` : ""}`,
             url: "/calendar/schedule",
@@ -267,7 +267,7 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
             plannedHours > target
               ? "Confirma si hiciste todas las horas o si saliste antes."
               : "Confirma si hiciste horas extra.";
-          sent += await sendScheduleNoticeOnce(supabase, member, slotKey, "ended", {
+          sent += await sendScheduleNoticeOnce(supabase, member, memberSettings, slotKey, "ended", {
             title: "Turno finalizado",
             body: `${member.display_name}: ${formatTime(slot.start_time)}-${formatTime(slot.end_time)}. ${prompt}`,
             url: `/calendar/schedule?adjustMemberId=${encodeURIComponent(member.id)}&adjustDate=${encodeURIComponent(date)}`,
@@ -283,15 +283,17 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
 async function sendScheduleNoticeOnce(
   supabase: any,
   member: any,
+  settings: any,
   slotKey: string,
   noticeType: string,
   payload: { title: string; body: string; url: string },
 ): Promise<number> {
-  if (!member.user_id) return 0;
+  const userIds = await scheduleRecipientUserIds(supabase, member, settings);
+  if (userIds.length === 0) return 0;
   const { error } = await supabase.from("schedule_notification_log").insert({
     household_id: member.household_id,
     member_id: member.id,
-    user_id: member.user_id,
+    user_id: member.user_id ?? userIds[0],
     slot_key: slotKey,
     notice_type: noticeType,
   });
@@ -300,12 +302,28 @@ async function sendScheduleNoticeOnce(
     console.error("schedule notification log failed", error);
     return 0;
   }
-  const ok = await sendTo(supabase, [member.user_id], {
+  const ok = await sendTo(supabase, userIds, {
     title: payload.title,
     body: payload.body,
     url: payload.url,
   });
   return ok ? 1 : 0;
+}
+
+async function scheduleRecipientUserIds(supabase: any, member: any, settings: any): Promise<string[]> {
+  if (member.is_child || settings?.notify_household) {
+    const { data } = await supabase
+      .from("household_members")
+      .select("user_id")
+      .eq("household_id", member.household_id)
+      .not("user_id", "is", null);
+    return uniqueUserIds((data ?? []).map((row: any) => row.user_id));
+  }
+  return uniqueUserIds(member.user_id ? [member.user_id] : []);
+}
+
+function uniqueUserIds(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter(Boolean))) as string[];
 }
 
 function resolveSlotsForMemberDate({
