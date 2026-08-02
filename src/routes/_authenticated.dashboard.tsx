@@ -374,7 +374,7 @@ function DashboardPage() {
         visible: data.shopping.length > 0 || data.events.length > 0 || totalExpenses > 0,
         size: "full",
         node: (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid auto-rows-fr items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <SummaryCard
               title="Por comprar"
               value={data.shopping.length}
@@ -389,14 +389,14 @@ function DashboardPage() {
               href="/calendar"
               color="text-chart-2"
             />
-            <Link to="/finances">
-              <Card className="transition-colors hover:bg-accent/50">
-                <CardContent className="flex items-center gap-4 p-5">
+            <Link to="/finances" className="block h-full">
+              <Card className="h-full transition-colors hover:bg-accent/50">
+                <CardContent className="flex h-full items-center gap-4 p-5">
                   <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-secondary">
                     <Wallet className="h-5 w-5 text-chart-3" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-muted-foreground">Gastos y presupuesto</p>
+                    <p className="truncate text-sm text-muted-foreground">Gastos y presupuesto</p>
                     <p className="text-2xl font-bold">€{totalExpenses.toFixed(2)}</p>
                     <Progress value={Math.min((totalExpenses / MONTHLY_BUDGET) * 100, 100)} className="mt-2 h-1.5" />
                   </div>
