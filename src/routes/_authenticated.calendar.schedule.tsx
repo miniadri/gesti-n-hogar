@@ -649,6 +649,7 @@ function TemplateEditor({
 }) {
   const qc = useQueryClient();
   const copyFn = useServerFn(copyTemplateDay);
+  const delFn = useServerFn(deleteTemplateSlot);
   const [copyFrom, setCopyFrom] = useState<number>(0);
   return (
     <div className="space-y-3">
