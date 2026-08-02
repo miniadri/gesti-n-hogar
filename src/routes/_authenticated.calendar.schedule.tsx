@@ -276,6 +276,68 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
     return template.filter((s) => s.day_of_week === dayOfWeek);
   }
 
+  function isDaySlot(s: Slot) {
+    return !!s.date;
+  }
+
+  /** Turn the template slots of a date into editable day slots (optionally skipping one). */
+  async function materializeDay(date: Date, skipTemplateId?: string) {
+    const dateStr = format(date, "yyyy-MM-dd");
+    const dayOfWeek = (date.getDay() + 6) % 7;
+    const tpl = template.filter((s) => s.day_of_week === dayOfWeek && s.id !== skipTemplateId);
+    for (const s of tpl) {
+      await addDaySlot({
+        data: {
+          member_id: member.id,
+          date: dateStr,
+          start_time: s.start_time,
+          end_time: s.end_time,
+          slot_kind: s.slot_kind,
+          label: s.label ?? null,
+          notes: s.notes ?? null,
+        },
+      });
+    }
+    await setDayStatus({ data: { member_id: member.id, date: dateStr, use_day_override: true } });
+    qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+  }
+
+  async function removeSlotFromDay(date: Date, slot: Slot) {
+    try {
+      if (isDaySlot(slot)) {
+        await delDaySlot({ data: { id: slot.id } });
+        const dateStr = format(date, "yyyy-MM-dd");
+        const remaining = daySlots.filter((s) => s.date === dateStr && s.id !== slot.id);
+        if (remaining.length === 0) {
+          await setDayStatus({ data: { member_id: member.id, date: dateStr, use_day_override: true } });
+        }
+        qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+      } else {
+        await materializeDay(date, slot.id);
+      }
+      toast.success("Franja eliminada de este día");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error");
+    }
+  }
+
+  /** Discard all day-specific changes so the date follows the template again. */
+  async function resetDayToTemplate(date: Date) {
+    try {
+      const dateStr = format(date, "yyyy-MM-dd");
+      for (const s of daySlots.filter((s) => s.date === dateStr)) {
+        await delDaySlot({ data: { id: s.id } });
+      }
+      await setDayStatus({ data: { member_id: member.id, date: dateStr, use_day_override: false } });
+      qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+      toast.success("Día restaurado a la plantilla");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error");
+    }
+  }
+
+
+
   // Totals — week
   const weekTotals = useMemo(() => {
     let worked = 0;
