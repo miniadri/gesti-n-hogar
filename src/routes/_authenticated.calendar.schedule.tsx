@@ -26,6 +26,7 @@ import {
   Plus,
   Settings2,
   Trash2,
+  Undo2,
   Briefcase,
   Lock,
   Users,
@@ -206,6 +207,9 @@ function SchedulePage() {
 function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () => void }) {
   const qc = useQueryClient();
   const getSchedule = useServerFn(getMemberSchedule);
+  const delDaySlot = useServerFn(deleteDaySlot);
+  const addDaySlot = useServerFn(upsertDaySlot);
+  const setDayStatus = useServerFn(upsertDayStatus);
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [mode, setMode] = useState<"template" | "week">("week");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -272,6 +276,68 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
     if (!settings.use_template) return [];
     return template.filter((s) => s.day_of_week === dayOfWeek);
   }
+
+  function isDaySlot(s: Slot) {
+    return !!s.date;
+  }
+
+  /** Turn the template slots of a date into editable day slots (optionally skipping one). */
+  async function materializeDay(date: Date, skipTemplateId?: string) {
+    const dateStr = format(date, "yyyy-MM-dd");
+    const dayOfWeek = (date.getDay() + 6) % 7;
+    const tpl = template.filter((s) => s.day_of_week === dayOfWeek && s.id !== skipTemplateId);
+    for (const s of tpl) {
+      await addDaySlot({
+        data: {
+          member_id: member.id,
+          date: dateStr,
+          start_time: s.start_time,
+          end_time: s.end_time,
+          slot_kind: s.slot_kind,
+          label: s.label ?? null,
+          notes: s.notes ?? null,
+        },
+      });
+    }
+    await setDayStatus({ data: { member_id: member.id, date: dateStr, use_day_override: true } });
+    qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+  }
+
+  async function removeSlotFromDay(date: Date, slot: Slot) {
+    try {
+      if (isDaySlot(slot)) {
+        await delDaySlot({ data: { id: slot.id } });
+        const dateStr = format(date, "yyyy-MM-dd");
+        const remaining = daySlots.filter((s) => s.date === dateStr && s.id !== slot.id);
+        if (remaining.length === 0) {
+          await setDayStatus({ data: { member_id: member.id, date: dateStr, use_day_override: true } });
+        }
+        qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+      } else {
+        await materializeDay(date, slot.id);
+      }
+      toast.success("Franja eliminada de este día");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error");
+    }
+  }
+
+  /** Discard all day-specific changes so the date follows the template again. */
+  async function resetDayToTemplate(date: Date) {
+    try {
+      const dateStr = format(date, "yyyy-MM-dd");
+      for (const s of daySlots.filter((s) => s.date === dateStr)) {
+        await delDaySlot({ data: { id: s.id } });
+      }
+      await setDayStatus({ data: { member_id: member.id, date: dateStr, use_day_override: false } });
+      qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+      toast.success("Día restaurado a la plantilla");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error");
+    }
+  }
+
+
 
   // Totals — week
   const weekTotals = useMemo(() => {
@@ -434,14 +500,30 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                               </>
                             )}
                           </div>
-                          {s.date && !s.__carry && (
-                            <button
-                              className="opacity-60 hover:opacity-100"
-                              onClick={() => setSlotDialog({ kind: "day", date: dateStr, slot: s })}
-                              title="Editar"
-                            >
-                              <Settings2 className="h-3 w-3" />
-                            </button>
+                          {!s.__carry && (
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                className="opacity-60 hover:opacity-100"
+                                onClick={async () => {
+                                  if (s.date) {
+                                    setSlotDialog({ kind: "day", date: dateStr, slot: s });
+                                  } else {
+                                    await materializeDay(day);
+                                    toast.info("Este día ya no sigue la plantilla: edítalo libremente");
+                                  }
+                                }}
+                                title={s.date ? "Editar" : "Editar solo este día"}
+                              >
+                                <Settings2 className="h-3 w-3" />
+                              </button>
+                              <button
+                                className="opacity-60 hover:opacity-100"
+                                onClick={() => removeSlotFromDay(day, s)}
+                                title="Eliminar de este día"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       ))
@@ -469,6 +551,11 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                       <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setStatusDialog({ date: dateStr, status })} title="Estado del día">
                         <CalendarDays className="h-3.5 w-3.5" />
                       </Button>
+                      {hasOverride && (
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => resetDayToTemplate(day)} title="Deshacer cambios de este día (volver a la plantilla)">
+                          <Undo2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -562,6 +649,7 @@ function TemplateEditor({
 }) {
   const qc = useQueryClient();
   const copyFn = useServerFn(copyTemplateDay);
+  const delFn = useServerFn(deleteTemplateSlot);
   const [copyFrom, setCopyFrom] = useState<number>(0);
   return (
     <div className="space-y-3">
@@ -612,15 +700,45 @@ function TemplateEditor({
               <CardContent className="space-y-2">
                 {slots.length === 0 && <p className="text-xs text-muted-foreground">Sin franjas</p>}
                 {slots.map((s) => (
-                  <button
+                  <div
                     key={s.id}
-                    onClick={() => onEdit(s, dow)}
-                    className={`w-full text-left rounded border px-2 py-1 text-xs ${kindColor(s.slot_kind)}`}
+                    className={`flex items-center justify-between gap-2 rounded border px-2 py-1 text-xs ${kindColor(s.slot_kind)}`}
                   >
-                    <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
-                    {s.label && <div className="opacity-80">{s.label}</div>}
-                  </button>
+                    <button className="min-w-0 flex-1 text-left" onClick={() => onEdit(s, dow)} title="Editar">
+                      <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
+                      {s.label && <div className="opacity-80">{s.label}</div>}
+                    </button>
+                    <button
+                      className="shrink-0 opacity-60 hover:opacity-100"
+                      title="Eliminar franja de la plantilla"
+                      onClick={async () => {
+                        try {
+                          await delFn({ data: { id: s.id } });
+                          toast.success("Franja eliminada");
+                          qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+                        } catch (e: any) { toast.error(e?.message ?? "Error"); }
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 ))}
+                {slots.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={async () => {
+                      try {
+                        for (const s of slots) await delFn({ data: { id: s.id } });
+                        toast.success(`${label}: franjas eliminadas`);
+                        qc.invalidateQueries({ queryKey: ["schedule", member.id] });
+                      } catch (e: any) { toast.error(e?.message ?? "Error"); }
+                    }}
+                  >
+                    <Trash2 className="mr-1 h-3 w-3" /> Vaciar día
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" className="w-full" onClick={() => onAdd(dow)}>
                   <Plus className="mr-1 h-3 w-3" /> Franja
                 </Button>
