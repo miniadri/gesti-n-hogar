@@ -1094,14 +1094,14 @@ function SummaryCard({
   color: string;
 }) {
   return (
-    <Link to={href}>
-      <Card className="transition-colors hover:bg-accent/50">
-        <CardContent className="flex items-center gap-4 p-5">
+    <Link to={href} className="block h-full">
+      <Card className="h-full transition-colors hover:bg-accent/50">
+        <CardContent className="flex h-full items-center gap-4 p-5">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-secondary">
             <Icon className={`h-5 w-5 ${color}`} />
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">{title}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm text-muted-foreground">{title}</p>
             <p className="text-2xl font-bold">{value}</p>
           </div>
         </CardContent>
