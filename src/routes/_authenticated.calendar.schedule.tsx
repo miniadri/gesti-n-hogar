@@ -80,7 +80,7 @@ type Settings = {
   target_hours_per_day: number;
   vacation_days_per_month: number;
   vacation_balance_adjustment: number;
-  vacation_start_date: string;
+  vacation_start_date: string | null;
   use_template: boolean;
   is_shared: boolean;
   notify_household: boolean;
@@ -241,9 +241,9 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
     member_id: member.id,
     kind: member.is_child ? "school" : "work",
     target_hours_per_day: 8,
-    vacation_days_per_month: 2.5,
+    vacation_days_per_month: 0,
     vacation_balance_adjustment: 0,
-    vacation_start_date: format(new Date(), "yyyy-MM-dd"),
+    vacation_start_date: null,
     use_template: true,
     is_shared: true,
     notify_household: member.is_child,
@@ -385,12 +385,14 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
 
   // Accumulated vacation days: months since vacation_start_date * per-month allowance + manual adjustment - used
   const accruedVacation = useMemo(() => {
-    if (!settings.vacation_start_date) return 0;
+    const adjustment = Number(settings.vacation_balance_adjustment ?? 0);
+    if (!settings.vacation_start_date || Number(settings.vacation_days_per_month ?? 0) <= 0) {
+      return { earned: 0, used: 0, adjustment, balance: adjustment, active: false };
+    }
     const monthsElapsed = Math.max(0, differenceInCalendarMonths(new Date(), parseISO(settings.vacation_start_date)) + (new Date().getDate() >= parseISO(settings.vacation_start_date).getDate() ? 1 : 0));
     const earned = monthsElapsed * settings.vacation_days_per_month;
-    const used = statuses.filter((s) => s.state === "vacation").length;
-    const adjustment = Number(settings.vacation_balance_adjustment ?? 0);
-    return { earned, used, adjustment, balance: earned + adjustment - used };
+    const used = statuses.filter((s) => s.state === "vacation" && s.date >= settings.vacation_start_date!).length;
+    return { earned, used, adjustment, balance: earned + adjustment - used, active: true };
   }, [settings, statuses]);
 
   return (
@@ -595,7 +597,11 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                 <CardContent>
                   <div className="text-2xl font-bold">{accruedVacation.balance.toFixed(1)}d</div>
                   <div className="text-xs text-muted-foreground">
-                    Ganados: {accruedVacation.earned.toFixed(1)} · Usados: {accruedVacation.used}
+                    {accruedVacation.active ? (
+                      <>Ganados: {accruedVacation.earned.toFixed(1)} · Usados: {accruedVacation.used}</>
+                    ) : (
+                      <>Sin cómputo activo</>
+                    )}
                     {accruedVacation.adjustment !== 0 && (
                       <> · Ajuste: {accruedVacation.adjustment > 0 ? "+" : ""}{accruedVacation.adjustment.toFixed(1)}</>
                     )}
@@ -920,7 +926,7 @@ function SettingsDialog({
   const [target, setTarget] = useState(String(settings.target_hours_per_day));
   const [vac, setVac] = useState(String(settings.vacation_days_per_month));
   const [vacAdjustment, setVacAdjustment] = useState(String(settings.vacation_balance_adjustment ?? 0));
-  const [vacStart, setVacStart] = useState(settings.vacation_start_date || format(new Date(), "yyyy-MM-dd"));
+  const [vacStart, setVacStart] = useState(settings.vacation_start_date || "");
   const [useTpl, setUseTpl] = useState(settings.use_template);
   const [shared, setShared] = useState(settings.is_shared);
   const [notifyHousehold, setNotifyHousehold] = useState(settings.notify_household ?? false);
@@ -960,6 +966,9 @@ function SettingsDialog({
               <div className="grid gap-1.5">
                 <Label>Inicio cómputo vacaciones</Label>
                 <Input type="date" value={vacStart} onChange={(e) => setVacStart(e.target.value)} />
+                <p className="text-xs text-muted-foreground">
+                  Déjalo vacío si no quieres acumular vacaciones todavía o si has terminado una empresa anterior.
+                </p>
               </div>
               <div className="grid gap-1.5">
                 <Label>Ajuste manual de saldo</Label>
@@ -974,6 +983,17 @@ function SettingsDialog({
                   Los días marcados como vacaciones en el calendario se descuentan automáticamente.
                 </p>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setVac("0");
+                  setVacAdjustment("0");
+                  setVacStart("");
+                }}
+              >
+                Reiniciar cómputo de vacaciones
+              </Button>
             </div>
           )}
           <div className="flex items-center justify-between rounded border p-2">
@@ -1012,7 +1032,7 @@ function SettingsDialog({
                     target_hours_per_day: Number(target) || 8,
                     vacation_days_per_month: Number(vac) || 0,
                     vacation_balance_adjustment: Number(vacAdjustment) || 0,
-                    vacation_start_date: vacStart,
+                    vacation_start_date: vacStart || null,
                     use_template: useTpl,
                     is_shared: shared,
                     notify_household: member.is_child ? true : notifyHousehold,
