@@ -66,7 +66,7 @@ import {
   deleteDaySlot,
   upsertDayStatus,
   copyTemplateDay,
-  applyTemplateDayToRange,
+  createRangeSlots,
 } from "@/lib/schedule.functions";
 
 export const Route = createFileRoute("/_authenticated/calendar/schedule")({
@@ -653,13 +653,18 @@ function TemplateEditor({
 }) {
   const qc = useQueryClient();
   const copyFn = useServerFn(copyTemplateDay);
-  const applyRangeFn = useServerFn(applyTemplateDayToRange);
+  const createRangeFn = useServerFn(createRangeSlots);
   const delFn = useServerFn(deleteTemplateSlot);
   const [copyFrom, setCopyFrom] = useState<number>(0);
   const [rangeStart, setRangeStart] = useState(format(new Date(), "yyyy-MM-dd"));
   const [rangeEnd, setRangeEnd] = useState(format(addWeeks(new Date(), 2), "yyyy-MM-dd"));
   const [rangeDays, setRangeDays] = useState<number[]>([0, 1, 2, 3, 4]);
-  const [replaceRange, setReplaceRange] = useState(true);
+  const [rangeSlotKind, setRangeSlotKind] = useState<Slot["slot_kind"]>(member.is_child ? "extracurricular" : "work");
+  const [rangeSlotStart, setRangeSlotStart] = useState("09:00");
+  const [rangeSlotEnd, setRangeSlotEnd] = useState("10:00");
+  const [rangeLabel, setRangeLabel] = useState("");
+  const [rangeNotes, setRangeNotes] = useState("");
+  const [conflictMode, setConflictMode] = useState<"append" | "replace_overlapping" | "replace_days">("append");
 
   const toggleRangeDay = (day: number, checked: boolean) => {
     setRangeDays((current) =>
@@ -706,10 +711,50 @@ function TemplateEditor({
         </div>
         <div className="grid gap-3 border-t pt-3">
           <div>
-            <div className="text-sm font-medium">Aplicar a rango concreto</div>
+            <div className="text-sm font-medium">Asistente horario temporal</div>
             <p className="text-xs text-muted-foreground">
-              Crea franjas puntuales entre dos fechas. Útil para extraescolares, campus o turnos temporales sin repetir la plantilla indefinidamente.
+              Añade una actividad o turno durante un periodo concreto, sin repetirlo indefinidamente en la plantilla semanal.
             </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-1.5">
+              <Label>Qué quieres añadir</Label>
+              <Input
+                value={rangeLabel}
+                onChange={(e) => setRangeLabel(e.target.value)}
+                placeholder={member.is_child ? "Extraescolar verano" : "Turno temporal"}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Tipo</Label>
+              <Select value={rangeSlotKind} onValueChange={(v: any) => setRangeSlotKind(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {member.is_child ? (
+                    <>
+                      <SelectItem value="subject">Clase</SelectItem>
+                      <SelectItem value="extracurricular">Extraescolar</SelectItem>
+                      <SelectItem value="break">Descanso</SelectItem>
+                      <SelectItem value="off">Libre</SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="work">Trabajo</SelectItem>
+                      <SelectItem value="break">Descanso</SelectItem>
+                      <SelectItem value="off">Libre</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Entrada</Label>
+              <Input type="time" value={rangeSlotStart} onChange={(e) => setRangeSlotStart(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Salida</Label>
+              <Input type="time" value={rangeSlotEnd} onChange={(e) => setRangeSlotEnd(e.target.value)} />
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
             <div className="grid gap-1.5">
@@ -735,11 +780,22 @@ function TemplateEditor({
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Checkbox checked={replaceRange} onCheckedChange={(checked) => setReplaceRange(checked === true)} />
-              Reemplazar franjas puntuales existentes en esos días
-            </label>
+          <div className="grid gap-1.5">
+            <Label>Notas opcionales</Label>
+            <Textarea rows={2} value={rangeNotes} onChange={(e) => setRangeNotes(e.target.value)} />
+          </div>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="grid min-w-64 gap-1.5">
+              <Label>Si ya hay franjas esos días</Label>
+              <Select value={conflictMode} onValueChange={(v: any) => setConflictMode(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="append">Mantener y añadir esta franja</SelectItem>
+                  <SelectItem value="replace_overlapping">Sustituir solo franjas solapadas</SelectItem>
+                  <SelectItem value="replace_days">Vaciar esos días y crear esta franja</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -749,24 +805,29 @@ function TemplateEditor({
                     toast.error("Elige al menos un día");
                     return;
                   }
-                  const result = await applyRangeFn({
+                  const result = await createRangeFn({
                     data: {
                       member_id: member.id,
-                      from_day: copyFrom,
                       start_date: rangeStart,
                       end_date: rangeEnd,
                       weekdays: rangeDays,
-                      replace_existing: replaceRange,
+                      start_time: rangeSlotStart,
+                      end_time: rangeSlotEnd,
+                      slot_kind: rangeSlotKind,
+                      label: rangeLabel || null,
+                      notes: rangeNotes || null,
+                      conflict_mode: conflictMode,
                     },
                   });
-                  toast.success(`Aplicado a ${result.dates} días (${result.inserted} franjas)`);
+                  const deleted = result.deleted ? `, ${result.deleted} sustituidas` : "";
+                  toast.success(`Creado en ${result.dates} días (${result.inserted} franjas${deleted})`);
                   qc.invalidateQueries({ queryKey: ["schedule", member.id] });
                 } catch (e: any) {
                   toast.error(e?.message ?? "Error");
                 }
               }}
             >
-              <Copy className="mr-1 h-3 w-3" /> Aplicar rango
+              <Plus className="mr-1 h-3 w-3" /> Crear horario temporal
             </Button>
           </div>
         </div>

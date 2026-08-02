@@ -311,7 +311,7 @@ const ApplyTemplateRangeInput = z.object({
   start_date: z.string(),
   end_date: z.string(),
   weekdays: z.array(z.number().int().min(0).max(6)).min(1),
-  replace_existing: z.boolean().default(true),
+  replace_existing: z.boolean().default(false),
 });
 
 export const applyTemplateDayToRange = createServerFn({ method: "POST" })
@@ -366,6 +366,80 @@ export const applyTemplateDayToRange = createServerFn({ method: "POST" })
     return { inserted: rows.length, dates: dates.length };
   });
 
+const CreateRangeSlotsInput = z.object({
+  member_id: z.string().uuid(),
+  start_date: z.string(),
+  end_date: z.string(),
+  weekdays: z.array(z.number().int().min(0).max(6)).min(1),
+  start_time: TimeStr,
+  end_time: TimeStr,
+  slot_kind: SlotKind.default("work"),
+  label: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  conflict_mode: z.enum(["append", "replace_overlapping", "replace_days"]).default("append"),
+});
+
+export const createRangeSlots = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => CreateRangeSlotsInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: householdId } = await context.supabase.rpc("current_household");
+    if (!householdId) throw new Error("No household");
+    if (data.end_date < data.start_date) throw new Error("La fecha final no puede ser anterior a la inicial");
+    if (data.start_time === data.end_time) throw new Error("La entrada y salida no pueden coincidir");
+
+    const dates = datesInRange(data.start_date, data.end_date).filter((date) =>
+      data.weekdays.includes(dayOfWeek(date)),
+    );
+    if (dates.length === 0) return { inserted: 0, dates: 0, deleted: 0 };
+    if (dates.length > 370) throw new Error("El rango es demasiado largo");
+
+    let deleted = 0;
+    if (data.conflict_mode === "replace_days") {
+      const { data: removed, error: delErr } = await context.supabase
+        .from("schedule_day_slots")
+        .delete()
+        .eq("member_id", data.member_id)
+        .in("date", dates)
+        .select("id");
+      if (delErr) throw delErr;
+      deleted = removed?.length ?? 0;
+    } else if (data.conflict_mode === "replace_overlapping") {
+      const { data: existing, error: existingErr } = await context.supabase
+        .from("schedule_day_slots")
+        .select("id, date, start_time, end_time")
+        .eq("member_id", data.member_id)
+        .in("date", dates);
+      if (existingErr) throw existingErr;
+      const overlappingIds = (existing ?? [])
+        .filter((slot: any) => slotsOverlap(data.start_time, data.end_time, slot.start_time, slot.end_time))
+        .map((slot: any) => slot.id);
+      if (overlappingIds.length > 0) {
+        const { error: delErr } = await context.supabase
+          .from("schedule_day_slots")
+          .delete()
+          .in("id", overlappingIds);
+        if (delErr) throw delErr;
+        deleted = overlappingIds.length;
+      }
+    }
+
+    const rows = dates.map((date) => ({
+      member_id: data.member_id,
+      household_id: householdId,
+      date,
+      start_time: data.start_time,
+      end_time: data.end_time,
+      slot_kind: data.slot_kind,
+      label: data.label ?? null,
+      notes: data.notes ?? null,
+    }));
+
+    const { error: insErr } = await context.supabase.from("schedule_day_slots").insert(rows);
+    if (insErr) throw insErr;
+    return { inserted: rows.length, dates: dates.length, deleted };
+  });
+
 function datesInRange(from: string, to: string) {
   const out: string[] = [];
   const cursor = new Date(`${from}T00:00:00`);
@@ -387,4 +461,22 @@ function formatDateKey(date: Date) {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function slotsOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+  const a = timeRanges(aStart, aEnd);
+  const b = timeRanges(bStart, bEnd);
+  return a.some((ra) => b.some((rb) => ra[0] < rb[1] && rb[0] < ra[1]));
+}
+
+function timeRanges(start: string, end: string): Array<[number, number]> {
+  const s = timeToMinutes(start);
+  const e = timeToMinutes(end);
+  if (e > s) return [[s, e]];
+  return [[s, 24 * 60], [0, e]];
+}
+
+function timeToMinutes(value: string) {
+  const [h, m] = value.slice(0, 5).split(":").map(Number);
+  return h * 60 + m;
 }
