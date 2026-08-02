@@ -1,10 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { normalizeProductCode } from "@/lib/product-codes";
 
 
 // ---------- schemas ----------
 const EAN = z.string().min(6).max(32);
+const ProductCodeInput = z.string().min(1).max(1024).transform((value) => normalizeProductCode(value));
 
 const ProductUpsertInput = z.object({
   ean: EAN,
@@ -39,7 +41,7 @@ function toKilos(qty: number, unit?: string): number | null {
 // ---------- product lookup / upsert ----------
 export const lookupProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ ean: EAN }).parse(input))
+  .inputValidator((input) => z.object({ ean: ProductCodeInput }).parse(input))
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data as string | null;
 
