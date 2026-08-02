@@ -304,7 +304,7 @@ function CalendarPage() {
               <Settings className="h-4 w-4" />
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild title="Cuadrante laboral/escolar">
+          <Button variant="outline" asChild title="Cuadrante laboral/escolar">
             <Link to="/calendar/schedule">
               <CalendarDays className="mr-2 h-4 w-4" />
               Cuadrante
