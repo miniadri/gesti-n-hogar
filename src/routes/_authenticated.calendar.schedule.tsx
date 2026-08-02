@@ -206,6 +206,9 @@ function SchedulePage() {
 function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () => void }) {
   const qc = useQueryClient();
   const getSchedule = useServerFn(getMemberSchedule);
+  const delDaySlot = useServerFn(deleteDaySlot);
+  const addDaySlot = useServerFn(upsertDaySlot);
+  const setDayStatus = useServerFn(upsertDayStatus);
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [mode, setMode] = useState<"template" | "week">("week");
   const [settingsOpen, setSettingsOpen] = useState(false);
