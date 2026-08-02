@@ -499,14 +499,30 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                               </>
                             )}
                           </div>
-                          {s.date && !s.__carry && (
-                            <button
-                              className="opacity-60 hover:opacity-100"
-                              onClick={() => setSlotDialog({ kind: "day", date: dateStr, slot: s })}
-                              title="Editar"
-                            >
-                              <Settings2 className="h-3 w-3" />
-                            </button>
+                          {!s.__carry && (
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                className="opacity-60 hover:opacity-100"
+                                onClick={async () => {
+                                  if (s.date) {
+                                    setSlotDialog({ kind: "day", date: dateStr, slot: s });
+                                  } else {
+                                    await materializeDay(day);
+                                    toast.info("Este día ya no sigue la plantilla: edítalo libremente");
+                                  }
+                                }}
+                                title={s.date ? "Editar" : "Editar solo este día"}
+                              >
+                                <Settings2 className="h-3 w-3" />
+                              </button>
+                              <button
+                                className="opacity-60 hover:opacity-100"
+                                onClick={() => removeSlotFromDay(day, s)}
+                                title="Eliminar de este día"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       ))
