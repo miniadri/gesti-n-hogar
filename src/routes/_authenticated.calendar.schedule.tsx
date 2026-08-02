@@ -26,6 +26,7 @@ import {
   Plus,
   Settings2,
   Trash2,
+  Undo2,
   Briefcase,
   Lock,
   Users,
