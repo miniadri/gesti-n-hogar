@@ -599,7 +599,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Este mes</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Este mes ({format(weekStart, "LLLL", { locale: es })}, hasta hoy)</CardTitle></CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{monthTotals.worked.toFixed(1)}h</div>
                 <div className="text-xs text-muted-foreground">
