@@ -361,27 +361,36 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
     return { worked, extra };
   }, [weekDays, template, daySlots, statuses, settings]);
 
-  // Totals — month
+  // Totals — month (only hours already worked: past days and finished shifts)
   const monthTotals = useMemo(() => {
     const start = startOfMonth(weekStart);
     const end = endOfMonth(weekStart);
+    const now = new Date();
     let worked = 0;
     let extra = 0;
     let vacations = 0;
-    const totalDays = Math.round((end.getTime() - start.getTime()) / (24 * 3600 * 1000)) + 1;
+    const totalDays = differenceInCalendarDays(end, start) + 1;
     for (let i = 0; i < totalDays; i++) {
       const d = addDays(start, i);
-      const status = statusByDate.get(format(d, "yyyy-MM-dd"));
+      const dateStr = format(d, "yyyy-MM-dd");
+      const status = statusByDate.get(dateStr);
       if (status?.state === "vacation") vacations += 1;
-      const slots = resolveDaySlots(d);
-      const dayHours = slots.filter((s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular").reduce((a, s) => a + slotHours(s), 0);
-      const adjustment = Number(status?.overtime_hours ?? 0);
+      const slots = resolveDaySlots(d).filter(
+        (s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular",
+      );
+      if (slots.length === 0) continue;
+      const finished = slots.filter((s) => slotEndDate(d, s) <= now);
+      if (finished.length === 0) continue;
+      const dayHours = finished.reduce((a, s) => a + slotHours(s), 0);
+      const dayComplete = finished.length === slots.length;
+      const adjustment = dayComplete ? Number(status?.overtime_hours ?? 0) : 0;
       const actualHours = adjustedHours(dayHours, adjustment);
       worked += actualHours;
-      extra += actualOvertime(actualHours, settings.target_hours_per_day);
+      if (dayComplete) extra += actualOvertime(actualHours, settings.target_hours_per_day);
     }
     return { worked, extra, vacations };
   }, [weekStart, template, daySlots, statuses, settings]);
+
 
   // Accumulated vacation days: months since vacation_start_date * per-month allowance + manual adjustment - used
   const accruedVacation = useMemo(() => {
