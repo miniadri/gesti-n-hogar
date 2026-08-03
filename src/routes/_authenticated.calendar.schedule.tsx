@@ -107,6 +107,13 @@ type DayStatus = {
 };
 
 const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+/** Real end instant of a slot on a given date (handles shifts crossing midnight). */
+function slotEndDate(date: Date, s: { start_time: string; end_time: string }): Date {
+  const end = new Date(date);
+  end.setHours(0, 0, 0, 0);
+  end.setMinutes(timeToMinutes(s.start_time) + slotHours(s) * 60);
+  return end;
+}
 
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(":").map(Number);
