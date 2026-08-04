@@ -18,6 +18,11 @@ import {
   Bell,
   Clock3,
   ShieldAlert,
+  HeartPulse,
+  FileText,
+  AlertTriangle,
+  Stethoscope,
+  Trash2,
 
 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +43,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake, snoozeIntake } from "@/lib/medications.functions";
 import { listMedicines } from "@/lib/medicines.functions";
 import { createShoppingItem } from "@/lib/shopping.functions";
+import {
+  listMedicalRegistry,
+  upsertMedicalProfile,
+  createMedicalRecord,
+  updateMedicalRecord,
+  deleteMedicalRecord,
+} from "@/lib/medical-records.functions";
 import { SosButton } from "@/components/SosButton";
 
 const medicationsQueryOptions = queryOptions({
@@ -59,13 +71,24 @@ const householdQueryOptions = queryOptions({
   },
 });
 
+const medicalRegistryQueryOptions = queryOptions({
+  queryKey: ["medical-registry"],
+  queryFn: () => listMedicalRegistry(),
+});
+
 export const Route = createFileRoute("/_authenticated/medications")({
   head: () => ({
-    meta: [{ title: "Medicación — HomeSync" }],
+    meta: [{ title: "Salud — HomeSync" }],
   }),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(medicationsQueryOptions);
     await context.queryClient.ensureQueryData(householdQueryOptions);
+    try {
+      await context.queryClient.ensureQueryData(medicalRegistryQueryOptions);
+    } catch {
+      // The medical registry is adult-only and also depends on the latest
+      // migration. Keep the medication page usable if it is not available yet.
+    }
   },
   component: MedicationsPage,
 });
@@ -94,6 +117,7 @@ function MedicationsPage() {
   const { t } = useTranslation();
   const { data: medications } = useSuspenseQuery(medicationsQueryOptions);
   const { data: household } = useSuspenseQuery(householdQueryOptions);
+  const { data: medicalRegistry } = useQuery(medicalRegistryQueryOptions);
   const queryClient = useQueryClient();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -105,6 +129,10 @@ function MedicationsPage() {
   const doRecord = useServerFn(recordIntake);
   const doSnooze = useServerFn(snoozeIntake);
   const doAddShopping = useServerFn(createShoppingItem);
+  const doSaveProfile = useServerFn(upsertMedicalProfile);
+  const doCreateMedicalRecord = useServerFn(createMedicalRecord);
+  const doUpdateMedicalRecord = useServerFn(updateMedicalRecord);
+  const doDeleteMedicalRecord = useServerFn(deleteMedicalRecord);
 
 
   const members = (household?.household_members ?? []).sort((a: any, b: any) => (a.is_child === b.is_child ? 0 : a.is_child ? 1 : -1));
@@ -202,8 +230,8 @@ function MedicationsPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">{t("medications.title")}</h2>
-          <p className="text-muted-foreground">{t("medications.subtitle")}</p>
+          <h2 className="text-2xl font-bold tracking-tight">Salud</h2>
+          <p className="text-muted-foreground">Medicación, registro médico y datos de emergencia</p>
         </div>
         <div className="flex items-center gap-2">
           <SosButton variant="compact" />
@@ -265,6 +293,7 @@ function MedicationsPage() {
           <TabsTrigger value="active">Activas</TabsTrigger>
           <TabsTrigger value="history">{t("medications.history")}</TabsTrigger>
           <TabsTrigger value="stock">{t("medications.lowStock")}</TabsTrigger>
+          <TabsTrigger value="registry">Registro médico</TabsTrigger>
           <TabsTrigger value="emergency">Emergencia</TabsTrigger>
         </TabsList>
 
@@ -344,6 +373,29 @@ function MedicationsPage() {
           )}
         </TabsContent>
 
+        <TabsContent value="registry" className="space-y-4">
+          <MedicalRegistryView
+            members={members}
+            registry={medicalRegistry}
+            onSaveProfile={async (payload) => {
+              await doSaveProfile({ data: payload });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+            onCreateRecord={async (payload) => {
+              await doCreateMedicalRecord({ data: payload });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+            onUpdateRecord={async (payload) => {
+              await doUpdateMedicalRecord({ data: payload });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+            onDeleteRecord={async (id) => {
+              await doDeleteMedicalRecord({ data: { id } });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+          />
+        </TabsContent>
+
         <TabsContent value="emergency" className="space-y-4">
           <Card>
             <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -376,6 +428,395 @@ function MedicationsPage() {
       />
     </div>
   );
+}
+
+const MEDICAL_RECORD_TYPES = [
+  { value: "condition", label: "Condición/diagnóstico" },
+  { value: "allergy", label: "Alergia/intolerancia" },
+  { value: "visit", label: "Cita/visita médica" },
+  { value: "procedure", label: "Cirugía/procedimiento" },
+  { value: "vaccine", label: "Vacuna" },
+  { value: "note", label: "Nota médica" },
+  { value: "other", label: "Otro" },
+];
+
+const MEDICAL_SEVERITIES = [
+  { value: "low", label: "Leve" },
+  { value: "medium", label: "Media" },
+  { value: "high", label: "Alta" },
+  { value: "critical", label: "Crítica" },
+];
+
+function MedicalRegistryView({
+  members,
+  registry,
+  onSaveProfile,
+  onCreateRecord,
+  onUpdateRecord,
+  onDeleteRecord,
+}: {
+  members: any[];
+  registry: any;
+  onSaveProfile: (payload: any) => Promise<void>;
+  onCreateRecord: (payload: any) => Promise<void>;
+  onUpdateRecord: (payload: any) => Promise<void>;
+  onDeleteRecord: (id: string) => Promise<void>;
+}) {
+  const [selectedMemberId, setSelectedMemberId] = useState(members[0]?.id ?? "");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<any>(null);
+
+  useEffect(() => {
+    if (!selectedMemberId && members[0]?.id) setSelectedMemberId(members[0].id);
+  }, [members, selectedMemberId]);
+
+  if (!registry) {
+    return (
+      <Card className="border-amber-500/40 bg-amber-500/5">
+        <CardContent className="p-4">
+          <p className="font-medium text-amber-700">Registro médico no disponible todavía</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Aplica la migración del registro médico en Lovable Cloud. Si el usuario no es adulto del hogar, esta sección queda protegida.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const selectedMember = members.find((m: any) => m.id === selectedMemberId) ?? members[0];
+  const profiles = registry.profiles ?? [];
+  const records = registry.records ?? [];
+  const profile = profiles.find((p: any) => p.member_id === selectedMember?.id) ?? null;
+  const memberRecords = records.filter((r: any) => r.member_id === selectedMember?.id);
+  const criticalRecords = memberRecords.filter((r: any) => r.show_in_sos || ["high", "critical"].includes(r.severity));
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-primary/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <HeartPulse className="h-4 w-4 text-primary" />
+            Registro médico familiar
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Visible solo para adultos del hogar. Los datos marcados para SOS se incluirán en avisos de emergencia.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-[260px_1fr]">
+            <div className="space-y-2">
+              <Label>Miembro</Label>
+              <Select value={selectedMember?.id ?? ""} onValueChange={setSelectedMemberId}>
+                <SelectTrigger><SelectValue placeholder="Selecciona miembro" /></SelectTrigger>
+                <SelectContent>
+                  {members.map((member: any) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.display_name}{member.is_child ? " · infantil" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+              No guardes contraseñas ni claves. Para datos críticos, usa “Mostrar en SOS” solo cuando sea útil para una emergencia real.
+            </div>
+          </div>
+
+          {selectedMember && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base">Datos vitales y seguros</CardTitle>
+                  <Button size="sm" variant="outline" onClick={() => setProfileOpen(true)}>Editar</Button>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <InfoRow label="Grupo sanguíneo" value={profile?.blood_type} />
+                  <InfoRow label="Peso / altura" value={[profile?.weight_kg ? `${profile.weight_kg} kg` : "", profile?.height_cm ? `${profile.height_cm} cm` : ""].filter(Boolean).join(" · ")} />
+                  <InfoRow label="Sanidad pública" value={[profile?.public_health_provider, profile?.public_health_id].filter(Boolean).join(" · ")} />
+                  <InfoRow label="Seguro privado" value={[profile?.private_insurance_name, profile?.private_policy_number].filter(Boolean).join(" · ")} />
+                  {profile?.private_coverage_notes && <InfoRow label="Coberturas" value={profile.private_coverage_notes} />}
+                  {profile?.emergency_notes && <InfoRow label="Notas emergencia" value={profile.emergency_notes} />}
+                  {!profile && <p className="text-muted-foreground">Sin datos vitales registrados.</p>}
+                </CardContent>
+              </Card>
+
+              <Card className="border-destructive/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    Resumen SOS
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {criticalRecords.length === 0 && !profile?.emergency_notes ? (
+                    <p className="text-muted-foreground">Sin alergias o condiciones críticas marcadas para SOS.</p>
+                  ) : (
+                    <>
+                      {profile?.emergency_notes && <p>{profile.emergency_notes}</p>}
+                      {criticalRecords.slice(0, 6).map((record: any) => (
+                        <div key={record.id} className="rounded-md border p-2">
+                          <p className="font-medium">{record.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {recordTypeLabel(record.record_type)}
+                            {record.severity ? ` · ${severityLabel(record.severity)}` : ""}
+                          </p>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">Condiciones, alergias, citas y notas</h3>
+          <p className="text-sm text-muted-foreground">Historial médico básico para seguimiento familiar.</p>
+        </div>
+        <Button onClick={() => { setEditingRecord(null); setRecordOpen(true); }} disabled={!selectedMember}>
+          <Plus className="mr-2 h-4 w-4" />
+          Añadir registro
+        </Button>
+      </div>
+
+      {memberRecords.length === 0 ? (
+        <EmptyState icon={FileText} title="Sin registros médicos" description="Añade alergias, diagnósticos, citas o notas relevantes para este miembro." />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {memberRecords.map((record: any) => (
+            <Card key={record.id}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={record.severity === "critical" ? "destructive" : "secondary"}>{recordTypeLabel(record.record_type)}</Badge>
+                      {record.severity && <Badge variant="outline">{severityLabel(record.severity)}</Badge>}
+                      {record.show_in_sos && <Badge variant="destructive">SOS</Badge>}
+                    </div>
+                    <p className="mt-2 font-semibold">{record.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {record.occurred_on ? `Fecha: ${formatDate(record.occurred_on)}` : "Sin fecha"}
+                      {record.follow_up_on ? ` · Seguimiento: ${formatDate(record.follow_up_on)}` : ""}
+                    </p>
+                    {record.notes && <p className="mt-2 text-sm text-muted-foreground">{record.notes}</p>}
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <Button size="icon" variant="ghost" onClick={() => { setEditingRecord(record); setRecordOpen(true); }}>
+                      <span className="sr-only">Editar</span>
+                      <Stethoscope className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="text-destructive"
+                      onClick={async () => {
+                        try {
+                          await onDeleteRecord(record.id);
+                          toast.success("Registro eliminado");
+                        } catch (err: any) {
+                          toast.error(err.message || "No se pudo eliminar");
+                        }
+                      }}
+                    >
+                      <span className="sr-only">Eliminar</span>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {selectedMember && (
+        <>
+          <MedicalProfileDialog
+            open={profileOpen}
+            onOpenChange={setProfileOpen}
+            member={selectedMember}
+            profile={profile}
+            onSave={async (payload) => {
+              try {
+                await onSaveProfile(payload);
+                toast.success("Datos médicos guardados");
+                setProfileOpen(false);
+              } catch (err: any) {
+                toast.error(err.message || "No se pudo guardar");
+              }
+            }}
+          />
+          <MedicalRecordDialog
+            open={recordOpen}
+            onOpenChange={(value) => {
+              setRecordOpen(value);
+              if (!value) setEditingRecord(null);
+            }}
+            member={selectedMember}
+            editing={editingRecord}
+            onSave={async (payload) => {
+              try {
+                if (editingRecord) await onUpdateRecord({ ...payload, id: editingRecord.id });
+                else await onCreateRecord(payload);
+                toast.success(editingRecord ? "Registro actualizado" : "Registro añadido");
+                setRecordOpen(false);
+                setEditingRecord(null);
+              } catch (err: any) {
+                toast.error(err.message || "No se pudo guardar");
+              }
+            }}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
+  if (value === null || value === undefined || value === "") return null;
+  return (
+    <div className="flex justify-between gap-3 border-b pb-1 last:border-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium">{value}</span>
+    </div>
+  );
+}
+
+function MedicalProfileDialog({ open, onOpenChange, member, profile, onSave }: { open: boolean; onOpenChange: (v: boolean) => void; member: any; profile: any; onSave: (payload: any) => Promise<void>; }) {
+  const [form, setForm] = useState<any>({});
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      blood_type: profile?.blood_type ?? "",
+      height_cm: profile?.height_cm ?? "",
+      weight_kg: profile?.weight_kg ?? "",
+      public_health_provider: profile?.public_health_provider ?? "",
+      public_health_id: profile?.public_health_id ?? "",
+      private_insurance_name: profile?.private_insurance_name ?? "",
+      private_policy_number: profile?.private_policy_number ?? "",
+      private_coverage_notes: profile?.private_coverage_notes ?? "",
+      emergency_notes: profile?.emergency_notes ?? "",
+      show_in_sos: profile?.show_in_sos ?? true,
+    });
+  }, [open, profile]);
+  const update = (key: string, value: any) => setForm((prev: any) => ({ ...prev, [key]: value }));
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader><DialogTitle>Datos médicos de {member.display_name}</DialogTitle></DialogHeader>
+        <form className="space-y-4" onSubmit={(event) => {
+          event.preventDefault();
+          onSave({
+            member_id: member.id,
+            ...form,
+            height_cm: form.height_cm ? Number(form.height_cm) : null,
+            weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
+          });
+        }}>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-1"><Label>Grupo sanguíneo</Label><Input value={form.blood_type ?? ""} onChange={(e) => update("blood_type", e.target.value)} placeholder="Ej. A+" /></div>
+            <div className="space-y-1"><Label>Peso kg</Label><Input type="number" step="0.1" value={form.weight_kg ?? ""} onChange={(e) => update("weight_kg", e.target.value)} /></div>
+            <div className="space-y-1"><Label>Altura cm</Label><Input type="number" step="0.1" value={form.height_cm ?? ""} onChange={(e) => update("height_cm", e.target.value)} /></div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1"><Label>Sanidad pública</Label><Input value={form.public_health_provider ?? ""} onChange={(e) => update("public_health_provider", e.target.value)} placeholder="SESCAM, SERMAS..." /></div>
+            <div className="space-y-1"><Label>Número / tarjeta sanitaria</Label><Input value={form.public_health_id ?? ""} onChange={(e) => update("public_health_id", e.target.value)} /></div>
+            <div className="space-y-1"><Label>Seguro privado</Label><Input value={form.private_insurance_name ?? ""} onChange={(e) => update("private_insurance_name", e.target.value)} /></div>
+            <div className="space-y-1"><Label>Número de póliza</Label><Input value={form.private_policy_number ?? ""} onChange={(e) => update("private_policy_number", e.target.value)} /></div>
+          </div>
+          <div className="space-y-1"><Label>Coberturas / observaciones del seguro</Label><Textarea value={form.private_coverage_notes ?? ""} onChange={(e) => update("private_coverage_notes", e.target.value)} /></div>
+          <div className="space-y-1"><Label>Notas críticas para emergencia</Label><Textarea value={form.emergency_notes ?? ""} onChange={(e) => update("emergency_notes", e.target.value)} placeholder="Ej. lleva inhalador, antecedentes relevantes..." /></div>
+          <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+            <Checkbox checked={Boolean(form.show_in_sos)} onCheckedChange={(v) => update("show_in_sos", Boolean(v))} />
+            Incluir estas notas en avisos SOS
+          </label>
+          <DialogFooter><Button type="submit">Guardar datos médicos</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MedicalRecordDialog({ open, onOpenChange, member, editing, onSave }: { open: boolean; onOpenChange: (v: boolean) => void; member: any; editing: any; onSave: (payload: any) => Promise<void>; }) {
+  const [form, setForm] = useState<any>({});
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      record_type: editing?.record_type ?? "condition",
+      title: editing?.title ?? "",
+      severity: editing?.severity ?? "",
+      occurred_on: editing?.occurred_on ?? "",
+      follow_up_on: editing?.follow_up_on ?? "",
+      notes: editing?.notes ?? "",
+      show_in_sos: editing?.show_in_sos ?? false,
+    });
+  }, [open, editing]);
+  const update = (key: string, value: any) => setForm((prev: any) => ({ ...prev, [key]: value }));
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader><DialogTitle>{editing ? "Editar registro" : "Añadir registro"} · {member.display_name}</DialogTitle></DialogHeader>
+        <form className="space-y-4" onSubmit={(event) => {
+          event.preventDefault();
+          onSave({
+            member_id: member.id,
+            record_type: form.record_type,
+            title: form.title,
+            severity: form.severity || null,
+            occurred_on: form.occurred_on || null,
+            follow_up_on: form.follow_up_on || null,
+            notes: form.notes || null,
+            show_in_sos: Boolean(form.show_in_sos),
+          });
+        }}>
+          <div className="space-y-1">
+            <Label>Tipo</Label>
+            <Select value={form.record_type ?? "condition"} onValueChange={(v) => update("record_type", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{MEDICAL_RECORD_TYPES.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1"><Label>Título</Label><Input value={form.title ?? ""} onChange={(e) => update("title", e.target.value)} placeholder="Ej. Alergia a penicilina" required /></div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-1">
+              <Label>Gravedad</Label>
+              <Select value={form.severity || "none"} onValueChange={(v) => update("severity", v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin indicar</SelectItem>
+                  {MEDICAL_SEVERITIES.map((sev) => <SelectItem key={sev.value} value={sev.value}>{sev.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1"><Label>Fecha</Label><Input type="date" value={form.occurred_on ?? ""} onChange={(e) => update("occurred_on", e.target.value)} /></div>
+            <div className="space-y-1"><Label>Seguimiento</Label><Input type="date" value={form.follow_up_on ?? ""} onChange={(e) => update("follow_up_on", e.target.value)} /></div>
+          </div>
+          <div className="space-y-1"><Label>Notas</Label><Textarea value={form.notes ?? ""} onChange={(e) => update("notes", e.target.value)} /></div>
+          <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+            <Checkbox checked={Boolean(form.show_in_sos)} onCheckedChange={(v) => update("show_in_sos", Boolean(v))} />
+            Mostrar en emergencia/SOS
+          </label>
+          <DialogFooter><Button type="submit">{editing ? "Guardar cambios" : "Añadir registro"}</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function recordTypeLabel(type: string) {
+  return MEDICAL_RECORD_TYPES.find((item) => item.value === type)?.label ?? "Registro";
+}
+
+function severityLabel(severity: string) {
+  return MEDICAL_SEVERITIES.find((item) => item.value === severity)?.label ?? severity;
+}
+
+function formatDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("es-ES");
 }
 
 function MedicationCard({

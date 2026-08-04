@@ -63,7 +63,7 @@ export const en: Dict = {
     family: "Family",
     appliances: "Appliances",
     settings: "Settings",
-    medications: "Medication",
+    medications: "Health",
     loyalty: "Cards",
   },
   realtime: {
@@ -111,8 +111,8 @@ export const en: Dict = {
     currencies: { EUR: "Euro (€)", USD: "Dollar ($)", GBP: "Pound (£)" },
   },
   medications: {
-    title: "Medication",
-    subtitle: "Track doses and reminders",
+    title: "Health",
+    subtitle: "Medication, medical registry and reminders",
     add: "Add medication",
     name: "Name",
     form: "Form",

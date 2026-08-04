@@ -184,6 +184,7 @@ type SosEventInfo = {
   location_source?: string | null;
   last_known_location_used?: boolean | null;
   is_test?: boolean | null;
+  medical_summary?: string | null;
 };
 
 function sosTypeLabel(type?: string | null) {
@@ -237,6 +238,7 @@ export function buildSosMessage(event: SosEventInfo, reminderNumber: number): { 
       ? `Batería: ${Math.round(event.battery_level)}%${event.battery_charging ? " (cargando)" : ""}`
       : null,
     event.connection_type ? `Conexión: ${event.connection_type}` : null,
+    event.medical_summary ? `Resumen médico:\n${event.medical_summary}` : null,
     `Hora: ${when}`,
     isTest
       ? "Confirma si quieres probar el acuse de recibo. Este simulacro no genera recordatorios automáticos."
@@ -256,7 +258,12 @@ export async function dispatchSosNotifications(
   event: SosEventInfo,
   reminderNumber = 0,
 ): Promise<SosNotificationStatus> {
-  const { title, body } = buildSosMessage(event, reminderNumber);
+  const medicalSummary =
+    event.medical_summary ??
+    (event.triggered_by
+      ? await getSosMedicalSummary(supabase, event.household_id, event.triggered_by)
+      : null);
+  const { title, body } = buildSosMessage({ ...event, medical_summary: medicalSummary }, reminderNumber);
   const ackUrl = "/settings/emergency";
 
   let userIds: string[] = [];
@@ -472,6 +479,7 @@ export async function sendSosAlert(
     {
       id: eventId,
       household_id: householdId,
+      triggered_by: info.userId,
       triggered_by_name: info.name,
       latitude: info.latitude,
       longitude: info.longitude,
@@ -502,6 +510,48 @@ export async function sendSosAlert(
   }
 
   return status;
+}
+
+async function getSosMedicalSummary(
+  supabase: any,
+  householdId: string,
+  userId: string,
+): Promise<string | null> {
+  const { data: member } = await supabase
+    .from("household_members")
+    .select("id, display_name")
+    .eq("household_id", householdId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!member?.id) return null;
+
+  const [{ data: profile }, { data: records }] = await Promise.all([
+    supabase
+      .from("medical_profiles")
+      .select("blood_type, emergency_notes, show_in_sos")
+      .eq("household_id", householdId)
+      .eq("member_id", member.id)
+      .maybeSingle(),
+    supabase
+      .from("medical_records")
+      .select("record_type, title, severity, notes, show_in_sos")
+      .eq("household_id", householdId)
+      .eq("member_id", member.id)
+      .in("record_type", ["condition", "allergy"])
+      .or("show_in_sos.eq.true,severity.in.(high,critical)")
+      .order("record_type")
+      .limit(8),
+  ]);
+
+  const lines: string[] = [];
+  if (profile?.show_in_sos && profile.blood_type) lines.push(`Grupo sanguíneo: ${profile.blood_type}`);
+  if (profile?.show_in_sos && profile.emergency_notes) lines.push(`Notas: ${profile.emergency_notes}`);
+  for (const record of records ?? []) {
+    const kind = record.record_type === "allergy" ? "Alergia" : "Condición";
+    const severity = record.severity ? ` (${record.severity})` : "";
+    lines.push(`${kind}: ${record.title}${severity}`);
+  }
+  return lines.length > 0 ? lines.join("\n") : null;
 }
 
 

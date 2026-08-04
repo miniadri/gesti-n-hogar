@@ -216,7 +216,7 @@ export const cancelSos = createServerFn({ method: "POST" })
       note: data.reason ?? null,
     });
 
-    const { error } = await supabaseAdmin
+    const { error } = await (supabaseAdmin as any)
       .from("sos_events")
       .update({
         cancelled_at: now,
@@ -270,6 +270,72 @@ export const listPendingSosAcks = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+/** Active SOS events for the current household, including acknowledgement state for the current user. */
+export const listActiveSosAlerts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) return [];
+    const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await context.supabase
+      .from("sos_events")
+      .select("*, sos_acknowledgements(id, user_id, acknowledged_at, channel)")
+      .eq("household_id", householdId)
+      .eq("is_test", false)
+      .is("cancelled_at", null)
+      .is("ended_at", null)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    return Promise.all((data ?? []).map(async (event: any) => {
+      const ownAck = (event.sos_acknowledgements ?? []).find((ack: any) => ack.user_id === context.userId) ?? null;
+      return {
+        ...event,
+        medical_summary: await getMedicalSummaryForSos(context.supabase, householdId, event.triggered_by),
+        own_acknowledgement_id: ownAck?.id ?? null,
+        own_acknowledged_at: ownAck?.acknowledged_at ?? null,
+        needs_ack: ownAck ? !ownAck.acknowledged_at : false,
+        can_end: event.triggered_by === context.userId || Boolean(ownAck?.acknowledged_at),
+      };
+    }));
+  });
+
+async function getMedicalSummaryForSos(supabase: any, householdId: string, userId: string | null) {
+  if (!userId) return null;
+  const { data: member } = await supabase
+    .from("household_members")
+    .select("id")
+    .eq("household_id", householdId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!member?.id) return null;
+  const [{ data: profile }, { data: records }] = await Promise.all([
+    supabase
+      .from("medical_profiles")
+      .select("blood_type, emergency_notes, show_in_sos")
+      .eq("household_id", householdId)
+      .eq("member_id", member.id)
+      .maybeSingle(),
+    supabase
+      .from("medical_records")
+      .select("record_type, title, severity, show_in_sos")
+      .eq("household_id", householdId)
+      .eq("member_id", member.id)
+      .in("record_type", ["condition", "allergy"])
+      .or("show_in_sos.eq.true,severity.in.(high,critical)")
+      .limit(8),
+  ]);
+  const lines: string[] = [];
+  if (profile?.show_in_sos && profile.blood_type) lines.push(`Grupo sanguíneo: ${profile.blood_type}`);
+  if (profile?.show_in_sos && profile.emergency_notes) lines.push(profile.emergency_notes);
+  for (const record of records ?? []) {
+    const kind = record.record_type === "allergy" ? "Alergia" : "Condición";
+    lines.push(`${kind}: ${record.title}${record.severity ? ` (${record.severity})` : ""}`);
+  }
+  return lines.length ? lines.join("\n") : null;
+}
+
 /** Acknowledgement status of a SOS event (who has confirmed and who hasn't). */
 export const listSosAckStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -309,4 +375,47 @@ export const acknowledgeSos = createServerFn({ method: "POST" })
       .is("acknowledged_at", null);
 
     return { ok: true, pending: count ?? 0 };
+  });
+
+export const endSos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ sosEventId: z.string().uuid(), reason: z.string().max(300).nullable().optional() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data: event, error: eventError } = await context.supabase
+      .from("sos_events")
+      .select("id, household_id, triggered_by, ended_at, cancelled_at")
+      .eq("id", data.sosEventId)
+      .eq("household_id", householdId)
+      .maybeSingle();
+    if (eventError) throw eventError;
+    if (!event) throw new Error("SOS no encontrado");
+    if ((event as any).cancelled_at) throw new Error("Este SOS ya fue cancelado");
+    if ((event as any).ended_at) return { ok: true, alreadyEnded: true };
+
+    const { data: ownAck } = await context.supabase
+      .from("sos_acknowledgements")
+      .select("id, acknowledged_at")
+      .eq("sos_event_id", data.sosEventId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    const canEnd = (event as any).triggered_by === context.userId || Boolean((ownAck as any)?.acknowledged_at);
+    if (!canEnd) throw new Error("Primero confirma la recepción del SOS");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const now = new Date().toISOString();
+    const { error } = await (supabaseAdmin as any)
+      .from("sos_events")
+      .update({
+        ended_at: now,
+        ended_by: context.userId,
+        end_reason: data.reason ?? null,
+        acknowledged_at: now,
+      })
+      .eq("id", data.sosEventId)
+      .eq("household_id", householdId);
+    if (error) throw error;
+    return { ok: true };
   });

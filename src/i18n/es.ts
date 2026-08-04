@@ -61,7 +61,7 @@ export const es = {
     family: "Familia",
     appliances: "Electrodomésticos",
     settings: "Ajustes",
-    medications: "Medicación",
+    medications: "Salud",
     loyalty: "Tarjetas",
   },
   realtime: {
@@ -109,8 +109,8 @@ export const es = {
     currencies: { EUR: "Euro (€)", USD: "Dólar ($)", GBP: "Libra (£)" },
   },
   medications: {
-    title: "Medicación",
-    subtitle: "Control de tomas y recordatorios",
+    title: "Salud",
+    subtitle: "Medicación, registro médico y recordatorios",
     add: "Añadir medicación",
     name: "Nombre",
     form: "Forma",
