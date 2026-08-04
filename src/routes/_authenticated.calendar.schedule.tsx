@@ -128,9 +128,6 @@ function slotHours(s: { start_time: string; end_time: string }): number {
 function adjustedHours(plannedHours: number, adjustment: number): number {
   return Math.max(0, plannedHours + adjustment);
 }
-function actualOvertime(actualHours: number, targetHours: number): number {
-  return Math.max(0, actualHours - targetHours);
-}
 /**
  * Overtime for a day = manually registered extra hours + any planned hours above the daily target.
  * Manual extras always count, even when the planned shift was shorter than the target.
