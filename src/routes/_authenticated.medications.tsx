@@ -8,20 +8,19 @@ import {
   Plus,
   Pill,
   Clock,
-  Calendar,
   AlertCircle,
   Check,
   X,
-  ChevronRight,
+  ChevronDown,
   ShoppingCart,
   History,
   Bell,
   Clock3,
-  ShieldAlert,
   HeartPulse,
   FileText,
   AlertTriangle,
   Stethoscope,
+  Settings,
   Trash2,
 
 } from "lucide-react";
@@ -122,6 +121,7 @@ function MedicationsPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [medicalRegistryOpen, setMedicalRegistryOpen] = useState(false);
 
   const doCreate = useServerFn(createMedication);
   const doUpdate = useServerFn(updateMedication);
@@ -233,7 +233,13 @@ function MedicationsPage() {
           <h2 className="text-2xl font-bold tracking-tight">Salud</h2>
           <p className="text-muted-foreground">Medicación, registro médico y datos de emergencia</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button asChild variant="outline" title="Ajustes de emergencia">
+            <Link to="/settings/emergency">
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:ml-2 sm:inline">Emergencia</span>
+            </Link>
+          </Button>
           <SosButton variant="compact" />
           <Button
             onClick={() => {
@@ -246,6 +252,52 @@ function MedicationsPage() {
           </Button>
         </div>
       </div>
+
+      <section className="space-y-3">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-auto w-full justify-between rounded-xl border bg-card p-4 text-left shadow-sm"
+          onClick={() => setMedicalRegistryOpen((open) => !open)}
+          aria-expanded={medicalRegistryOpen}
+        >
+          <span className="flex min-w-0 items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10">
+              <HeartPulse className="h-5 w-5 text-primary" />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-semibold">Registro médico</span>
+              <span className="block text-sm font-normal text-muted-foreground">
+                Datos médicos familiares, alergias, condiciones y resumen SOS.
+              </span>
+            </span>
+          </span>
+          <ChevronDown className={`h-5 w-5 shrink-0 transition-transform ${medicalRegistryOpen ? "rotate-180" : ""}`} />
+        </Button>
+
+        {medicalRegistryOpen && (
+          <MedicalRegistryView
+            members={members}
+            registry={medicalRegistry}
+            onSaveProfile={async (payload) => {
+              await doSaveProfile({ data: payload });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+            onCreateRecord={async (payload) => {
+              await doCreateMedicalRecord({ data: payload });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+            onUpdateRecord={async (payload) => {
+              await doUpdateMedicalRecord({ data: payload });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+            onDeleteRecord={async (id) => {
+              await doDeleteMedicalRecord({ data: { id } });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+          />
+        )}
+      </section>
 
       {pendingToday.length > 0 && (
         <Card className="border-amber-500/30 bg-amber-500/5">
@@ -288,58 +340,12 @@ function MedicationsPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="registry">
+      <Tabs defaultValue="active">
         <TabsList>
-          <TabsTrigger value="registry">Registro médico</TabsTrigger>
-          <TabsTrigger value="emergency">Emergencia</TabsTrigger>
           <TabsTrigger value="active">Medicación activa</TabsTrigger>
           <TabsTrigger value="history">{t("medications.history")}</TabsTrigger>
           <TabsTrigger value="stock">{t("medications.lowStock")}</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="registry" className="space-y-4">
-          <MedicalRegistryView
-            members={members}
-            registry={medicalRegistry}
-            onSaveProfile={async (payload) => {
-              await doSaveProfile({ data: payload });
-              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
-            }}
-            onCreateRecord={async (payload) => {
-              await doCreateMedicalRecord({ data: payload });
-              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
-            }}
-            onUpdateRecord={async (payload) => {
-              await doUpdateMedicalRecord({ data: payload });
-              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
-            }}
-            onDeleteRecord={async (id) => {
-              await doDeleteMedicalRecord({ data: { id } });
-              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
-            }}
-          />
-        </TabsContent>
-
-        <TabsContent value="emergency" className="space-y-4">
-          <Card>
-            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-destructive/10">
-                  <ShieldAlert className="h-5 w-5 text-destructive" />
-                </div>
-                <div>
-                  <p className="font-semibold">Emergencia y contactos SOS</p>
-                  <p className="text-sm text-muted-foreground">
-                    La configuración de contactos de emergencia ahora está centralizada en Ajustes.
-                  </p>
-                </div>
-              </div>
-              <Button asChild className="w-full sm:w-auto">
-                <Link to="/settings/emergency">Abrir emergencia</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="active" className="space-y-4">
           {(medications ?? []).length === 0 && (
