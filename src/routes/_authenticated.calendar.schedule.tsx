@@ -366,10 +366,10 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       const slots = resolveDaySlots(d);
       const dayHours = slots.filter((s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular").reduce((a, s) => a + slotHours(s), 0);
       const status = statusByDate.get(format(d, "yyyy-MM-dd"));
-      const adjustment = Number(status?.overtime_hours ?? 0);
+      const adjustment = member.is_child ? 0 : Number(status?.overtime_hours ?? 0);
       const actualHours = adjustedHours(dayHours, adjustment);
       worked += actualHours;
-      extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
+      if (!member.is_child) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
     return { worked, extra };
   }, [weekDays, template, daySlots, statuses, settings]);
@@ -396,10 +396,10 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       if (finished.length === 0) continue;
       const dayHours = finished.reduce((a, s) => a + slotHours(s), 0);
       const dayComplete = finished.length === slots.length;
-      const adjustment = dayComplete ? Number(status?.overtime_hours ?? 0) : 0;
+      const adjustment = dayComplete && !member.is_child ? Number(status?.overtime_hours ?? 0) : 0;
       const actualHours = adjustedHours(dayHours, adjustment);
       worked += actualHours;
-      if (dayComplete) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
+      if (dayComplete && !member.is_child) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
     return { worked, extra, vacations };
   }, [weekStart, template, daySlots, statuses, settings]);
@@ -473,9 +473,9 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                 ...slots.map((s) => ({ ...s, __carry: false as const, __crosses: crossesMidnight(s) })),
               ];
               const dayHours = slots.filter((s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular").reduce((a, s) => a + slotHours(s), 0);
-              const adjustment = Number(status?.overtime_hours ?? 0);
+              const adjustment = member.is_child ? 0 : Number(status?.overtime_hours ?? 0);
               const actualHours = adjustedHours(dayHours, adjustment);
-              const overtime = dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
+              const overtime = member.is_child ? 0 : dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
               const hasOverride = daySlots.some((s) => s.date === dateStr) || status?.use_day_override;
               const nextDay = addDays(day, 1);
               const statusBannerColor =
@@ -1240,13 +1240,15 @@ function StatusDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5">
-            <Label>Ajuste de horas reales</Label>
-            <Input type="number" step="0.25" value={overtime} onChange={(e) => setOvertime(e.target.value)} />
-            <p className="text-xs text-muted-foreground">
-              Usa positivo si trabajaste más de lo previsto y negativo si saliste antes. Ejemplo: 10h previstas y ajuste -1 = 9h reales.
-            </p>
-          </div>
+          {!member.is_child && (
+            <div className="grid gap-1.5">
+              <Label>Ajuste de horas reales</Label>
+              <Input type="number" step="0.25" value={overtime} onChange={(e) => setOvertime(e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                Usa positivo si trabajaste más de lo previsto y negativo si saliste antes. Ejemplo: 10h previstas y ajuste -1 = 9h reales.
+              </p>
+            </div>
+          )}
           <div className="flex items-center justify-between rounded border p-2">
             <div>
               <div className="text-sm font-medium">Este día no sigue la plantilla</div>
@@ -1269,7 +1271,7 @@ function StatusDialog({
                     member_id: member.id,
                     date,
                     state,
-                    overtime_hours: Number(overtime) || 0,
+                    overtime_hours: member.is_child ? 0 : Number(overtime) || 0,
                     use_day_override: override,
                     notes: notes || null,
                   },
