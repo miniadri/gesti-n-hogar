@@ -366,10 +366,10 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       const slots = resolveDaySlots(d);
       const dayHours = slots.filter((s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular").reduce((a, s) => a + slotHours(s), 0);
       const status = statusByDate.get(format(d, "yyyy-MM-dd"));
-      const adjustment = Number(status?.overtime_hours ?? 0);
+      const adjustment = member.is_child ? 0 : Number(status?.overtime_hours ?? 0);
       const actualHours = adjustedHours(dayHours, adjustment);
       worked += actualHours;
-      extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
+      if (!member.is_child) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
     return { worked, extra };
   }, [weekDays, template, daySlots, statuses, settings]);
