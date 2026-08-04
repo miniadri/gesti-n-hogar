@@ -1271,7 +1271,7 @@ function StatusDialog({
                     member_id: member.id,
                     date,
                     state,
-                    overtime_hours: Number(overtime) || 0,
+                    overtime_hours: member.is_child ? 0 : Number(overtime) || 0,
                     use_day_override: override,
                     notes: notes || null,
                   },
