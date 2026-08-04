@@ -131,6 +131,14 @@ function adjustedHours(plannedHours: number, adjustment: number): number {
 function actualOvertime(actualHours: number, targetHours: number): number {
   return Math.max(0, actualHours - targetHours);
 }
+/**
+ * Overtime for a day = manually registered extra hours + any planned hours above the daily target.
+ * Manual extras always count, even when the planned shift was shorter than the target.
+ */
+function dayOvertime(plannedHours: number, adjustment: number, targetHours: number): number {
+  return Math.max(0, adjustment) + Math.max(0, plannedHours - targetHours);
+}
+
 function crossesMidnight(s: { start_time: string; end_time: string }): boolean {
   const end = timeToMinutes(s.end_time);
   // Ending exactly at midnight closes the same day: it does not spill into the next one.
