@@ -260,7 +260,8 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
             url: "/calendar/schedule",
           });
         }
-        if (minutesAfterEnd >= 0 && minutesAfterEnd <= 120) {
+        // Child profiles never register overtime, so we skip the end-of-shift confirmation prompt.
+        if (!member.is_child && minutesAfterEnd >= 0 && minutesAfterEnd <= 120) {
           const plannedHours = slotHours(slot);
           const target = Number(memberSettings.target_hours_per_day ?? 8);
           const prompt =
