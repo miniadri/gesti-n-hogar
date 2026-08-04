@@ -288,14 +288,58 @@ function MedicationsPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="active">
+      <Tabs defaultValue="registry">
         <TabsList>
-          <TabsTrigger value="active">Activas</TabsTrigger>
-          <TabsTrigger value="history">{t("medications.history")}</TabsTrigger>
-          <TabsTrigger value="stock">{t("medications.lowStock")}</TabsTrigger>
           <TabsTrigger value="registry">Registro médico</TabsTrigger>
           <TabsTrigger value="emergency">Emergencia</TabsTrigger>
+          <TabsTrigger value="active">Medicación activa</TabsTrigger>
+          <TabsTrigger value="history">{t("medications.history")}</TabsTrigger>
+          <TabsTrigger value="stock">{t("medications.lowStock")}</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="registry" className="space-y-4">
+          <MedicalRegistryView
+            members={members}
+            registry={medicalRegistry}
+            onSaveProfile={async (payload) => {
+              await doSaveProfile({ data: payload });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+            onCreateRecord={async (payload) => {
+              await doCreateMedicalRecord({ data: payload });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+            onUpdateRecord={async (payload) => {
+              await doUpdateMedicalRecord({ data: payload });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+            onDeleteRecord={async (id) => {
+              await doDeleteMedicalRecord({ data: { id } });
+              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="emergency" className="space-y-4">
+          <Card>
+            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-destructive/10">
+                  <ShieldAlert className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <p className="font-semibold">Emergencia y contactos SOS</p>
+                  <p className="text-sm text-muted-foreground">
+                    La configuración de contactos de emergencia ahora está centralizada en Ajustes.
+                  </p>
+                </div>
+              </div>
+              <Button asChild className="w-full sm:w-auto">
+                <Link to="/settings/emergency">Abrir emergencia</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="active" className="space-y-4">
           {(medications ?? []).length === 0 && (
@@ -373,49 +417,6 @@ function MedicationsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="registry" className="space-y-4">
-          <MedicalRegistryView
-            members={members}
-            registry={medicalRegistry}
-            onSaveProfile={async (payload) => {
-              await doSaveProfile({ data: payload });
-              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
-            }}
-            onCreateRecord={async (payload) => {
-              await doCreateMedicalRecord({ data: payload });
-              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
-            }}
-            onUpdateRecord={async (payload) => {
-              await doUpdateMedicalRecord({ data: payload });
-              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
-            }}
-            onDeleteRecord={async (id) => {
-              await doDeleteMedicalRecord({ data: { id } });
-              queryClient.invalidateQueries({ queryKey: ["medical-registry"] });
-            }}
-          />
-        </TabsContent>
-
-        <TabsContent value="emergency" className="space-y-4">
-          <Card>
-            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-destructive/10">
-                  <ShieldAlert className="h-5 w-5 text-destructive" />
-                </div>
-                <div>
-                  <p className="font-semibold">Emergencia y contactos SOS</p>
-                  <p className="text-sm text-muted-foreground">
-                    La configuración de contactos de emergencia ahora está centralizada en Ajustes.
-                  </p>
-                </div>
-              </div>
-              <Button asChild className="w-full sm:w-auto">
-                <Link to="/settings/emergency">Abrir emergencia</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       <MedicationDialog
@@ -729,7 +730,13 @@ function MedicalProfileDialog({ open, onOpenChange, member, profile, onSave }: {
             <div className="space-y-1"><Label>Número de póliza</Label><Input value={form.private_policy_number ?? ""} onChange={(e) => update("private_policy_number", e.target.value)} /></div>
           </div>
           <div className="space-y-1"><Label>Coberturas / observaciones del seguro</Label><Textarea value={form.private_coverage_notes ?? ""} onChange={(e) => update("private_coverage_notes", e.target.value)} /></div>
-          <div className="space-y-1"><Label>Notas críticas para emergencia</Label><Textarea value={form.emergency_notes ?? ""} onChange={(e) => update("emergency_notes", e.target.value)} placeholder="Ej. lleva inhalador, antecedentes relevantes..." /></div>
+          <div className="space-y-1">
+            <Label>Notas prácticas para emergencia</Label>
+            <Textarea value={form.emergency_notes ?? ""} onChange={(e) => update("emergency_notes", e.target.value)} placeholder="Ej. no puede quedarse solo, avisar al centro escolar, lleva documentación en la mochila..." />
+            <p className="text-xs text-muted-foreground">
+              No repitas aquí condiciones médicas, alergias o diagnósticos: añádelos en Condiciones, alergias, citas y notas. Este campo es para indicaciones prácticas que ayudarían durante una emergencia.
+            </p>
+          </div>
           <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
             <Checkbox checked={Boolean(form.show_in_sos)} onCheckedChange={(v) => update("show_in_sos", Boolean(v))} />
             Incluir estas notas en avisos SOS
