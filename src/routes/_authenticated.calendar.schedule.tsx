@@ -128,9 +128,14 @@ function slotHours(s: { start_time: string; end_time: string }): number {
 function adjustedHours(plannedHours: number, adjustment: number): number {
   return Math.max(0, plannedHours + adjustment);
 }
-function actualOvertime(actualHours: number, targetHours: number): number {
-  return Math.max(0, actualHours - targetHours);
+/**
+ * Overtime for a day = manually registered extra hours + any planned hours above the daily target.
+ * Manual extras always count, even when the planned shift was shorter than the target.
+ */
+function dayOvertime(plannedHours: number, adjustment: number, targetHours: number): number {
+  return Math.max(0, adjustment) + Math.max(0, plannedHours - targetHours);
 }
+
 function crossesMidnight(s: { start_time: string; end_time: string }): boolean {
   const end = timeToMinutes(s.end_time);
   // Ending exactly at midnight closes the same day: it does not spill into the next one.
@@ -364,7 +369,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       const adjustment = Number(status?.overtime_hours ?? 0);
       const actualHours = adjustedHours(dayHours, adjustment);
       worked += actualHours;
-      extra += actualOvertime(actualHours, settings.target_hours_per_day);
+      extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
     return { worked, extra };
   }, [weekDays, template, daySlots, statuses, settings]);
@@ -394,7 +399,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       const adjustment = dayComplete ? Number(status?.overtime_hours ?? 0) : 0;
       const actualHours = adjustedHours(dayHours, adjustment);
       worked += actualHours;
-      if (dayComplete) extra += actualOvertime(actualHours, settings.target_hours_per_day);
+      if (dayComplete) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
     return { worked, extra, vacations };
   }, [weekStart, template, daySlots, statuses, settings]);
@@ -470,7 +475,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
               const dayHours = slots.filter((s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular").reduce((a, s) => a + slotHours(s), 0);
               const adjustment = Number(status?.overtime_hours ?? 0);
               const actualHours = adjustedHours(dayHours, adjustment);
-              const overtime = actualOvertime(actualHours, settings.target_hours_per_day);
+              const overtime = dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
               const hasOverride = daySlots.some((s) => s.date === dateStr) || status?.use_day_override;
               const nextDay = addDays(day, 1);
               const statusBannerColor =
