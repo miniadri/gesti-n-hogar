@@ -372,7 +372,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       const adjustment = Number(status?.overtime_hours ?? 0);
       const actualHours = adjustedHours(dayHours, adjustment);
       worked += actualHours;
-      extra += actualOvertime(actualHours, settings.target_hours_per_day);
+      extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
     return { worked, extra };
   }, [weekDays, template, daySlots, statuses, settings]);
