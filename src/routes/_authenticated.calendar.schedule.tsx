@@ -396,10 +396,10 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       if (finished.length === 0) continue;
       const dayHours = finished.reduce((a, s) => a + slotHours(s), 0);
       const dayComplete = finished.length === slots.length;
-      const adjustment = dayComplete ? Number(status?.overtime_hours ?? 0) : 0;
+      const adjustment = dayComplete && !member.is_child ? Number(status?.overtime_hours ?? 0) : 0;
       const actualHours = adjustedHours(dayHours, adjustment);
       worked += actualHours;
-      if (dayComplete) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
+      if (dayComplete && !member.is_child) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
     return { worked, extra, vacations };
   }, [weekStart, template, daySlots, statuses, settings]);
