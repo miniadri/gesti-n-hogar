@@ -592,7 +592,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
           {/* Totals */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Esta semana</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Esta semana (horas previsatas)</CardTitle></CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{weekTotals.worked.toFixed(1)}h</div>
                 {weekTotals.extra > 0 && <div className="text-sm text-amber-600">+{weekTotals.extra.toFixed(1)}h extras</div>}
