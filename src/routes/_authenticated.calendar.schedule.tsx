@@ -1240,13 +1240,15 @@ function StatusDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5">
-            <Label>Ajuste de horas reales</Label>
-            <Input type="number" step="0.25" value={overtime} onChange={(e) => setOvertime(e.target.value)} />
-            <p className="text-xs text-muted-foreground">
-              Usa positivo si trabajaste más de lo previsto y negativo si saliste antes. Ejemplo: 10h previstas y ajuste -1 = 9h reales.
-            </p>
-          </div>
+          {!member.is_child && (
+            <div className="grid gap-1.5">
+              <Label>Ajuste de horas reales</Label>
+              <Input type="number" step="0.25" value={overtime} onChange={(e) => setOvertime(e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                Usa positivo si trabajaste más de lo previsto y negativo si saliste antes. Ejemplo: 10h previstas y ajuste -1 = 9h reales.
+              </p>
+            </div>
+          )}
           <div className="flex items-center justify-between rounded border p-2">
             <div>
               <div className="text-sm font-medium">Este día no sigue la plantilla</div>
