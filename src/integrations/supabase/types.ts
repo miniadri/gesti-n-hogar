@@ -856,6 +856,138 @@ export type Database = {
           },
         ]
       }
+      medical_profiles: {
+        Row: {
+          blood_type: string | null
+          created_at: string
+          emergency_notes: string | null
+          height_cm: number | null
+          household_id: string
+          id: string
+          member_id: string
+          private_coverage_notes: string | null
+          private_insurance_name: string | null
+          private_policy_number: string | null
+          public_health_id: string | null
+          public_health_provider: string | null
+          show_in_sos: boolean
+          updated_at: string
+          weight_kg: number | null
+        }
+        Insert: {
+          blood_type?: string | null
+          created_at?: string
+          emergency_notes?: string | null
+          height_cm?: number | null
+          household_id: string
+          id?: string
+          member_id: string
+          private_coverage_notes?: string | null
+          private_insurance_name?: string | null
+          private_policy_number?: string | null
+          public_health_id?: string | null
+          public_health_provider?: string | null
+          show_in_sos?: boolean
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Update: {
+          blood_type?: string | null
+          created_at?: string
+          emergency_notes?: string | null
+          height_cm?: number | null
+          household_id?: string
+          id?: string
+          member_id?: string
+          private_coverage_notes?: string | null
+          private_insurance_name?: string | null
+          private_policy_number?: string | null
+          public_health_id?: string | null
+          public_health_provider?: string | null
+          show_in_sos?: boolean
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medical_profiles_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medical_profiles_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: true
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medical_records: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          follow_up_on: string | null
+          household_id: string
+          id: string
+          member_id: string
+          notes: string | null
+          occurred_on: string | null
+          record_type: string
+          severity: string | null
+          show_in_sos: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          follow_up_on?: string | null
+          household_id: string
+          id?: string
+          member_id: string
+          notes?: string | null
+          occurred_on?: string | null
+          record_type: string
+          severity?: string | null
+          show_in_sos?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          follow_up_on?: string | null
+          household_id?: string
+          id?: string
+          member_id?: string
+          notes?: string | null
+          occurred_on?: string | null
+          record_type?: string
+          severity?: string | null
+          show_in_sos?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medical_records_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medical_records_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medication_intakes: {
         Row: {
           confirmed_by: string | null
@@ -2134,6 +2266,9 @@ export type Database = {
           cancelled_by: string | null
           connection_type: string | null
           created_at: string
+          end_reason: string | null
+          ended_at: string | null
+          ended_by: string | null
           household_id: string
           id: string
           is_test: boolean
@@ -2158,6 +2293,9 @@ export type Database = {
           cancelled_by?: string | null
           connection_type?: string | null
           created_at?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
           household_id: string
           id?: string
           is_test?: boolean
@@ -2182,6 +2320,9 @@ export type Database = {
           cancelled_by?: string | null
           connection_type?: string | null
           created_at?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
           household_id?: string
           id?: string
           is_test?: boolean
