@@ -103,6 +103,8 @@ const ActivityCenterInput = z.object({
     .enum(["all", "needs_review", "inventory", "shopping", "receipt", "notification", "sos", "schedule", "calendar", "medication", "health", "finance"])
     .default("all"),
   limit: z.number().int().min(10).max(150).default(60),
+  rangeStart: z.string().datetime().optional(),
+  rangeEnd: z.string().datetime().optional(),
 });
 
 type CenterItem = {
@@ -283,23 +285,42 @@ export const listActivityCenter = createServerFn({ method: "GET" })
       }
     }
 
+    const rangeStart = data.rangeStart ? new Date(data.rangeStart).getTime() : null;
+    const rangeEnd = data.rangeEnd ? new Date(data.rangeEnd).getTime() : null;
+    const inSelectedRange = (item: CenterItem) => {
+      const timestamp = new Date(item.created_at).getTime();
+      if (Number.isNaN(timestamp)) return false;
+      if (rangeStart !== null && timestamp < rangeStart) return false;
+      if (rangeEnd !== null && timestamp > rangeEnd) return false;
+      return true;
+    };
+
+    const timeFiltered = items.filter(inSelectedRange);
     const filtered = data.domain === "all"
-      ? items
+      ? timeFiltered
       : data.domain === "needs_review"
-        ? items.filter((item) => item.status === "pending" || item.status === "warning")
-        : items.filter((item) => item.domain === data.domain);
+        ? timeFiltered.filter((item) => item.status === "pending" || item.status === "warning")
+        : timeFiltered.filter((item) => item.domain === data.domain);
     const sorted = filtered
-      .filter((item) => Boolean(item.created_at))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, data.limit);
 
+    const summaryBase = data.domain === "all"
+      ? timeFiltered
+      : data.domain === "needs_review"
+        ? timeFiltered.filter((item) => item.status === "pending" || item.status === "warning")
+        : timeFiltered.filter((item) => item.domain === data.domain);
+
+    const summarySorted = summaryBase
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
     const summary = {
-      total: sorted.length,
-      errors: sorted.filter((item) => item.status === "error").length,
-      warnings: sorted.filter((item) => item.status === "warning").length,
-      pending: sorted.filter((item) => item.status === "pending").length,
-      notifications: sorted.filter((item) => ["notification", "sos", "schedule", "calendar", "medication"].includes(item.domain)).length,
-      latestAt: sorted[0]?.created_at ?? null,
+      total: summarySorted.length,
+      errors: summarySorted.filter((item) => item.status === "error").length,
+      warnings: summarySorted.filter((item) => item.status === "warning").length,
+      pending: summarySorted.filter((item) => item.status === "pending").length,
+      notifications: summarySorted.filter((item) => ["notification", "sos", "schedule", "calendar", "medication"].includes(item.domain)).length,
+      latestAt: summarySorted[0]?.created_at ?? null,
     };
 
     return { items: sorted, summary };
