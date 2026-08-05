@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { listActivityCenter } from "@/lib/activity.functions";
+import { listActivityCenter, setActivityItemReviewed } from "@/lib/activity.functions";
 import { cn } from "@/lib/utils";
 
 type DomainFilter =
@@ -44,7 +44,18 @@ type DomainFilter =
   | "health"
   | "finance";
 
-type TimeFilter = "last_hour" | "today" | "yesterday" | "last_7_days" | "last_30_days" | "custom" | "all";
+type TimeFilter =
+  | "last_hour"
+  | "last_3_hours"
+  | "last_6_hours"
+  | "last_12_hours"
+  | "last_24_hours"
+  | "today"
+  | "yesterday"
+  | "last_7_days"
+  | "last_30_days"
+  | "custom"
+  | "all";
 
 const filters: Array<{ value: DomainFilter; label: string }> = [
   { value: "all", label: "Todo" },
@@ -65,6 +76,10 @@ const timeFilters: Array<{ value: TimeFilter; label: string }> = [
   { value: "last_7_days", label: "Últimos 7 días" },
   { value: "today", label: "Hoy" },
   { value: "last_hour", label: "Última hora" },
+  { value: "last_3_hours", label: "Últimas 3 horas" },
+  { value: "last_6_hours", label: "Últimas 6 horas" },
+  { value: "last_12_hours", label: "Últimas 12 horas" },
+  { value: "last_24_hours", label: "Últimas 24 horas" },
   { value: "yesterday", label: "Ayer" },
   { value: "last_30_days", label: "Últimos 30 días" },
   { value: "custom", label: "Rango personalizado" },
@@ -109,6 +124,7 @@ function ActivityCenterPage() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("last_7_days");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const selectedRange = getTimeRange(timeFilter, customStart, customEnd);
   const { data, isFetching, refetch } = useQuery({
     queryKey: ["activity-center", domain, timeFilter, selectedRange.rangeStart, selectedRange.rangeEnd],
@@ -125,6 +141,16 @@ function ActivityCenterPage() {
 
   const items = data?.items ?? [];
   const summary = data?.summary;
+
+  const markReviewed = async (itemId: string, reviewed: boolean) => {
+    setUpdatingItemId(itemId);
+    try {
+      await setActivityItemReviewed({ data: { itemId, reviewed } });
+      await refetch();
+    } finally {
+      setUpdatingItemId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -214,7 +240,7 @@ function ActivityCenterPage() {
               <label className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground">Desde</span>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={customStart}
                   onChange={(event) => setCustomStart(event.target.value)}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -223,7 +249,7 @@ function ActivityCenterPage() {
               <label className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground">Hasta</span>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={customEnd}
                   onChange={(event) => setCustomEnd(event.target.value)}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -250,8 +276,9 @@ function ActivityCenterPage() {
             <ul className="space-y-3">
               {items.map((item: any) => {
                 const Icon = domainIcons[item.domain] ?? Activity;
-                const content = (
-                  <li className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40">
+                const canReview = item.status === "pending" || item.status === "warning";
+                return (
+                  <li key={item.id} className="flex flex-col gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-start">
                     <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground">
                       <Icon className="h-5 w-5" />
                     </div>
@@ -261,21 +288,47 @@ function ActivityCenterPage() {
                         <Badge variant="outline">{domainLabels[item.domain] ?? item.domain}</Badge>
                         <StatusBadge status={item.status} />
                         {item.channel && <Badge variant="secondary">{item.channel}</Badge>}
+                        {item.reviewed_at && <Badge variant="secondary">Revisado</Badge>}
                       </div>
                       {item.details && <p className="text-sm text-muted-foreground">{item.details}</p>}
                       <p className="text-xs text-muted-foreground">
                         {item.actor_name ?? "Sistema"} · {formatDate(item.created_at)}
                       </p>
+                      {item.reviewed_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Revisado por {item.reviewed_by_name ?? "Usuario"} · {formatDate(item.reviewed_at)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                      {item.href && (
+                        <Button asChild variant="outline" size="sm">
+                          <Link to={item.href as any}>Abrir</Link>
+                        </Button>
+                      )}
+                      {canReview && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => void markReviewed(item.id, true)}
+                          disabled={updatingItemId === item.id}
+                        >
+                          Marcar revisado
+                        </Button>
+                      )}
+                      {item.reviewed_at && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void markReviewed(item.id, false)}
+                          disabled={updatingItemId === item.id}
+                        >
+                          Reabrir
+                        </Button>
+                      )}
                     </div>
                   </li>
-                );
-
-                return item.href ? (
-                  <Link key={item.id} to={item.href as any} className="block">
-                    {content}
-                  </Link>
-                ) : (
-                  <div key={item.id}>{content}</div>
                 );
               })}
             </ul>
@@ -369,6 +422,15 @@ function getTimeRange(filter: TimeFilter, customStart: string, customEnd: string
     };
   }
 
+  if (filter === "last_3_hours" || filter === "last_6_hours" || filter === "last_12_hours" || filter === "last_24_hours") {
+    const hours = Number(filter.match(/\d+/)?.[0] ?? 1);
+    return {
+      rangeStart: new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString(),
+      rangeEnd: now.toISOString(),
+      label: `${hours} h`,
+    };
+  }
+
   if (filter === "today") {
     const start = new Date(now);
     start.setHours(0, 0, 0, 0);
@@ -393,8 +455,8 @@ function getTimeRange(filter: TimeFilter, customStart: string, customEnd: string
   }
 
   if (filter === "custom") {
-    const start = customStart ? new Date(`${customStart}T00:00:00`) : null;
-    const end = customEnd ? new Date(`${customEnd}T23:59:59.999`) : null;
+    const start = customStart ? new Date(customStart) : null;
+    const end = customEnd ? new Date(customEnd) : null;
     return {
       rangeStart: start && !Number.isNaN(start.getTime()) ? start.toISOString() : undefined,
       rangeEnd: end && !Number.isNaN(end.getTime()) ? end.toISOString() : undefined,
