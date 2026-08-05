@@ -184,9 +184,11 @@ export const joinHousehold = createServerFn({ method: "POST" })
       .from("household_invites")
       .select("*, household:household_id(*)")
       .eq("code", code)
-      .gt("expires_at", new Date().toISOString())
-      .single();
-    if (inviteError || !invite) throw new Error("Código inválido o expirado");
+      .maybeSingle();
+    if (inviteError || !invite) throw new Error("Código inválido");
+    if (invite.used_at) throw new Error("Este código ya ha sido usado");
+    if (new Date(invite.expires_at) <= new Date()) throw new Error("Este código ha caducado");
+
 
     // Already a member? no-op.
     const { data: existing } = await supabaseAdmin
