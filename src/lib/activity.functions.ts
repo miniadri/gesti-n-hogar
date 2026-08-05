@@ -100,7 +100,7 @@ export const listHouseholdActivity = createServerFn({ method: "GET" })
 
 const ActivityCenterInput = z.object({
   domain: z
-    .enum(["all", "needs_review", "inventory", "shopping", "receipt", "notification", "sos", "schedule", "calendar", "medication", "health", "finance"])
+    .enum(["all", "needs_review", "alerts", "inventory", "shopping", "receipt", "notification", "sos", "schedule", "calendar", "medication", "health", "finance"])
     .default("all"),
   limit: z.number().int().min(10).max(150).default(60),
   rangeStart: z.string().datetime().optional(),
@@ -327,20 +327,12 @@ export const listActivityCenter = createServerFn({ method: "GET" })
     };
 
     const timeFiltered = items.filter(inSelectedRange);
-    const filtered = data.domain === "all"
-      ? timeFiltered
-      : data.domain === "needs_review"
-        ? timeFiltered.filter((item) => item.status === "pending" || item.status === "warning")
-        : timeFiltered.filter((item) => item.domain === data.domain);
+    const filtered = applyCenterFilter(timeFiltered, data.domain);
     const sorted = filtered
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, data.limit);
 
-    const summaryBase = data.domain === "all"
-      ? timeFiltered
-      : data.domain === "needs_review"
-        ? timeFiltered.filter((item) => item.status === "pending" || item.status === "warning")
-        : timeFiltered.filter((item) => item.domain === data.domain);
+    const summaryBase = applyCenterFilter(timeFiltered, data.domain);
 
     const summarySorted = summaryBase
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -399,6 +391,17 @@ function normalizeActivityStatus(status: string | null | undefined): CenterItem[
   if (status === "pending") return "pending";
   if (status === "sent" || status === "ok" || status === "success") return "ok";
   return "info";
+}
+
+function applyCenterFilter(items: CenterItem[], domain: z.infer<typeof ActivityCenterInput>["domain"]) {
+  if (domain === "all") return items;
+  if (domain === "needs_review") {
+    return items.filter((item) => item.status === "pending" || item.status === "warning");
+  }
+  if (domain === "alerts") {
+    return items.filter((item) => ["notification", "sos", "schedule", "calendar", "medication"].includes(item.domain));
+  }
+  return items.filter((item) => item.domain === domain);
 }
 
 function medicationStatus(status: string): CenterItem["status"] {
