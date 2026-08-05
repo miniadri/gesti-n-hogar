@@ -50,21 +50,27 @@ export const Route = createFileRoute("/_authenticated/settings/family")({
 function FamilySettingsPage() {
   const queryClient = useQueryClient();
   const { data } = useSuspenseQuery(householdQueryOptions);
+  const invites = useQuery(invitesQueryOptions);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [code, setCode] = useState("");
   const [role, setRole] = useState("member");
+  const [childMode, setChildMode] = useState<"manual" | "code">("manual");
   const [childName, setChildName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [householdName, setHouseholdName] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
 
   const doCreateInvite = useServerFn(createInvite);
   const doJoin = useServerFn(joinHousehold);
   const doCreateChild = useServerFn(createChildMember);
   const doUpdateHousehold = useServerFn(updateHousehold);
   const doRenameMember = useServerFn(renameMember);
+  const doDeleteInvite = useServerFn(deleteInvite);
+
 
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [memberName, setMemberName] = useState("");
