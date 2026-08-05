@@ -99,7 +99,11 @@ function FamilySettingsPage() {
     }
   };
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["household"] });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["household"] });
+    queryClient.invalidateQueries({ queryKey: ["household-invites"] });
+  };
+
 
   const startEditName = () => {
     setHouseholdName(data.name);
