@@ -227,6 +227,7 @@ export const joinHousehold = createServerFn({ method: "POST" })
       household_id: invite.household_id,
       user_id: context.userId,
       display_name: profile?.full_name || "Miembro",
+      is_child: invite.role === "child",
     });
 
     await supabaseAdmin.from("user_roles").insert({
@@ -235,8 +236,14 @@ export const joinHousehold = createServerFn({ method: "POST" })
       household_id: invite.household_id,
     });
 
+    await supabaseAdmin
+      .from("household_invites")
+      .update({ used_at: new Date().toISOString(), used_by: context.userId })
+      .eq("id", invite.id);
+
     return { ok: true, household: invite.household };
   });
+
 
 export const updateProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
