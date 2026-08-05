@@ -123,6 +123,33 @@ export const getHousehold = createServerFn({ method: "GET" })
     return data;
   });
 
+export const listInvites = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const { data, error } = await context.supabase
+      .from("household_invites")
+      .select("id, code, role, expires_at, created_at, used_at, used_by")
+      .eq("household_id", householdId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return data ?? [];
+  });
+
+export const deleteInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("household_invites")
+      .delete()
+      .eq("id", data.id);
+    if (error) throw error;
+    return { ok: true };
+  });
+
 export const createInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => InviteInput.parse(input))
@@ -144,6 +171,7 @@ export const createInvite = createServerFn({ method: "POST" })
     if (error) throw error;
     return invite;
   });
+
 
 export const joinHousehold = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
