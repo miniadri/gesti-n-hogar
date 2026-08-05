@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   Activity,
@@ -27,13 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { listActivityCenter, setActivityItemReviewed } from "@/lib/activity.functions";
+import { listActivityCenter, markActivityReviewed, reopenActivityItem } from "@/lib/activity.functions";
 import { cn } from "@/lib/utils";
 
 type DomainFilter =
   | "all"
   | "needs_review"
-  | "alerts"
   | "notification"
   | "sos"
   | "schedule"
@@ -61,7 +61,7 @@ type TimeFilter =
 const filters: Array<{ value: DomainFilter; label: string }> = [
   { value: "all", label: "Todo" },
   { value: "needs_review", label: "Pendiente/revisar" },
-  { value: "alerts", label: "Avisos" },
+  { value: "notification", label: "Avisos" },
   { value: "sos", label: "SOS" },
   { value: "schedule", label: "Cuadrante" },
   { value: "calendar", label: "Calendario" },
@@ -84,7 +84,7 @@ const timeFilters: Array<{ value: TimeFilter; label: string }> = [
   { value: "yesterday", label: "Ayer" },
   { value: "last_30_days", label: "Últimos 30 días" },
   { value: "custom", label: "Rango personalizado" },
-  { value: "all", label: "Todo el historial" },
+  { value: "all", label: "Máximo 90 días" },
 ];
 
 const domainIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -121,11 +121,11 @@ export const Route = createFileRoute("/_authenticated/settings/activity")({
 });
 
 function ActivityCenterPage() {
+  const queryClient = useQueryClient();
   const [domain, setDomain] = useState<DomainFilter>("all");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("last_7_days");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const selectedRange = getTimeRange(timeFilter, customStart, customEnd);
   const { data, isFetching, refetch } = useQuery({
     queryKey: ["activity-center", domain, timeFilter, selectedRange.rangeStart, selectedRange.rangeEnd],
@@ -139,19 +139,19 @@ function ActivityCenterPage() {
         },
       }),
   });
+  const invalidateActivity = () =>
+    queryClient.invalidateQueries({ queryKey: ["activity-center"] });
+  const reviewMutation = useMutation({
+    mutationFn: (itemId: string) => markActivityReviewed({ data: { itemId } }),
+    onSuccess: invalidateActivity,
+  });
+  const reopenMutation = useMutation({
+    mutationFn: (itemId: string) => reopenActivityItem({ data: { itemId } }),
+    onSuccess: invalidateActivity,
+  });
 
   const items = data?.items ?? [];
   const summary = data?.summary;
-
-  const markReviewed = async (itemId: string, reviewed: boolean) => {
-    setUpdatingItemId(itemId);
-    try {
-      await setActivityItemReviewed({ data: { itemId, reviewed } });
-      await refetch();
-    } finally {
-      setUpdatingItemId(null);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -162,7 +162,7 @@ function ActivityCenterPage() {
             <h2 className="text-2xl font-bold tracking-tight">Actividad y avisos</h2>
           </div>
           <p className="text-muted-foreground">
-            Historial del hogar para revisar cambios, recordatorios, avisos y emergencias.
+            Historial del hogar para revisar cambios, recordatorios, avisos y emergencias. Se conserva un máximo de 90 días.
           </p>
         </div>
         <Button variant="outline" onClick={() => void refetch()} disabled={isFetching}>
@@ -183,8 +183,8 @@ function ActivityCenterPage() {
           icon={Bell}
           label="Avisos"
           value={summary?.notifications ?? 0}
-          active={domain === "alerts"}
-          onClick={() => setDomain("alerts")}
+          active={domain === "notification"}
+          onClick={() => setDomain("notification")}
         />
         <SummaryCard
           icon={AlertTriangle}
@@ -277,9 +277,8 @@ function ActivityCenterPage() {
             <ul className="space-y-3">
               {items.map((item: any) => {
                 const Icon = domainIcons[item.domain] ?? Activity;
-                const canReview = item.status === "pending" || item.status === "warning";
-                return (
-                  <li key={item.id} className="flex flex-col gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-start">
+                const content = (
+                  <li className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40">
                     <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground">
                       <Icon className="h-5 w-5" />
                     </div>
@@ -289,47 +288,55 @@ function ActivityCenterPage() {
                         <Badge variant="outline">{domainLabels[item.domain] ?? item.domain}</Badge>
                         <StatusBadge status={item.status} />
                         {item.channel && <Badge variant="secondary">{item.channel}</Badge>}
-                        {item.reviewed_at && <Badge variant="secondary">Revisado</Badge>}
                       </div>
                       {item.details && <p className="text-sm text-muted-foreground">{item.details}</p>}
                       <p className="text-xs text-muted-foreground">
                         {item.actor_name ?? "Sistema"} · {formatDate(item.created_at)}
+                        {item.reviewed_at ? ` · Revisado ${formatDate(item.reviewed_at)}` : ""}
                       </p>
-                      {item.reviewed_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Revisado por {item.reviewed_by_name ?? "Usuario"} · {formatDate(item.reviewed_at)}
-                        </p>
-                      )}
                     </div>
-                    <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-                      {item.href && (
-                        <Button asChild variant="outline" size="sm">
-                          <Link to={item.href as any}>Abrir</Link>
-                        </Button>
-                      )}
-                      {canReview && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => void markReviewed(item.id, true)}
-                          disabled={updatingItemId === item.id}
-                        >
-                          Marcar revisado
-                        </Button>
-                      )}
-                      {item.reviewed_at && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => void markReviewed(item.id, false)}
-                          disabled={updatingItemId === item.id}
-                        >
-                          Reabrir
-                        </Button>
-                      )}
-                    </div>
+                    {(item.reviewable || item.reviewed_at) && (
+                      <div className="shrink-0">
+                        {item.reviewed_at ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              reopenMutation.mutate(item.id);
+                            }}
+                            disabled={reopenMutation.isPending}
+                          >
+                            Reabrir
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              reviewMutation.mutate(item.id);
+                            }}
+                            disabled={reviewMutation.isPending}
+                          >
+                            Marcar revisado
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </li>
+                );
+
+                return item.href ? (
+                  <Link key={item.id} to={item.href as any} className="block">
+                    {content}
+                  </Link>
+                ) : (
+                  <div key={item.id}>{content}</div>
                 );
               })}
             </ul>
@@ -415,16 +422,15 @@ function getTimeRange(filter: TimeFilter, customStart: string, customEnd: string
 
   if (filter === "all") return { rangeStart: undefined, rangeEnd: undefined, label: "todo" };
 
-  if (filter === "last_hour") {
-    return {
-      rangeStart: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
-      rangeEnd: now.toISOString(),
-      label: "1 h",
-    };
-  }
-
-  if (filter === "last_3_hours" || filter === "last_6_hours" || filter === "last_12_hours" || filter === "last_24_hours") {
-    const hours = Number(filter.match(/\d+/)?.[0] ?? 1);
+  const quickHours: Partial<Record<TimeFilter, number>> = {
+    last_hour: 1,
+    last_3_hours: 3,
+    last_6_hours: 6,
+    last_12_hours: 12,
+    last_24_hours: 24,
+  };
+  if (quickHours[filter]) {
+    const hours = quickHours[filter]!;
     return {
       rangeStart: new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString(),
       rangeEnd: now.toISOString(),
