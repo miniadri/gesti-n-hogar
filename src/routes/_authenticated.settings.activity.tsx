@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 type DomainFilter =
   | "all"
   | "needs_review"
+  | "alerts"
   | "notification"
   | "sos"
   | "schedule"
@@ -60,7 +61,7 @@ type TimeFilter =
 const filters: Array<{ value: DomainFilter; label: string }> = [
   { value: "all", label: "Todo" },
   { value: "needs_review", label: "Pendiente/revisar" },
-  { value: "notification", label: "Avisos" },
+  { value: "alerts", label: "Avisos" },
   { value: "sos", label: "SOS" },
   { value: "schedule", label: "Cuadrante" },
   { value: "calendar", label: "Calendario" },
@@ -182,8 +183,8 @@ function ActivityCenterPage() {
           icon={Bell}
           label="Avisos"
           value={summary?.notifications ?? 0}
-          active={domain === "notification"}
-          onClick={() => setDomain("notification")}
+          active={domain === "alerts"}
+          onClick={() => setDomain("alerts")}
         />
         <SummaryCard
           icon={AlertTriangle}
