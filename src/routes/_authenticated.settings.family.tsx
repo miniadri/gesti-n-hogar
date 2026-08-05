@@ -312,10 +312,80 @@ function FamilySettingsPage() {
         </Card>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Historial de invitaciones</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(invites.data ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground">Todavía no hay códigos generados.</p>
+          )}
+          {(invites.data ?? []).map((inv: any) => {
+            const expired = !inv.used_at && new Date(inv.expires_at) <= new Date();
+            const status = inv.used_at ? "used" : expired ? "expired" : "active";
+            return (
+              <div key={inv.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono text-lg font-semibold tracking-widest">{inv.code}</p>
+                    <Badge
+                      variant={status === "active" ? "default" : status === "used" ? "secondary" : "destructive"}
+                    >
+                      {status === "active" ? "Activo" : status === "used" ? "Usado" : "Caducado"}
+                    </Badge>
+                    <Badge variant="outline">{roleLabels[inv.role] ?? inv.role}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {inv.used_at
+                      ? `Usado el ${new Date(inv.used_at).toLocaleString("es-ES")}`
+                      : `${expired ? "Caducó" : "Caduca"} el ${new Date(inv.expires_at).toLocaleString("es-ES")}`}
+                  </p>
+                  {expired && (
+                    <p className="text-xs text-destructive">Genera un código nuevo para invitar.</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Copiar código"
+                    onClick={() => {
+                      navigator.clipboard.writeText(inv.code).catch(() => {});
+                      toast.success("Código copiado");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Ver QR"
+                    disabled={status !== "active"}
+                    onClick={() => setQrCode(inv.code)}
+                  >
+                    <QrCode className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Eliminar código"
+                    onClick={() => handleDeleteInvite(inv.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{role === "child" ? "Añadir perfil infantil" : "Crear invitación"}</DialogTitle>
+            <DialogTitle>
+              {role === "child" && childMode === "manual" ? "Añadir perfil infantil" : "Crear invitación"}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreateInvite} className="space-y-4">
             <div className="space-y-2">
@@ -329,13 +399,34 @@ function FamilySettingsPage() {
                 <option value="admin">Admin</option>
                 <option value="child">Infantil</option>
               </select>
-              {role === "child" && (
-                <p className="text-xs text-muted-foreground">
-                  El perfil infantil se añade directamente al hogar, sin código de invitación.
-                </p>
-              )}
             </div>
             {role === "child" && (
+              <div className="space-y-2">
+                <Label>Cómo añadirlo</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={childMode === "manual" ? "default" : "outline"}
+                    onClick={() => setChildMode("manual")}
+                  >
+                    Manual
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={childMode === "code" ? "default" : "outline"}
+                    onClick={() => setChildMode("code")}
+                  >
+                    Con código + QR
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {childMode === "manual"
+                    ? "El perfil infantil se añade directamente al hogar, sin código."
+                    : "Se genera un código con rol infantil: quien lo use se unirá con las limitaciones de perfil infantil."}
+                </p>
+              </div>
+            )}
+            {role === "child" && childMode === "manual" && (
               <div className="space-y-2">
                 <Label>Nombre</Label>
                 <Input
@@ -349,20 +440,42 @@ function FamilySettingsPage() {
             <DialogFooter>
               <Button
                 type="submit"
-                disabled={submitting || (role === "child" && !childName.trim())}
+                disabled={submitting || (role === "child" && childMode === "manual" && !childName.trim())}
                 className="w-full"
               >
-                {submitting
-                  ? role === "child" ? "Añadiendo..." : "Creando..."
-                  : role === "child" ? "Añadir al hogar" : "Generar código"}
+                {role === "child" && childMode === "manual"
+                  ? submitting ? "Añadiendo..." : "Añadir al hogar"
+                  : submitting ? "Creando..." : "Generar código"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!qrCode} onOpenChange={(o) => !o && setQrCode(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Código de invitación</DialogTitle>
+          </DialogHeader>
+          {qrCode && (
+            <div className="space-y-3 text-center">
+              <BarcodeDisplay value={qrCode} format="QR" />
+              <p className="font-mono text-xl font-semibold tracking-widest">{qrCode}</p>
+              <p className="text-sm text-muted-foreground">
+                Escanéalo desde "Unirse a un hogar" o introduce el código manualmente.
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-      <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
+      <Dialog
+        open={joinOpen}
+        onOpenChange={(o) => {
+          setJoinOpen(o);
+          if (!o) setScanning(false);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Unirse a un hogar</DialogTitle>
@@ -372,6 +485,26 @@ function FamilySettingsPage() {
               <Label>Código de invitación</Label>
               <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="ABCDEFGH" />
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setScanning((s) => !s)}
+            >
+              <Camera className="mr-2 h-4 w-4" />
+              {scanning ? "Cerrar cámara" : "Escanear QR"}
+            </Button>
+            {scanning && (
+              <BarcodeScanner
+                active
+                paused={submitting}
+                onDetected={(value) => {
+                  setCode(value.trim().toUpperCase());
+                  setScanning(false);
+                  submitJoin(value);
+                }}
+              />
+            )}
             <DialogFooter>
               <Button type="submit" disabled={submitting || !code.trim()} className="w-full">
                 {submitting ? "Uniendo..." : "Unirse"}
@@ -381,5 +514,6 @@ function FamilySettingsPage() {
         </DialogContent>
       </Dialog>
     </div>
+
   );
 }
