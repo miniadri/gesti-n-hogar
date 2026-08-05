@@ -100,7 +100,7 @@ export const listHouseholdActivity = createServerFn({ method: "GET" })
 
 const ActivityCenterInput = z.object({
   domain: z
-    .enum(["all", "inventory", "shopping", "receipt", "notification", "sos", "schedule", "calendar", "medication", "health", "finance"])
+    .enum(["all", "needs_review", "inventory", "shopping", "receipt", "notification", "sos", "schedule", "calendar", "medication", "health", "finance"])
     .default("all"),
   limit: z.number().int().min(10).max(150).default(60),
 });
@@ -283,7 +283,11 @@ export const listActivityCenter = createServerFn({ method: "GET" })
       }
     }
 
-    const filtered = data.domain === "all" ? items : items.filter((item) => item.domain === data.domain);
+    const filtered = data.domain === "all"
+      ? items
+      : data.domain === "needs_review"
+        ? items.filter((item) => item.status === "pending" || item.status === "warning")
+        : items.filter((item) => item.domain === data.domain);
     const sorted = filtered
       .filter((item) => Boolean(item.created_at))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())

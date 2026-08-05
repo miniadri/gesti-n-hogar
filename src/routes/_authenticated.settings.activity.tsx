@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 
 type DomainFilter =
   | "all"
+  | "needs_review"
   | "notification"
   | "sos"
   | "schedule"
@@ -45,6 +46,7 @@ type DomainFilter =
 
 const filters: Array<{ value: DomainFilter; label: string }> = [
   { value: "all", label: "Todo" },
+  { value: "needs_review", label: "Pendiente/revisar" },
   { value: "notification", label: "Avisos" },
   { value: "sos", label: "SOS" },
   { value: "schedule", label: "Cuadrante" },
@@ -119,9 +121,27 @@ function ActivityCenterPage() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">
-        <SummaryCard icon={Activity} label="Registros" value={summary?.total ?? 0} />
-        <SummaryCard icon={Bell} label="Avisos" value={summary?.notifications ?? 0} />
-        <SummaryCard icon={AlertTriangle} label="Pendiente/revisar" value={(summary?.pending ?? 0) + (summary?.warnings ?? 0)} />
+        <SummaryCard
+          icon={Activity}
+          label="Registros"
+          value={summary?.total ?? 0}
+          active={domain === "all"}
+          onClick={() => setDomain("all")}
+        />
+        <SummaryCard
+          icon={Bell}
+          label="Avisos"
+          value={summary?.notifications ?? 0}
+          active={domain === "notification"}
+          onClick={() => setDomain("notification")}
+        />
+        <SummaryCard
+          icon={AlertTriangle}
+          label="Pendiente/revisar"
+          value={(summary?.pending ?? 0) + (summary?.warnings ?? 0)}
+          active={domain === "needs_review"}
+          onClick={() => setDomain("needs_review")}
+        />
         <SummaryCard icon={CheckCircle2} label="Último" value={summary?.latestAt ? formatRelative(summary.latestAt) : "Sin datos"} />
       </div>
 
@@ -204,14 +224,18 @@ function SummaryCard({
   icon: Icon,
   label,
   value,
+  active = false,
+  onClick,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
+  active?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-4">
+  const content = (
+    <Card className={cn(onClick && "transition-colors hover:bg-muted/40", active && "border-primary bg-primary/5")}>
+      <CardContent className="flex items-center gap-3 p-4 text-left">
         <div className="grid h-10 w-10 place-items-center rounded-lg bg-secondary">
           <Icon className="h-5 w-5" />
         </div>
@@ -221,6 +245,14 @@ function SummaryCard({
         </div>
       </CardContent>
     </Card>
+  );
+
+  if (!onClick) return content;
+
+  return (
+    <button type="button" className="block w-full text-left" onClick={onClick} aria-pressed={active}>
+      {content}
+    </button>
   );
 }
 
