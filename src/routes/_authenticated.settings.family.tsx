@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Users, Copy, Plus, UserPlus, Pencil, Check, X } from "lucide-react";
+import { Users, Copy, Plus, UserPlus, Pencil, Check, X, QrCode, Trash2, Camera } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,14 +16,28 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarcodeDisplay } from "@/components/BarcodeDisplay";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { useServerFn } from "@tanstack/react-start";
-import { getHousehold, createInvite, joinHousehold, createChildMember, updateHousehold, renameMember } from "@/lib/household.functions";
+import { getHousehold, createInvite, joinHousehold, createChildMember, updateHousehold, renameMember, listInvites, deleteInvite } from "@/lib/household.functions";
 import { toast } from "sonner";
 
 const householdQueryOptions = queryOptions({
   queryKey: ["household"],
   queryFn: () => getHousehold(),
 });
+
+const invitesQueryOptions = queryOptions({
+  queryKey: ["household-invites"],
+  queryFn: () => listInvites(),
+});
+
+const roleLabels: Record<string, string> = {
+  admin: "Admin",
+  member: "Miembro",
+  child: "Infantil",
+};
+
 
 export const Route = createFileRoute("/_authenticated/settings/family")({
   loader: ({ context }) => context.queryClient.ensureQueryData(householdQueryOptions),
