@@ -100,16 +100,15 @@ export const listHouseholdActivity = createServerFn({ method: "GET" })
 
 const ActivityCenterInput = z.object({
   domain: z
-    .enum(["all", "needs_review", "alerts", "inventory", "shopping", "receipt", "notification", "sos", "schedule", "calendar", "medication", "health", "finance"])
+    .enum(["all", "needs_review", "inventory", "shopping", "receipt", "notification", "sos", "schedule", "calendar", "medication", "health", "finance"])
     .default("all"),
   limit: z.number().int().min(10).max(150).default(60),
   rangeStart: z.string().datetime().optional(),
   rangeEnd: z.string().datetime().optional(),
 });
 
-const ReviewActivityItemInput = z.object({
-  itemId: z.string().min(3).max(160),
-  reviewed: z.boolean().default(true),
+const ReviewActivityInput = z.object({
+  itemId: z.string().min(3).max(200),
 });
 
 type CenterItem = {
@@ -123,10 +122,51 @@ type CenterItem = {
   channel: string | null;
   status: "ok" | "pending" | "warning" | "error" | "info";
   created_at: string;
-  reviewed_at?: string | null;
-  reviewed_by_name?: string | null;
   href?: string;
+  reviewed_at?: string | null;
+  reviewable?: boolean;
 };
+
+export const markActivityReviewed = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ReviewActivityInput.parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const userId = context.userId;
+    const { error } = await (context.supabase as any)
+      .from("household_activity_reviews")
+      .upsert(
+        {
+          household_id: householdId,
+          item_key: data.itemId,
+          reviewed_by: userId,
+          reviewed_at: new Date().toISOString(),
+        },
+        { onConflict: "household_id,item_key" },
+      );
+    if (error) throw error;
+
+    return { ok: true };
+  });
+
+export const reopenActivityItem = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ReviewActivityInput.parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { error } = await (context.supabase as any)
+      .from("household_activity_reviews")
+      .delete()
+      .eq("household_id", householdId)
+      .eq("item_key", data.itemId);
+    if (error) throw error;
+
+    return { ok: true };
+  });
 
 export const listActivityCenter = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -135,28 +175,48 @@ export const listActivityCenter = createServerFn({ method: "GET" })
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
 
-    const [membersRes, activityRes, sosRes, scheduleLogRes, calendarRes, medicationRes] =
+    try {
+      await (context.supabase as any).rpc("cleanup_household_activity_retention");
+    } catch (err) {
+      console.warn("[activity] Could not run retention cleanup", err);
+    }
+
+    const retentionStart = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const requestedStart = data.rangeStart ? new Date(data.rangeStart) : null;
+    const effectiveStart =
+      requestedStart && requestedStart.getTime() > retentionStart.getTime()
+        ? requestedStart
+        : retentionStart;
+
+    const [membersRes, reviewsRes, activityRes, sosRes, scheduleLogRes, calendarRes, medicationRes] =
       await Promise.allSettled([
         context.supabase
           .from("household_members")
           .select("id, user_id, display_name")
           .eq("household_id", householdId),
         (context.supabase as any)
+          .from("household_activity_reviews")
+          .select("item_key, reviewed_at")
+          .eq("household_id", householdId),
+        (context.supabase as any)
           .from("household_activity")
           .select("*")
           .eq("household_id", householdId)
+          .gte("created_at", effectiveStart.toISOString())
           .order("created_at", { ascending: false })
           .limit(data.limit),
         context.supabase
           .from("sos_events")
           .select("id, triggered_by, triggered_by_name, is_test, sos_type, note, acknowledged_at, cancelled_at, ended_at, reminder_count, created_at")
           .eq("household_id", householdId)
+          .gte("created_at", effectiveStart.toISOString())
           .order("created_at", { ascending: false })
           .limit(25),
         context.supabase
           .from("schedule_notification_log")
           .select("id, member_id, user_id, notice_type, sent_at, created_at")
           .eq("household_id", householdId)
+          .gte("created_at", effectiveStart.toISOString())
           .order("sent_at", { ascending: false })
           .limit(35),
         context.supabase
@@ -164,6 +224,7 @@ export const listActivityCenter = createServerFn({ method: "GET" })
           .select("id, title, start_at, notified_at, created_by")
           .eq("household_id", householdId)
           .not("notified_at", "is", null)
+          .gte("notified_at", effectiveStart.toISOString())
           .order("notified_at", { ascending: false })
           .limit(25),
         context.supabase
@@ -177,6 +238,11 @@ export const listActivityCenter = createServerFn({ method: "GET" })
     const members = membersRes.status === "fulfilled" ? ((membersRes.value.data ?? []) as any[]) : [];
     const memberById = new Map(members.map((m) => [m.id, m.display_name as string]));
     const memberByUserId = new Map(members.filter((m) => m.user_id).map((m) => [m.user_id, m.display_name as string]));
+    const reviewByItem = new Map<string, string>(
+      reviewsRes.status === "fulfilled" && !reviewsRes.value.error
+        ? ((reviewsRes.value.data ?? []) as any[]).map((row) => [row.item_key, row.reviewed_at])
+        : [],
+    );
 
     const items: CenterItem[] = [];
 
@@ -292,30 +358,6 @@ export const listActivityCenter = createServerFn({ method: "GET" })
       }
     }
 
-    const itemIds = items.map((item) => item.id);
-    const reviewByItemId = new Map<string, any>();
-    if (itemIds.length > 0) {
-      const { data: reviews } = await (context.supabase as any)
-        .from("household_activity_reviews")
-        .select("item_key, reviewed_at, reviewed_by")
-        .eq("household_id", householdId)
-        .in("item_key", itemIds);
-
-      for (const review of reviews ?? []) {
-        reviewByItemId.set(review.item_key, review);
-      }
-    }
-
-    for (const item of items) {
-      const review = reviewByItemId.get(item.id);
-      if (!review) continue;
-      item.reviewed_at = review.reviewed_at;
-      item.reviewed_by_name = memberByUserId.get(review.reviewed_by) ?? "Usuario";
-      if (item.status === "pending" || item.status === "warning") {
-        item.status = "info";
-      }
-    }
-
     const rangeStart = data.rangeStart ? new Date(data.rangeStart).getTime() : null;
     const rangeEnd = data.rangeEnd ? new Date(data.rangeEnd).getTime() : null;
     const inSelectedRange = (item: CenterItem) => {
@@ -327,12 +369,34 @@ export const listActivityCenter = createServerFn({ method: "GET" })
     };
 
     const timeFiltered = items.filter(inSelectedRange);
-    const filtered = applyCenterFilter(timeFiltered, data.domain);
+    const reviewedItems = timeFiltered.map((item) => {
+      const reviewedAt = reviewByItem.get(item.id) ?? null;
+      const reviewable = item.status === "pending" || item.status === "warning" || item.status === "error";
+      return {
+        ...item,
+        reviewed_at: reviewedAt,
+        reviewable,
+        status: reviewedAt && reviewable ? "ok" as const : item.status,
+      };
+    });
+    const filtered = data.domain === "all"
+      ? reviewedItems
+      : data.domain === "needs_review"
+        ? reviewedItems.filter((item) => !item.reviewed_at && (item.status === "pending" || item.status === "warning" || item.status === "error"))
+        : data.domain === "notification"
+          ? reviewedItems.filter((item) => ["notification", "sos", "schedule", "calendar", "medication"].includes(item.domain))
+          : reviewedItems.filter((item) => item.domain === data.domain);
     const sorted = filtered
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, data.limit);
 
-    const summaryBase = applyCenterFilter(timeFiltered, data.domain);
+    const summaryBase = data.domain === "all"
+      ? reviewedItems
+      : data.domain === "needs_review"
+        ? reviewedItems.filter((item) => !item.reviewed_at && (item.status === "pending" || item.status === "warning" || item.status === "error"))
+        : data.domain === "notification"
+          ? reviewedItems.filter((item) => ["notification", "sos", "schedule", "calendar", "medication"].includes(item.domain))
+          : reviewedItems.filter((item) => item.domain === data.domain);
 
     const summarySorted = summaryBase
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -349,59 +413,12 @@ export const listActivityCenter = createServerFn({ method: "GET" })
     return { items: sorted, summary };
   });
 
-export const setActivityItemReviewed = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input) => ReviewActivityItemInput.parse(input ?? {}))
-  .handler(async ({ data, context }) => {
-    const householdId = (await context.supabase.rpc("current_household")).data;
-    if (!householdId) throw new Error("No household");
-
-    if (!data.itemId.includes(":")) {
-      throw new Error("Actividad no válida");
-    }
-
-    if (!data.reviewed) {
-      const { error } = await (context.supabase as any)
-        .from("household_activity_reviews")
-        .delete()
-        .eq("household_id", householdId)
-        .eq("item_key", data.itemId);
-      if (error) throw error;
-      return { ok: true, reviewed: false };
-    }
-
-    const { error } = await (context.supabase as any)
-      .from("household_activity_reviews")
-      .upsert(
-        {
-          household_id: householdId,
-          item_key: data.itemId,
-          reviewed_by: context.userId,
-          reviewed_at: new Date().toISOString(),
-        },
-        { onConflict: "household_id,item_key" },
-      );
-    if (error) throw error;
-    return { ok: true, reviewed: true };
-  });
-
 function normalizeActivityStatus(status: string | null | undefined): CenterItem["status"] {
   if (status === "error" || status === "failed") return "error";
   if (status === "warning") return "warning";
   if (status === "pending") return "pending";
   if (status === "sent" || status === "ok" || status === "success") return "ok";
   return "info";
-}
-
-function applyCenterFilter(items: CenterItem[], domain: z.infer<typeof ActivityCenterInput>["domain"]) {
-  if (domain === "all") return items;
-  if (domain === "needs_review") {
-    return items.filter((item) => item.status === "pending" || item.status === "warning");
-  }
-  if (domain === "alerts") {
-    return items.filter((item) => ["notification", "sos", "schedule", "calendar", "medication"].includes(item.domain));
-  }
-  return items.filter((item) => item.domain === domain);
 }
 
 function medicationStatus(status: string): CenterItem["status"] {
