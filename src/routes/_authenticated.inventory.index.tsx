@@ -29,6 +29,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
 import { listInventory, createInventoryItem, deleteInventoryItem, restoreInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
 import { listMedicines, createMedicine, updateMedicine, deleteMedicine, restoreMedicine } from "@/lib/medicines.functions";
+import { listHouseholdActivity } from "@/lib/activity.functions";
+import { ActivityList } from "@/components/ActivityList";
 import { undoableToast } from "@/hooks/use-undoable";
 import { INVENTORY_LOCATIONS, suggestLocation, type InventoryLocation } from "@/lib/inventory-locations";
 import { toast } from "sonner";
@@ -43,10 +45,16 @@ const medicinesQueryOptions = queryOptions({
   queryFn: () => listMedicines(),
 });
 
+const activityQueryOptions = queryOptions({
+  queryKey: ["household-activity", "inventory"],
+  queryFn: () => listHouseholdActivity({ data: { domain: "inventory", limit: 8 } }),
+});
+
 export const Route = createFileRoute("/_authenticated/inventory/")({
   loader: ({ context }) => Promise.all([
     context.queryClient.ensureQueryData(inventoryQueryOptions),
     context.queryClient.ensureQueryData(medicinesQueryOptions),
+    context.queryClient.ensureQueryData(activityQueryOptions),
   ]),
 
   head: () => ({
@@ -82,6 +90,7 @@ function normalizeLocation(loc?: string | null): InventoryLocation {
 function InventoryPage() {
   const queryClient = useQueryClient();
   const { data } = useSuspenseQuery(inventoryQueryOptions);
+  const { data: activity } = useSuspenseQuery(activityQueryOptions);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Otros");
@@ -108,7 +117,10 @@ function InventoryPage() {
   const doRestore = useServerFn(restoreInventoryItem);
   const doUpdate = useServerFn(updateInventoryItem);
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["inventory"] });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    queryClient.invalidateQueries({ queryKey: ["household-activity"] });
+  };
 
   const toggleSelected = (id: string) => {
     setSelected((prev) => {
@@ -323,6 +335,12 @@ function InventoryPage() {
           </CardContent>
         </Card>
       )}
+
+      <ActivityList
+        title="Actividad reciente de inventario"
+        items={activity ?? []}
+        empty="Cuando alguien añada, modifique o retire productos, aparecerá aquí."
+      />
 
       <div className="space-y-6">
         {INVENTORY_LOCATIONS.map((loc) => {

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { logHouseholdActivity } from "./activity.functions";
 
 const StoreInput = z.object({
   name: z.string().min(1).max(100),
@@ -146,12 +147,24 @@ export const createShoppingItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => ShoppingItemInput.parse(input))
   .handler(async ({ data, context }) => {
+    const householdId = await getHouseholdIdForShoppingList(context.supabase, data.shopping_list_id);
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
       .insert(data)
       .select()
       .single();
     if (error) throw error;
+    if (householdId) {
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "shopping",
+        action: "created",
+        title: `${item.name} añadido a la lista`,
+        details: `${item.quantity ?? 0} ${item.unit || "ud."}`,
+        entityType: "shopping_list_item",
+        entityId: item.id,
+        metadata: { quantity: item.quantity, unit: item.unit, category: item.category },
+      });
+    }
     return item;
   });
 
@@ -239,6 +252,15 @@ export const addInventorySuggestionToShopping = createServerFn({ method: "POST" 
       .select()
       .single();
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "shopping",
+      action: "suggested_added",
+      title: `${item.name} sugerido y añadido a la lista`,
+      details: `Motivo: stock crítico o caducidad cercana`,
+      entityType: "shopping_list_item",
+      entityId: item.id,
+      metadata: { inventory_item_id: invItem.id, quantity: targetQty },
+    });
     return { added: true, duplicate: false, item };
   });
 
@@ -255,6 +277,11 @@ export const toggleShoppingItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => ToggleItemInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { data: before } = await context.supabase
+      .from("shopping_list_items")
+      .select("id, name, quantity, unit, checked, shopping_list:shopping_list_id(household_id)")
+      .eq("id", data.id)
+      .maybeSingle();
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
       .update({ checked: data.checked })
@@ -262,6 +289,18 @@ export const toggleShoppingItem = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw error;
+    const householdId = (before as any)?.shopping_list?.household_id;
+    if (householdId) {
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "shopping",
+        action: data.checked ? "checked" : "unchecked",
+        title: data.checked ? `${item.name} marcado como comprado` : `${item.name} devuelto a pendientes`,
+        details: `${item.quantity ?? 0} ${item.unit || "ud."}`,
+        entityType: "shopping_list_item",
+        entityId: item.id,
+        metadata: { previous_checked: before?.checked, checked: data.checked },
+      });
+    }
     return item;
   });
 
@@ -269,8 +308,25 @@ export const deleteShoppingItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => DeleteItemInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { data: item } = await context.supabase
+      .from("shopping_list_items")
+      .select("id, name, quantity, unit, shopping_list:shopping_list_id(household_id)")
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await context.supabase.from("shopping_list_items").delete().eq("id", data.id);
     if (error) throw error;
+    const householdId = (item as any)?.shopping_list?.household_id;
+    if (householdId) {
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "shopping",
+        action: "deleted",
+        title: `${item?.name ?? "Producto"} eliminado de la lista`,
+        details: `${item?.quantity ?? 0} ${item?.unit || "ud."}`,
+        entityType: "shopping_list_item",
+        entityId: item?.id ?? data.id,
+        metadata: item ?? {},
+      });
+    }
     return { ok: true };
   });
 
@@ -282,11 +338,34 @@ export const restoreShoppingItem = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const payload: Record<string, any> = { ...data.row };
     delete payload.updated_at;
+    const householdId = payload.shopping_list_id
+      ? await getHouseholdIdForShoppingList(context.supabase, payload.shopping_list_id)
+      : null;
     const { data: row, error } = await context.supabase
       .from("shopping_list_items")
       .upsert(payload, { onConflict: "id" })
       .select()
       .single();
     if (error) throw error;
+    if (householdId) {
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "shopping",
+        action: "restored",
+        title: `${row.name} restaurado en la lista`,
+        details: `${row.quantity ?? 0} ${row.unit || "ud."}`,
+        entityType: "shopping_list_item",
+        entityId: row.id,
+        metadata: { restored_from_undo: true },
+      });
+    }
     return row;
   });
+
+async function getHouseholdIdForShoppingList(supabase: any, shoppingListId: string) {
+  const { data } = await supabase
+    .from("shopping_lists")
+    .select("household_id")
+    .eq("id", shoppingListId)
+    .maybeSingle();
+  return data?.household_id ?? null;
+}

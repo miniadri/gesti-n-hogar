@@ -62,6 +62,8 @@ import {
   restoreShoppingItem,
   addInventorySuggestionToShopping,
 } from "@/lib/shopping.functions";
+import { listHouseholdActivity } from "@/lib/activity.functions";
+import { ActivityList } from "@/components/ActivityList";
 import { undoableToast } from "@/hooks/use-undoable";
 import { listMedicines, updateMedicine } from "@/lib/medicines.functions";
 import { createInventoryItem, listInventory } from "@/lib/inventory.functions";
@@ -156,8 +158,11 @@ const shoppingQueryOptions = queryOptions({
       listInventory(),
     ]);
     const names = Array.from(new Set((items ?? []).map((i: any) => i.name).filter(Boolean)));
-    const prices = names.length > 0 ? await comparePrices({ data: { names } }) : {};
-    return { stores, items, recent, medicines, inventory, prices };
+    const [prices, activity] = await Promise.all([
+      names.length > 0 ? comparePrices({ data: { names } }) : Promise.resolve({} as Record<string, PriceQuote[]>),
+      listHouseholdActivity({ data: { limit: 10 } }),
+    ]);
+    return { stores, items, recent, medicines, inventory, prices, activity };
   },
 });
 
@@ -176,7 +181,10 @@ function ShoppingPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["shopping"] });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["shopping"] });
+    queryClient.invalidateQueries({ queryKey: ["household-activity"] });
+  };
 
   const isNoStore = (s: any) => /sin\s*tienda/i.test(s?.name ?? "");
 
@@ -266,6 +274,11 @@ function ShoppingPage() {
         onAdded={refresh}
       />
 
+      <ActivityList
+        title="Actividad reciente de compra e inventario"
+        items={data.activity ?? []}
+        empty="Cuando alguien añada productos, marque compras o escanee tickets, aparecerá aquí."
+      />
 
       <AddItemDialog open={addOpen} onOpenChange={setAddOpen} stores={data.stores} onAdded={refresh} />
       <ManageStoresDialog open={storeOpen} onOpenChange={setStoreOpen} stores={data.stores} onChange={refresh} />

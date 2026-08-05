@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { logHouseholdActivity } from "./activity.functions";
 
 const ScanTicketInput = z.object({
   imageUrl: z.string().url(),
@@ -133,6 +134,19 @@ export const scanTicket = createServerFn({ method: "POST" })
         status: "reviewed",
       })
       .eq("id", data.receiptId);
+
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (householdId) {
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "receipt",
+        action: "scanned",
+        title: `Ticket escaneado${receipt.store ? ` de ${receipt.store}` : ""}`,
+        details: `${receipt.items.length} producto(s) detectado(s)${receipt.total != null ? ` · ${receipt.total.toFixed(2)} €` : ""}`,
+        entityType: "receipt",
+        entityId: data.receiptId,
+        metadata: { store: receipt.store, total: receipt.total, date: receipt.date, items: receipt.items.length },
+      });
+    }
 
     if (receipt.items.length > 0) {
       await context.supabase.from("receipt_items").insert(

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { suggestLocation } from "./inventory-locations";
+import { logHouseholdActivity } from "./activity.functions";
 
 function normalizeName(s: string): string {
   return s
@@ -95,6 +96,15 @@ export const createInventoryItem = createServerFn({ method: "POST" })
         .select()
         .single();
       if (error) throw error;
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "inventory",
+        action: "updated",
+        title: `${updated.name} actualizado en inventario`,
+        details: `Cantidad: ${existing.quantity ?? 0} -> ${updated.quantity ?? 0}`,
+        entityType: "inventory_item",
+        entityId: updated.id,
+        metadata: { source: "create_or_merge", previous_quantity: existing.quantity, quantity: updated.quantity },
+      });
       return updated;
     }
 
@@ -104,6 +114,15 @@ export const createInventoryItem = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "inventory",
+      action: "created",
+      title: `${item.name} añadido al inventario`,
+      details: `${item.quantity ?? 0} ${item.unit || "ud."}${item.location ? ` · ${item.location}` : ""}`,
+      entityType: "inventory_item",
+      entityId: item.id,
+      metadata: { quantity: item.quantity, unit: item.unit, location: item.location, category: item.category },
+    });
     return item;
   });
 
@@ -112,6 +131,14 @@ export const updateInventoryItem = createServerFn({ method: "POST" })
   .inputValidator((input) => UpdateInventoryInput.parse(input))
   .handler(async ({ data, context }) => {
     const { id, ...rest } = data;
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const { data: before } = await context.supabase
+      .from("inventory_items")
+      .select("*")
+      .eq("household_id", householdId)
+      .eq("id", id)
+      .maybeSingle();
     const { data: item, error } = await context.supabase
       .from("inventory_items")
       .update(rest)
@@ -119,6 +146,15 @@ export const updateInventoryItem = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "inventory",
+      action: "updated",
+      title: `${item.name} actualizado`,
+      details: summarizeInventoryChange(before, item),
+      entityType: "inventory_item",
+      entityId: item.id,
+      metadata: { before, after: item, changed: Object.keys(rest) },
+    });
     return item;
   });
 
@@ -126,8 +162,27 @@ export const deleteInventoryItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => DeleteInventoryInput.parse(input))
   .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const { data: item } = await context.supabase
+      .from("inventory_items")
+      .select("id, name, quantity, unit, location")
+      .eq("household_id", householdId)
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await context.supabase.from("inventory_items").delete().eq("id", data.id);
     if (error) throw error;
+    if (item) {
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "inventory",
+        action: "deleted",
+        title: `${item.name} eliminado del inventario`,
+        details: `${item.quantity ?? 0} ${item.unit || "ud."}${item.location ? ` · ${item.location}` : ""}`,
+        entityType: "inventory_item",
+        entityId: item.id,
+        metadata: item,
+      });
+    }
     return { ok: true };
   });
 
@@ -193,17 +248,35 @@ export const importReceiptToInventory = createServerFn({ method: "POST" })
             last_price: it.unit_price ?? existing.last_price,
           })
           .eq("id", existing.id);
+        await logHouseholdActivity(context.supabase, householdId, context.userId, {
+          domain: "inventory",
+          action: "imported",
+          title: `${it.name} importado desde ticket`,
+          details: `Cantidad añadida: ${it.quantity ?? 1}`,
+          entityType: "inventory_item",
+          entityId: existing.id,
+          metadata: { receipt_id: data.receiptId, quantity: it.quantity, unit_price: it.unit_price },
+        });
         added++;
         continue;
       }
 
-      await context.supabase.from("inventory_items").insert({
+      const { data: inserted } = await context.supabase.from("inventory_items").insert({
         household_id: householdId,
         name: it.name,
         category: it.category ?? null,
         quantity: it.quantity ?? 1,
         location: suggestLocation(it.category),
         last_price: it.unit_price ?? null,
+      }).select("id").single();
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "inventory",
+        action: "imported",
+        title: `${it.name} añadido desde ticket`,
+        details: `Cantidad: ${it.quantity ?? 1}`,
+        entityType: "inventory_item",
+        entityId: inserted?.id ?? null,
+        metadata: { receipt_id: data.receiptId, quantity: it.quantity, unit_price: it.unit_price },
       });
       added++;
     }
@@ -228,5 +301,32 @@ export const restoreInventoryItem = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "inventory",
+      action: "restored",
+      title: `${row.name} restaurado en inventario`,
+      details: `${row.quantity ?? 0} ${row.unit || "ud."}`,
+      entityType: "inventory_item",
+      entityId: row.id,
+      metadata: { restored_from_undo: true },
+    });
     return row;
   });
+
+function summarizeInventoryChange(before: any, after: any) {
+  if (!before) return "Datos actualizados";
+  const changes: string[] = [];
+  if (Number(before.quantity ?? 0) !== Number(after.quantity ?? 0)) {
+    changes.push(`cantidad ${before.quantity ?? 0} -> ${after.quantity ?? 0}`);
+  }
+  if ((before.location ?? "") !== (after.location ?? "")) {
+    changes.push(`ubicación ${before.location || "sin ubicación"} -> ${after.location || "sin ubicación"}`);
+  }
+  if (Number(before.min_stock ?? 0) !== Number(after.min_stock ?? 0)) {
+    changes.push(`mínimo ${before.min_stock ?? 0} -> ${after.min_stock ?? 0}`);
+  }
+  if ((before.expiry_date ?? "") !== (after.expiry_date ?? "")) {
+    changes.push(`caducidad ${before.expiry_date || "sin fecha"} -> ${after.expiry_date || "sin fecha"}`);
+  }
+  return changes.length > 0 ? changes.join(" · ") : "Datos actualizados";
+}
