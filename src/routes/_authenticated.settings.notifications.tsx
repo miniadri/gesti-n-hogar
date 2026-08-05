@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Bell, BellRing, Mail, Send, Loader2 } from "lucide-react";
+import { Bell, BellRing, Mail, Send, Loader2, Activity } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -179,6 +179,23 @@ function NotificationsSettingsPage() {
         <h2 className="text-2xl font-bold tracking-tight">Notificaciones</h2>
         <p className="text-muted-foreground">Configura alertas y recordatorios</p>
       </div>
+
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="flex items-start gap-3">
+            <Activity className="mt-0.5 h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium">Historial común de avisos</p>
+              <p className="text-sm text-muted-foreground">
+                Revisa SOS, cuadrante, calendario, medicación, compra e inventario en un solo sitio.
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" asChild>
+            <Link to="/settings/activity">Ver actividad</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

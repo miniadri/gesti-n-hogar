@@ -30,8 +30,10 @@ import {
   deleteExpense,
   restoreExpense,
 } from "@/lib/finances.functions";
+import { listHouseholdActivity } from "@/lib/activity.functions";
 import { scanTicket } from "@/lib/ocr.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { ActivityList } from "@/components/ActivityList";
 import { undoableToast } from "@/hooks/use-undoable";
 import { toast } from "sonner";
 
@@ -41,8 +43,16 @@ const financesQueryOptions = queryOptions({
   queryFn: () => listFinances(),
 });
 
+const financeActivityQueryOptions = queryOptions({
+  queryKey: ["household-activity", "finance"],
+  queryFn: () => listHouseholdActivity({ data: { domain: "finance", limit: 8 } }),
+});
+
 export const Route = createFileRoute("/_authenticated/finances")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(financesQueryOptions),
+  loader: ({ context }) => Promise.all([
+    context.queryClient.ensureQueryData(financesQueryOptions),
+    context.queryClient.ensureQueryData(financeActivityQueryOptions),
+  ]),
   head: () => ({
     meta: [{ title: "Finanzas - HomeSync" }],
   }),
@@ -52,13 +62,17 @@ export const Route = createFileRoute("/_authenticated/finances")({
 function FinancesPage() {
   const queryClient = useQueryClient();
   const { data } = useSuspenseQuery(financesQueryOptions);
+  const { data: activity } = useSuspenseQuery(financeActivityQueryOptions);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [contribOpen, setContribOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [thresholdOpen, setThresholdOpen] = useState(false);
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["finances"] });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["finances"] });
+    queryClient.invalidateQueries({ queryKey: ["household-activity", "finance"] });
+  };
   const doDeleteExpense = useServerFn(deleteExpense);
   const doRestoreExpense = useServerFn(restoreExpense);
 
@@ -286,6 +300,12 @@ function FinancesPage() {
 
         </CardContent>
       </Card>
+
+      <ActivityList
+        title="Actividad reciente de finanzas"
+        items={activity ?? []}
+        empty="Cuando alguien añada, elimine o restaure gastos, aparecerá aquí."
+      />
 
       <AddExpenseDialog open={expenseOpen} onOpenChange={setExpenseOpen} data={data} onAdded={refresh} />
       <AddBudgetDialog open={budgetOpen} onOpenChange={setBudgetOpen} data={data} onAdded={refresh} />

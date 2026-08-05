@@ -35,6 +35,7 @@ import { Route as AuthenticatedSettingsExperimentalRouteImport } from './routes/
 import { Route as AuthenticatedSettingsEmergencyRouteImport } from './routes/_authenticated.settings.emergency'
 import { Route as AuthenticatedSettingsDiagnosticsRouteImport } from './routes/_authenticated.settings.diagnostics'
 import { Route as AuthenticatedSettingsAppliancesRouteImport } from './routes/_authenticated.settings.appliances'
+import { Route as AuthenticatedSettingsActivityRouteImport } from './routes/_authenticated.settings.activity'
 import { Route as AuthenticatedRecipesPlannerRouteImport } from './routes/_authenticated.recipes.planner'
 import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_authenticated.recipes.discover'
 import { Route as AuthenticatedRecipesRecipeIdRouteImport } from './routes/_authenticated.recipes.$recipeId'
@@ -192,6 +193,12 @@ const AuthenticatedSettingsAppliancesRoute =
     path: '/settings/appliances',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsActivityRoute =
+  AuthenticatedSettingsActivityRouteImport.update({
+    id: '/settings/activity',
+    path: '/settings/activity',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedRecipesPlannerRoute =
   AuthenticatedRecipesPlannerRouteImport.update({
     id: '/recipes/planner',
@@ -276,6 +283,7 @@ export interface FileRoutesByFullPath {
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
+  '/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
   '/settings/diagnostics': typeof AuthenticatedSettingsDiagnosticsRoute
   '/settings/emergency': typeof AuthenticatedSettingsEmergencyRoute
@@ -314,6 +322,7 @@ export interface FileRoutesByTo {
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
+  '/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
   '/settings/diagnostics': typeof AuthenticatedSettingsDiagnosticsRoute
   '/settings/emergency': typeof AuthenticatedSettingsEmergencyRoute
@@ -354,6 +363,7 @@ export interface FileRoutesById {
   '/_authenticated/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/_authenticated/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
   '/_authenticated/recipes/planner': typeof AuthenticatedRecipesPlannerRoute
+  '/_authenticated/settings/activity': typeof AuthenticatedSettingsActivityRoute
   '/_authenticated/settings/appliances': typeof AuthenticatedSettingsAppliancesRoute
   '/_authenticated/settings/diagnostics': typeof AuthenticatedSettingsDiagnosticsRoute
   '/_authenticated/settings/emergency': typeof AuthenticatedSettingsEmergencyRoute
@@ -394,6 +404,7 @@ export interface FileRouteTypes {
     | '/recipes/$recipeId'
     | '/recipes/discover'
     | '/recipes/planner'
+    | '/settings/activity'
     | '/settings/appliances'
     | '/settings/diagnostics'
     | '/settings/emergency'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/recipes/$recipeId'
     | '/recipes/discover'
     | '/recipes/planner'
+    | '/settings/activity'
     | '/settings/appliances'
     | '/settings/diagnostics'
     | '/settings/emergency'
@@ -471,6 +483,7 @@ export interface FileRouteTypes {
     | '/_authenticated/recipes/$recipeId'
     | '/_authenticated/recipes/discover'
     | '/_authenticated/recipes/planner'
+    | '/_authenticated/settings/activity'
     | '/_authenticated/settings/appliances'
     | '/_authenticated/settings/diagnostics'
     | '/_authenticated/settings/emergency'
@@ -688,6 +701,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAppliancesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/activity': {
+      id: '/_authenticated/settings/activity'
+      path: '/settings/activity'
+      fullPath: '/settings/activity'
+      preLoaderRoute: typeof AuthenticatedSettingsActivityRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/recipes/planner': {
       id: '/_authenticated/recipes/planner'
       path: '/recipes/planner'
@@ -794,6 +814,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRecipesRecipeIdRoute: typeof AuthenticatedRecipesRecipeIdRoute
   AuthenticatedRecipesDiscoverRoute: typeof AuthenticatedRecipesDiscoverRoute
   AuthenticatedRecipesPlannerRoute: typeof AuthenticatedRecipesPlannerRoute
+  AuthenticatedSettingsActivityRoute: typeof AuthenticatedSettingsActivityRoute
   AuthenticatedSettingsAppliancesRoute: typeof AuthenticatedSettingsAppliancesRoute
   AuthenticatedSettingsDiagnosticsRoute: typeof AuthenticatedSettingsDiagnosticsRoute
   AuthenticatedSettingsEmergencyRoute: typeof AuthenticatedSettingsEmergencyRoute
@@ -824,6 +845,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRecipesRecipeIdRoute: AuthenticatedRecipesRecipeIdRoute,
   AuthenticatedRecipesDiscoverRoute: AuthenticatedRecipesDiscoverRoute,
   AuthenticatedRecipesPlannerRoute: AuthenticatedRecipesPlannerRoute,
+  AuthenticatedSettingsActivityRoute: AuthenticatedSettingsActivityRoute,
   AuthenticatedSettingsAppliancesRoute: AuthenticatedSettingsAppliancesRoute,
   AuthenticatedSettingsDiagnosticsRoute: AuthenticatedSettingsDiagnosticsRoute,
   AuthenticatedSettingsEmergencyRoute: AuthenticatedSettingsEmergencyRoute,
@@ -874,3 +896,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList, Calendar, ShieldAlert, ShieldCheck, FlaskConical } from "lucide-react";
+import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList, Calendar, ShieldAlert, ShieldCheck, FlaskConical, Activity } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +55,12 @@ function SettingsHubPage() {
       label: t("common.notifications"),
       description: "Notificaciones push y alertas del hogar",
       icon: Bell,
+    },
+    {
+      to: "/settings/activity",
+      label: "Actividad y avisos",
+      description: "Historial común de cambios, recordatorios y emergencias",
+      icon: Activity,
     },
     {
       to: "/settings/emergency",

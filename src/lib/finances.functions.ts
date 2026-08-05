@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { logHouseholdActivity } from "./activity.functions";
 
 const ExpenseInput = z.object({
   amount: z.number().positive(),
@@ -125,6 +126,24 @@ export const createExpense = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "finance",
+      action: data.receipt_id ? "imported" : "created",
+      title: `${expense.description || "Gasto"} añadido`,
+      details: `Importe: €${Number(expense.amount).toFixed(2)}`,
+      entityType: "expense",
+      entityId: expense.id,
+      status: "ok",
+      metadata: {
+        amount: expense.amount,
+        category_id: expense.category_id,
+        paid_by: expense.paid_by,
+        date: expense.date,
+        is_subscription: expense.is_subscription,
+        recurrence: expense.recurrence,
+        receipt_id: expense.receipt_id,
+      },
+    });
     return expense;
   });
 
@@ -139,6 +158,15 @@ export const createCategory = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "finance",
+      action: "created",
+      title: `Categoría de gasto "${category.name}" creada`,
+      entityType: "expense_category",
+      entityId: category.id,
+      status: "ok",
+      metadata: { color: category.color, icon: category.icon },
+    });
     return category;
   });
 
@@ -146,8 +174,23 @@ export const deleteCategory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
+    const householdId = await currentHouseholdId(context.supabase);
+    const { data: category } = await context.supabase
+      .from("expense_categories")
+      .select("id, name")
+      .eq("household_id", householdId)
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await context.supabase.from("expense_categories").delete().eq("id", data.id);
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "finance",
+      action: "deleted",
+      title: `Categoría de gasto "${category?.name ?? "Sin nombre"}" eliminada`,
+      entityType: "expense_category",
+      entityId: data.id,
+      status: "warning",
+    });
     return { ok: true };
   });
 
@@ -162,6 +205,20 @@ export const createBudget = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "finance",
+      action: "created",
+      title: "Presupuesto añadido",
+      details: `Importe: €${Number(budget.amount).toFixed(2)}`,
+      entityType: "budget",
+      entityId: budget.id,
+      status: "ok",
+      metadata: {
+        amount: budget.amount,
+        category_id: budget.category_id,
+        period: budget.period,
+      },
+    });
     return budget;
   });
 
@@ -196,6 +253,7 @@ export const upsertMyContribution = createServerFn({ method: "POST" })
         .select()
         .single();
       if (error) throw error;
+      await logContributionActivity(context.supabase, householdId, context.userId, updated, false);
       return updated;
     }
     const { data: inserted, error } = await context.supabase
@@ -204,6 +262,7 @@ export const upsertMyContribution = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw error;
+    await logContributionActivity(context.supabase, householdId, context.userId, inserted, true);
     return inserted;
   });
 
@@ -217,6 +276,16 @@ export const updateCriticalThreshold = createServerFn({ method: "POST" })
       .update({ critical_threshold_percent: data.critical_threshold_percent })
       .eq("id", householdId);
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "finance",
+      action: "updated",
+      title: "Umbral financiero actualizado",
+      details: `Nuevo umbral: ${data.critical_threshold_percent}%`,
+      entityType: "household",
+      entityId: householdId,
+      status: "ok",
+      metadata: { critical_threshold_percent: data.critical_threshold_percent },
+    });
     return { ok: true };
   });
 
@@ -229,8 +298,25 @@ export const deleteExpense = createServerFn({ method: "POST" })
       _role: "admin",
     });
     if (!isAdmin) throw new Error("Solo el administrador del hogar puede borrar gastos");
+    const householdId = await currentHouseholdId(context.supabase);
+    const { data: expense } = await context.supabase
+      .from("expenses")
+      .select("id, amount, description, category_id, date, receipt_id")
+      .eq("household_id", householdId)
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await context.supabase.from("expenses").delete().eq("id", data.id);
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "finance",
+      action: "deleted",
+      title: `${expense?.description || "Gasto"} eliminado`,
+      details: expense ? `Importe: €${Number(expense.amount).toFixed(2)}` : null,
+      entityType: "expense",
+      entityId: data.id,
+      status: "warning",
+      metadata: expense ?? {},
+    });
     return { ok: true };
   });
 
@@ -252,5 +338,43 @@ export const restoreExpense = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "finance",
+      action: "restored",
+      title: `${row.description || "Gasto"} restaurado`,
+      details: `Importe: €${Number(row.amount).toFixed(2)}`,
+      entityType: "expense",
+      entityId: row.id,
+      status: "ok",
+      metadata: { restored_from_undo: true },
+    });
     return row;
   });
+
+async function logContributionActivity(
+  supabase: any,
+  householdId: string,
+  userId: string,
+  salary: any,
+  created: boolean,
+) {
+  const contributionAmount = salary?.contribution_type === "percentage" && salary?.amount != null
+    ? (Number(salary.amount) * Number(salary.contribution_value ?? 0)) / 100
+    : Number(salary?.contribution_value ?? 0);
+
+  await logHouseholdActivity(supabase, householdId, userId, {
+    domain: "finance",
+    action: created ? "created" : "updated",
+    title: created ? "Aporte configurado" : "Aporte actualizado",
+    details: `Aporte visible: €${Number(contributionAmount || 0).toFixed(2)}`,
+    entityType: "salary",
+    entityId: salary.id,
+    status: "ok",
+    metadata: {
+      contribution_type: salary.contribution_type,
+      contribution_value: salary.contribution_value,
+      contribution_amount: contributionAmount,
+      currency: salary.currency,
+    },
+  });
+}
