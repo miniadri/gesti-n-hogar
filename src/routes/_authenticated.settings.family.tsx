@@ -132,7 +132,7 @@ function FamilySettingsPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (role === "child") {
+      if (role === "child" && childMode === "manual") {
         if (!childName.trim()) {
           toast.error("Introduce un nombre para el perfil infantil");
           setSubmitting(false);
@@ -146,9 +146,10 @@ function FamilySettingsPage() {
       } else {
         const invite = await doCreateInvite({ data: { role: role as any } });
         toast.success(`Código creado: ${invite.code}`);
-        navigator.clipboard.writeText(invite.code);
+        navigator.clipboard.writeText(invite.code).catch(() => {});
         refresh();
         setInviteOpen(false);
+        setQrCode(invite.code);
       }
     } catch (err: any) {
       toast.error(err.message || "Error al crear invitación");
@@ -157,21 +158,38 @@ function FamilySettingsPage() {
     }
   };
 
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!code.trim()) return;
+  const handleDeleteInvite = async (id: string) => {
+    try {
+      await doDeleteInvite({ data: { id } });
+      refresh();
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo eliminar");
+    }
+  };
+
+  const submitJoin = async (raw: string) => {
+    const value = raw.trim().toUpperCase();
+    if (!value) return;
     setSubmitting(true);
     try {
-      await doJoin({ data: { code: code.trim() } });
+      await doJoin({ data: { code: value } });
       toast.success("Te has unido al hogar");
       refresh();
       setJoinOpen(false);
+      setScanning(false);
+      setCode("");
     } catch (err: any) {
       toast.error(err.message || "Código inválido");
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleJoin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitJoin(code);
+  };
+
 
   return (
     <div className="space-y-6">
