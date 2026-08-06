@@ -491,6 +491,97 @@ export type Database = {
           },
         ]
       }
+      household_activity: {
+        Row: {
+          action: string
+          actor_user_id: string
+          channel: string | null
+          created_at: string
+          details: string | null
+          domain: string
+          entity_id: string | null
+          entity_type: string | null
+          household_id: string
+          id: string
+          metadata: Json
+          status: string | null
+          title: string
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          channel?: string | null
+          created_at?: string
+          details?: string | null
+          domain: string
+          entity_id?: string | null
+          entity_type?: string | null
+          household_id: string
+          id?: string
+          metadata?: Json
+          status?: string | null
+          title: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          channel?: string | null
+          created_at?: string
+          details?: string | null
+          domain?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          household_id?: string
+          id?: string
+          metadata?: Json
+          status?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_activity_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      household_activity_reviews: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          item_key: string
+          reviewed_at: string
+          reviewed_by: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          item_key: string
+          reviewed_at?: string
+          reviewed_by: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          item_key?: string
+          reviewed_at?: string
+          reviewed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_activity_reviews_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_invites: {
         Row: {
           code: string
@@ -2554,6 +2645,7 @@ export type Database = {
         Args: { _is_shared: boolean; _member_id: string }
         Returns: boolean
       }
+      cleanup_household_activity_retention: { Args: never; Returns: number }
       current_household: { Args: never; Returns: string }
       get_household_contributions: {
         Args: { _household_id: string }
