@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import webPush from "web-push";
+import { isLowStock, stockAfterIntake } from "@/lib/medication-calc";
 
 const MedicationFormEnum = z.enum(["pill", "ml", "drops", "inhaler", "patch", "injection", "other"]);
 const IntakeStatusEnum = z.enum(["pending", "taken", "skipped", "missed"]);
