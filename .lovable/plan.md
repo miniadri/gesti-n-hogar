@@ -1,67 +1,45 @@
-# Integración con Home Assistant (vinculación externa de dispositivos)
+# Revisión de HogarSync y propuestas
 
-## Objetivo
-Permitir que HomeSync controle y consulte estado de aparatos del hogar (luces, enchufes, sensores, electrodomésticos) usando **Home Assistant** como puente universal, sin acoplarnos a un fabricante concreto (Philips Hue, Xiaomi, Shelly, Zigbee, Z-Wave, etc. quedan cubiertos porque HA ya los soporta).
+Estado revisado hoy: 30 rutas, ~25.000 líneas en pantallas y funciones de servidor. Los módulos grandes (Medicación 1.481 líneas, Cuadrante 1.288, Dashboard 1.142, Compra 971, Tarjetas 1.104) están completos funcionalmente, pero la base ya pide una fase de consolidación antes de seguir añadiendo cosas.
 
-## Enfoque general
-Cada hogar conecta **su propia instancia de Home Assistant** (autoalojada en Nabu Casa, Raspberry Pi, HAOS, etc.) proporcionando:
-- **URL base** (p. ej. `https://ha.miurl.com` o Nabu Casa Cloud URL)
-- **Long-Lived Access Token** generado en el perfil de HA
+## Lo que encontré ahora mismo
 
-Estas credenciales se guardan **cifradas en la BD**, se leen sólo desde server functions, y todas las llamadas a HA salen desde el servidor (nunca desde el navegador → evita CORS y no expone el token).
+- **Registro médico a medias**: existe `src/lib/medical-records.functions.ts` y la tabla, y se usa desde Medicación, SOS y avisos, pero no hay una pantalla propia ni entrada en Ajustes. Es la funcionalidad más "a medio camino" del proyecto.
+- **i18n solo cubre 8 de 30 pantallas**: el resto tiene los textos escritos directamente en español. El cambio de idioma a inglés hoy deja la mayoría de la app sin traducir.
+- **Avisos de la base de datos**: el linter reporta 1 tabla con seguridad activada pero sin ninguna regla de acceso (queda bloqueada del todo), 7 funciones internas ejecutables por cualquier usuario registrado y 1 extensión instalada en el esquema público.
+- **Sin pruebas automáticas**: no hay ninguna suite; los cálculos delicados (horas del cuadrante, extras, stock de medicación, importe de tickets) no están protegidos frente a regresiones.
 
-```text
-Navegador ─► serverFn (TanStack) ─► Home Assistant REST API ─► dispositivo
-                    ▲
-                    └── credenciales cifradas por household
-```
+## Propuesta por prioridad
 
-## Fases
+### 1. Consolidación (recomendado hacer primero)
+- Cerrar los avisos de base de datos: regla de acceso para la tabla sin políticas, restringir la ejecución de las funciones internas y mover la extensión fuera del esquema público.
+- Tests de las fórmulas críticas: horas semanales/mensuales y extras del cuadrante, descuento de stock por toma, reparto de gastos por aportación.
+- Trocear las 5 pantallas más largas en componentes (tarjetas del dashboard, semana/plantilla del cuadrante, pastillero/stock de medicación). Sin cambios visuales.
 
-### Fase 1 — Conexión y descubrimiento
-1. Nueva tabla `home_assistant_connections` (una por hogar): `household_id`, `base_url`, `token_ciphertext`, `status`, `last_synced_at`.
-2. Secret `HA_TOKEN_SECRET` (AES-256-GCM) para cifrar/descifrar tokens.
-3. UI en **Ajustes → Hogar → Home Assistant**:
-   - Formulario "URL + token" con enlace a la guía de HA para generar el token.
-   - Botón "Probar conexión" → `GET /api/` de HA para validar.
-4. Server function `syncHomeAssistantEntities` → llama a `GET /api/states`, filtra por dominios útiles (`light`, `switch`, `climate`, `sensor`, `binary_sensor`, `cover`, `media_player`, `vacuum`) y guarda en `devices` (reutilizamos la tabla existente añadiendo `external_source='home_assistant'` y `external_id=entity_id`).
+### 2. Completar Registro médico
+- Pantalla propia dentro de Medicación con condiciones, alergias a medicamentos y notas por miembro.
+- Visibilidad por registro: solo yo / adultos del hogar / todo el hogar; los perfiles infantiles los gestionan los adultos.
+- Aviso al crear una medicación que coincida con una alergia registrada.
+- Bloque de emergencia (alergias y condiciones críticas) visible en la ficha SOS.
 
-### Fase 2 — Control y estado
-1. Server functions:
-   - `callHomeAssistantService({ domain, service, entity_id, data })` → `POST /api/services/{domain}/{service}`.
-   - `getHomeAssistantState(entity_id)` → `GET /api/states/{entity_id}`.
-2. En la pantalla **/devices**: para cada dispositivo con `external_source='home_assistant'` mostrar controles según su dominio:
-   - Luz: on/off, brillo, color.
-   - Enchufe/switch: on/off + consumo si el atributo existe.
-   - Termostato: temperatura objetivo, modo.
-   - Sensor: valor + unidad, sin control.
-3. Refresco: polling cada 30–60 s vía TanStack Query mientras la pantalla está abierta.
+### 3. i18n completo
+- Extraer los textos de las 22 pantallas restantes y completar el diccionario inglés, empezando por Dashboard, Compra, Inventario, Tareas y Cuadrante.
 
-### Fase 3 — Reglas cruzadas con HomeSync (opcional)
-Aprovechar el resto de módulos:
-- **Modo cocina**: al abrir el kiosco, encender luz de cocina vía HA.
-- **Tareas**: acción "regar plantas" enciende la electroválvula.
-- **Notificaciones**: alerta si un sensor de humedad/temperatura del frigorífico se sale de rango.
-- **Escenas**: guardar combinaciones y ejecutarlas desde el dashboard.
-
-### Fase 4 — Alternativas y ampliaciones (documentadas, no implementadas)
-- **Webhook entrante** `/api/public/hooks/ha-event` para que HA nos empuje cambios en tiempo real (evita polling).
-- **WebSocket API de HA** para estado en vivo desde el servidor.
-- Integración directa con Matter/Zigbee2MQTT sólo si algún usuario no quiere HA.
-- Otros hubs: Google Home / Alexa quedarían como fase posterior (requieren OAuth y skills certificadas).
+### 4. Nuevas funciones (elige las que te interesen)
+- **Uso sin conexión**: cachear listas de compra e inventario y encolar los cambios para enviarlos al recuperar red. Es lo que más se nota en un supermercado con mala cobertura.
+- **Resumen semanal del hogar**: un aviso los domingos con gasto de la semana, tareas pendientes, caducidades próximas y horas trabajadas.
+- **Buscador global** (atajo de teclado) sobre productos, recetas, tareas, medicación y tarjetas.
+- **Informe mensual de gastos** exportable en PDF, con evolución por categoría y comparativa entre meses.
+- **Historial de precios por producto** con gráfica y aviso cuando algo sube por encima de un umbral.
+- **Tareas: puntos y recompensas** para perfiles infantiles, aprovechando el `child_allowed` que ya existe.
 
 ## Detalles técnicos
-- **Almacenamiento cifrado**: mismo patrón que ya documenta el proyecto para claves de conexión (AES-256-GCM, IV+tag+ciphertext en base64, clave `HA_TOKEN_SECRET` en env).
-- **Servidor único punto de contacto**: nunca exponer `base_url` ni token al cliente; sólo devolver el estado ya normalizado.
-- **RLS**: sólo miembros del hogar pueden leer/escribir su `home_assistant_connections`; sólo admin puede editar credenciales.
-- **i18n**: añadir claves `nav.smartHome`, `ha.connect`, `ha.token`, `ha.testConnection`, `ha.connected`, `ha.error` en `es.ts`/`en.ts`.
-- **Errores**: si HA devuelve 401 → marcar `status='invalid_token'` y pedir reconexión; si 5xx o timeout → `status='unreachable'` con banner en /devices.
-- **Realtime**: excluir la tabla del canal Realtime (cambia poco); actualizar vía invalidate tras acciones.
 
-## Fuera de alcance de este plan
-- Configurar HA por el usuario (queda del lado del usuario, sólo enlazamos guía oficial).
-- Instalación en la nube de HA gestionada por HomeSync.
-- Integraciones directas fabricante-a-fabricante sin pasar por HA.
+- Sin cambios de arquitectura: se mantiene TanStack Start, funciones de servidor y el cliente generado del backend.
+- Las migraciones nuevas incluirán los permisos y políticas correspondientes en la misma migración.
+- El trabajo de troceado es puramente de presentación: misma lógica, mismos datos.
+- Uso sin conexión sobre el service worker que ya existe (`public/sw.js`) más una cola local de cambios.
 
-## Entregable de la primera iteración
-Fase 1 + Fase 2 completas: el usuario puede conectar HA, ver sus entidades en /devices y encender/apagar luces y enchufes desde HomeSync.
+## Siguiente paso sugerido
+
+Empezar por el bloque 1 (consolidación) y el 2 (registro médico), y elegir 2 o 3 funciones del bloque 4 para la siguiente iteración.
