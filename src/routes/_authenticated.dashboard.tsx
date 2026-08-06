@@ -101,7 +101,7 @@ const SECTION_LABELS: Record<DashboardSectionKey, string> = {
   tasks: "Tareas",
   inventory: "Inventario bajo",
 };
-const WORK_SLOT_KINDS = new Set(["work", "subject", "extracurricular"]);
+
 
 const dashboardQueryOptions = queryOptions({
   queryKey: ["dashboard"],
