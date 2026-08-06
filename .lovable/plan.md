@@ -14,7 +14,7 @@ Estado revisado hoy: 30 rutas, ~25.000 líneas en pantallas y funciones de servi
 ### 1. Consolidación (recomendado hacer primero)
 - Cerrar los avisos de base de datos: regla de acceso para la tabla sin políticas, restringir la ejecución de las funciones internas y mover la extensión fuera del esquema público.
 - Tests de las fórmulas críticas: horas semanales/mensuales y extras del cuadrante, descuento de stock por toma, reparto de gastos por aportación.
-- Trocear las 5 pantallas más largas en componentes (tarjetas del dashboard, semana/plantilla del cuadrante, pastillero/stock de medicación). Sin cambios visuales.
+- Refactorizar las 5 pantallas más largas dividiéndolas en componentes más pequeños y reutilizables (por ejemplo: las tarjetas del dashboard, la vista semanal/plantilla del cuadrante, el pastillero y el stock de medicación). La interfaz visible quedará exactamente igual; solo se reorganiza el código interno para que sea más fácil de mantener y probar.
 
 ### 2. Completar Registro médico
 - Pantalla propia dentro de Medicación con condiciones, alergias a medicamentos y notas por miembro.
