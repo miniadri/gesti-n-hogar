@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import webPush from "web-push";
+import { isLowStock, stockAfterIntake } from "@/lib/medication-calc";
 
 const MedicationFormEnum = z.enum(["pill", "ml", "drops", "inhaler", "patch", "injection", "other"]);
 const IntakeStatusEnum = z.enum(["pending", "taken", "skipped", "missed"]);
@@ -439,7 +440,7 @@ export const recordIntake = createServerFn({ method: "POST" })
     if (error) throw error;
 
     if (data.status === "taken" && intake.medications?.dose_amount) {
-      const newQty = Math.max(0, (intake.medications.current_quantity ?? 0) - intake.medications.dose_amount);
+      const newQty = stockAfterIntake(intake.medications.current_quantity, intake.medications.dose_amount);
       await context.supabase
         .from("medications")
         .update({ current_quantity: newQty })
@@ -453,7 +454,7 @@ export const recordIntake = createServerFn({ method: "POST" })
 
       const threshold = intake.medications.low_stock_threshold;
       const prevQty = intake.medications.current_quantity ?? 0;
-      if (threshold != null && newQty <= threshold && prevQty > threshold) {
+      if (isLowStock(newQty, threshold) && !isLowStock(prevQty, threshold)) {
         const { addMedicationToShoppingList, sendPushToUsers, sendTelegramToUsers, resolveHouseholdUserIds } =
           await import("@/lib/notify.server");
         const added = await addMedicationToShoppingList(
