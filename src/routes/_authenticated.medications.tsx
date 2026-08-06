@@ -22,7 +22,9 @@ import {
   Stethoscope,
   Settings,
   Trash2,
-
+  Syringe,
+  Copy,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -431,6 +433,7 @@ function MedicationsPage() {
         editing={editing}
         members={members}
         medications={medications}
+        medicalRegistry={medicalRegistry}
         onSave={handleSave}
       />
     </div>
@@ -497,18 +500,61 @@ function MedicalRegistryView({
   const profile = profiles.find((p: any) => p.member_id === selectedMember?.id) ?? null;
   const memberRecords = records.filter((r: any) => r.member_id === selectedMember?.id);
   const criticalRecords = memberRecords.filter((r: any) => r.show_in_sos || ["high", "critical"].includes(r.severity));
+  const allergyRecords = memberRecords.filter((r: any) => r.record_type === "allergy");
+  const conditionRecords = memberRecords.filter((r: any) => r.record_type === "condition");
+  const vaccineRecords = memberRecords
+    .filter((r: any) => r.record_type === "vaccine")
+    .sort((a: any, b: any) => String(b.occurred_on ?? "").localeCompare(String(a.occurred_on ?? "")));
+
+  const copySummary = async () => {
+    if (!selectedMember) return;
+    try {
+      await navigator.clipboard.writeText(buildMedicalSummaryText(selectedMember, profile, memberRecords));
+      toast.success("Resumen médico copiado");
+    } catch {
+      toast.error("No se pudo copiar el resumen");
+    }
+  };
+
+  const printSummary = () => {
+    if (!selectedMember) return;
+    const html = buildMedicalSummaryHtml(selectedMember, profile, memberRecords);
+    const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
+    if (!win) {
+      toast.error("No se pudo abrir la ficha para imprimir");
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 250);
+  };
 
   return (
     <div className="space-y-4">
       <Card className="border-primary/30">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <HeartPulse className="h-4 w-4 text-primary" />
-            Registro médico familiar
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Visible solo para adultos del hogar. Los datos marcados para SOS se incluirán en avisos de emergencia.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <HeartPulse className="h-4 w-4 text-primary" />
+                Registro médico familiar
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Visible solo para adultos del hogar. Los datos marcados para SOS se incluirán en avisos de emergencia.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={copySummary} disabled={!selectedMember}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copiar resumen
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={printSummary} disabled={!selectedMember}>
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir ficha
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-[260px_1fr]">
@@ -531,7 +577,7 @@ function MedicalRegistryView({
           </div>
 
           {selectedMember && (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-base">Datos vitales y seguros</CardTitle>
@@ -574,6 +620,63 @@ function MedicalRegistryView({
                   )}
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Syringe className="h-4 w-4 text-primary" />
+                    Vacunas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {vaccineRecords.length === 0 ? (
+                    <p className="text-muted-foreground">Sin vacunas registradas.</p>
+                  ) : (
+                    vaccineRecords.slice(0, 5).map((record: any) => (
+                      <div key={record.id} className="rounded-md border p-2">
+                        <p className="font-medium">{record.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {record.occurred_on ? formatDate(record.occurred_on) : "Sin fecha"}
+                          {record.follow_up_on ? ` · Próxima: ${formatDate(record.follow_up_on)}` : ""}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {selectedMember && (
+            <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 text-sm md:grid-cols-2">
+              <div>
+                <p className="font-medium">Alergias/intolerancias</p>
+                {allergyRecords.length === 0 ? (
+                  <p className="mt-1 text-muted-foreground">Sin alergias registradas.</p>
+                ) : (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {allergyRecords.slice(0, 8).map((record: any) => (
+                      <Badge key={record.id} variant={record.severity === "critical" ? "destructive" : "secondary"}>
+                        {record.title}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="font-medium">Condiciones principales</p>
+                {conditionRecords.length === 0 ? (
+                  <p className="mt-1 text-muted-foreground">Sin condiciones registradas.</p>
+                ) : (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {conditionRecords.slice(0, 8).map((record: any) => (
+                      <Badge key={record.id} variant={["high", "critical"].includes(record.severity) ? "destructive" : "outline"}>
+                        {record.title}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
@@ -769,6 +872,7 @@ function MedicalRecordDialog({ open, onOpenChange, member, editing, onSave }: { 
     });
   }, [open, editing]);
   const update = (key: string, value: any) => setForm((prev: any) => ({ ...prev, [key]: value }));
+  const copy = getMedicalRecordCopy(form.record_type);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -793,7 +897,10 @@ function MedicalRecordDialog({ open, onOpenChange, member, editing, onSave }: { 
               <SelectContent>{MEDICAL_RECORD_TYPES.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="space-y-1"><Label>Título</Label><Input value={form.title ?? ""} onChange={(e) => update("title", e.target.value)} placeholder="Ej. Alergia a penicilina" required /></div>
+          <div className="space-y-1">
+            <Label>{copy.titleLabel}</Label>
+            <Input value={form.title ?? ""} onChange={(e) => update("title", e.target.value)} placeholder={copy.titlePlaceholder} required />
+          </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
               <Label>Gravedad</Label>
@@ -805,10 +912,10 @@ function MedicalRecordDialog({ open, onOpenChange, member, editing, onSave }: { 
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1"><Label>Fecha</Label><Input type="date" value={form.occurred_on ?? ""} onChange={(e) => update("occurred_on", e.target.value)} /></div>
-            <div className="space-y-1"><Label>Seguimiento</Label><Input type="date" value={form.follow_up_on ?? ""} onChange={(e) => update("follow_up_on", e.target.value)} /></div>
+            <div className="space-y-1"><Label>{copy.dateLabel}</Label><Input type="date" value={form.occurred_on ?? ""} onChange={(e) => update("occurred_on", e.target.value)} /></div>
+            <div className="space-y-1"><Label>{copy.followUpLabel}</Label><Input type="date" value={form.follow_up_on ?? ""} onChange={(e) => update("follow_up_on", e.target.value)} /></div>
           </div>
-          <div className="space-y-1"><Label>Notas</Label><Textarea value={form.notes ?? ""} onChange={(e) => update("notes", e.target.value)} /></div>
+          <div className="space-y-1"><Label>{copy.notesLabel}</Label><Textarea value={form.notes ?? ""} onChange={(e) => update("notes", e.target.value)} placeholder={copy.notesPlaceholder} /></div>
           <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
             <Checkbox checked={Boolean(form.show_in_sos)} onCheckedChange={(v) => update("show_in_sos", Boolean(v))} />
             Mostrar en emergencia/SOS
@@ -830,6 +937,118 @@ function severityLabel(severity: string) {
 
 function formatDate(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString("es-ES");
+}
+
+function getMedicalRecordCopy(type: string) {
+  if (type === "vaccine") {
+    return {
+      titleLabel: "Vacuna",
+      titlePlaceholder: "Ej. Triple vírica, meningococo, gripe",
+      dateLabel: "Fecha de administración",
+      followUpLabel: "Próxima dosis / recuerdo",
+      notesLabel: "Lote, centro y observaciones",
+      notesPlaceholder: "Ej. lote, centro sanitario, reacción, pauta pendiente...",
+    };
+  }
+  if (type === "allergy") {
+    return {
+      titleLabel: "Alergia o intolerancia",
+      titlePlaceholder: "Ej. Penicilina, ibuprofeno, lactosa",
+      dateLabel: "Fecha detectada",
+      followUpLabel: "Revisión",
+      notesLabel: "Síntomas, reacción y medicación relacionada",
+      notesPlaceholder: "Ej. urticaria, dificultad respiratoria, evitar familia de antibióticos...",
+    };
+  }
+  if (type === "visit") {
+    return {
+      titleLabel: "Cita o visita",
+      titlePlaceholder: "Ej. Pediatría, endocrino, revisión digestivo",
+      dateLabel: "Fecha de visita",
+      followUpLabel: "Volver / seguimiento",
+      notesLabel: "Observaciones",
+      notesPlaceholder: "Resumen de la visita, pautas y próximos pasos...",
+    };
+  }
+  return {
+    titleLabel: "Título",
+    titlePlaceholder: "Ej. Tiroides, hernia de hiato, asma",
+    dateLabel: "Fecha",
+    followUpLabel: "Seguimiento",
+    notesLabel: "Notas",
+    notesPlaceholder: "Datos relevantes para seguimiento familiar...",
+  };
+}
+
+function buildMedicalSummaryText(member: any, profile: any, records: any[]) {
+  const byType = (type: string) => records.filter((r: any) => r.record_type === type);
+  const line = (label: string, value?: string | number | null) => (value ? `${label}: ${value}` : null);
+  const profileLines = [
+    line("Grupo sanguíneo", profile?.blood_type),
+    line("Peso", profile?.weight_kg ? `${profile.weight_kg} kg` : null),
+    line("Altura", profile?.height_cm ? `${profile.height_cm} cm` : null),
+    line("Sanidad pública", [profile?.public_health_provider, profile?.public_health_id].filter(Boolean).join(" · ")),
+    line("Seguro privado", [profile?.private_insurance_name, profile?.private_policy_number].filter(Boolean).join(" · ")),
+    line("Coberturas", profile?.private_coverage_notes),
+    line("Notas prácticas emergencia", profile?.emergency_notes),
+  ].filter(Boolean);
+  const recordLines = (title: string, items: any[]) => [
+    "",
+    title,
+    ...(items.length
+      ? items.map((r: any) => `- ${r.title}${r.severity ? ` (${severityLabel(r.severity)})` : ""}${r.occurred_on ? ` · ${formatDate(r.occurred_on)}` : ""}${r.follow_up_on ? ` · Seguimiento: ${formatDate(r.follow_up_on)}` : ""}${r.notes ? `\n  ${r.notes}` : ""}`)
+      : ["- Sin registros"]),
+  ];
+  return [
+    `Ficha médica - ${member.display_name}`,
+    `Generada: ${new Date().toLocaleString("es-ES")}`,
+    "",
+    ...profileLines,
+    ...recordLines("Alergias e intolerancias", byType("allergy")),
+    ...recordLines("Condiciones y diagnósticos", byType("condition")),
+    ...recordLines("Vacunas", byType("vaccine")),
+    ...recordLines("Citas, procedimientos y notas", records.filter((r: any) => !["allergy", "condition", "vaccine"].includes(r.record_type))),
+  ].join("\n");
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildMedicalSummaryHtml(member: any, profile: any, records: any[]) {
+  const text = buildMedicalSummaryText(member, profile, records);
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Ficha médica ${escapeHtml(member.display_name)}</title><style>
+    body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:32px;color:#111;line-height:1.45}
+    h1{font-size:24px;margin:0 0 6px} pre{white-space:pre-wrap;font:inherit}
+  </style></head><body><h1>Ficha médica - ${escapeHtml(member.display_name)}</h1><pre>${escapeHtml(text)}</pre></body></html>`;
+}
+
+function normalizeMedicalText(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getAllergyWarnings(registry: any, memberId: string, medicationName: string, medicationNotes: string) {
+  if (!registry || !memberId) return [];
+  const haystack = normalizeMedicalText(`${medicationName} ${medicationNotes}`);
+  if (haystack.length < 3) return [];
+  const allergies = (registry.records ?? []).filter((r: any) => r.member_id === memberId && r.record_type === "allergy");
+  return allergies.filter((allergy: any) => {
+    const allergyText = normalizeMedicalText(`${allergy.title} ${allergy.notes ?? ""}`);
+    if (!allergyText) return false;
+    if (haystack.includes(allergyText) || allergyText.includes(haystack)) return true;
+    const allergyTerms = allergyText.split(" ").filter((term: string) => term.length >= 4);
+    const medicationTerms = haystack.split(" ").filter((term: string) => term.length >= 4);
+    return allergyTerms.some((term: string) => haystack.includes(term)) || medicationTerms.some((term: string) => allergyText.includes(term));
+  });
 }
 
 function MedicationCard({
@@ -947,6 +1166,7 @@ function MedicationDialog({
   editing,
   members,
   medications,
+  medicalRegistry,
   onSave,
 }: {
   open: boolean;
@@ -954,6 +1174,7 @@ function MedicationDialog({
   editing: any;
   members: any[];
   medications: any[];
+  medicalRegistry?: any;
   onSave: (payload: any) => void;
 }) {
   const { t } = useTranslation();
@@ -976,6 +1197,7 @@ function MedicationDialog({
   const [expiryMonth, setExpiryMonth] = useState("");
   const [expiryYear, setExpiryYear] = useState("");
   const [schedules, setSchedules] = useState<any[]>([{ time_of_day: "09:00", days_of_week: [1, 2, 3, 4, 5, 6, 0], frequency_type: "daily", interval_hours: 8, active: true }]);
+  const allergyWarnings = getAllergyWarnings(medicalRegistry, memberId, name, notes);
 
   useEffect(() => {
     if (editing) {
@@ -1190,6 +1412,25 @@ function MedicationDialog({
             <Label>{t("medications.notes")}</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
+
+          {allergyWarnings.length > 0 && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                <div className="space-y-1">
+                  <p className="font-medium text-destructive">Posible coincidencia con alergias registradas</p>
+                  <p className="text-muted-foreground">
+                    Revisa antes de guardar. Esta comprobación compara texto del nombre/notas con alergias registradas; no sustituye una revisión médica ni consulta una base tipo Vademécum.
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {allergyWarnings.slice(0, 5).map((allergy: any) => (
+                      <Badge key={allergy.id} variant="destructive">{allergy.title}</Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
 
           <div className="flex items-center justify-between rounded-lg border p-3">
