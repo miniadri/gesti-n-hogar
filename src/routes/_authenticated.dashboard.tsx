@@ -44,6 +44,22 @@ import { listDevices, updateDevice } from "@/lib/devices.functions";
 import { callHomeAssistantService } from "@/lib/home-assistant.functions";
 import { cn } from "@/lib/utils";
 import { SosButton } from "@/components/SosButton";
+import {
+  CalendarTodayTomorrowCard,
+  ScheduleTodayTomorrowCard,
+  SummaryCard,
+} from "@/components/dashboard/DashboardCards";
+import {
+  addDays,
+  buildScheduleUpcoming,
+  dateKey,
+  formatTime,
+  slotCrossesMidnight,
+  splitEventsUpcoming,
+  startOfLocalDay,
+  WORK_SLOT_KINDS,
+} from "@/lib/dashboard-utils";
+
 
 
 const MONTHLY_BUDGET = 1000;
