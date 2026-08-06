@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import webPush from "web-push";
-import { isLowStock, stockAfterIntake } from "@/lib/medication-calc";
 
 const MedicationFormEnum = z.enum(["pill", "ml", "drops", "inhaler", "patch", "injection", "other"]);
 const IntakeStatusEnum = z.enum(["pending", "taken", "skipped", "missed"]);
@@ -28,6 +27,16 @@ const CreateMedicationInput = z.object({
   reminders_enabled: z.boolean().default(true),
   escalation_after_minutes: z.number().int().min(0).max(720).nullable().optional(),
   notes: z.string().max(1000).optional(),
+  doctor_instructions: z.string().max(2000).nullable().optional(),
+  cima_nregistro: z.string().max(30).nullable().optional(),
+  cima_cn: z.string().max(30).nullable().optional(),
+  cima_name: z.string().max(300).nullable().optional(),
+  cima_active_ingredients: z.array(z.string().max(180)).max(40).optional(),
+  cima_excipients: z.array(z.string().max(180)).max(80).optional(),
+  cima_prospect_url: z.string().url().max(500).nullable().optional(),
+  cima_ficha_tecnica_url: z.string().url().max(500).nullable().optional(),
+  cima_url: z.string().url().max(500).nullable().optional(),
+  cima_prescription_required: z.boolean().nullable().optional(),
   expiry_month: z.number().int().min(1).max(12).nullable().optional(),
   expiry_year: z.number().int().min(2000).max(2100).nullable().optional(),
   timezone: z.string().min(1).max(64).default("UTC"),
@@ -47,6 +56,16 @@ const UpdateMedicationInput = z.object({
   reminders_enabled: z.boolean().default(true),
   escalation_after_minutes: z.number().int().min(0).max(720).nullable().optional(),
   notes: z.string().max(1000).optional(),
+  doctor_instructions: z.string().max(2000).nullable().optional(),
+  cima_nregistro: z.string().max(30).nullable().optional(),
+  cima_cn: z.string().max(30).nullable().optional(),
+  cima_name: z.string().max(300).nullable().optional(),
+  cima_active_ingredients: z.array(z.string().max(180)).max(40).optional(),
+  cima_excipients: z.array(z.string().max(180)).max(80).optional(),
+  cima_prospect_url: z.string().url().max(500).nullable().optional(),
+  cima_ficha_tecnica_url: z.string().url().max(500).nullable().optional(),
+  cima_url: z.string().url().max(500).nullable().optional(),
+  cima_prescription_required: z.boolean().nullable().optional(),
   expiry_month: z.number().int().min(1).max(12).nullable().optional(),
   expiry_year: z.number().int().min(2000).max(2100).nullable().optional(),
   timezone: z.string().min(1).max(64).default("UTC"),
@@ -440,7 +459,7 @@ export const recordIntake = createServerFn({ method: "POST" })
     if (error) throw error;
 
     if (data.status === "taken" && intake.medications?.dose_amount) {
-      const newQty = stockAfterIntake(intake.medications.current_quantity, intake.medications.dose_amount);
+      const newQty = Math.max(0, (intake.medications.current_quantity ?? 0) - intake.medications.dose_amount);
       await context.supabase
         .from("medications")
         .update({ current_quantity: newQty })
@@ -454,7 +473,7 @@ export const recordIntake = createServerFn({ method: "POST" })
 
       const threshold = intake.medications.low_stock_threshold;
       const prevQty = intake.medications.current_quantity ?? 0;
-      if (isLowStock(newQty, threshold) && !isLowStock(prevQty, threshold)) {
+      if (threshold != null && newQty <= threshold && prevQty > threshold) {
         const { addMedicationToShoppingList, sendPushToUsers, sendTelegramToUsers, resolveHouseholdUserIds } =
           await import("@/lib/notify.server");
         const added = await addMedicationToShoppingList(

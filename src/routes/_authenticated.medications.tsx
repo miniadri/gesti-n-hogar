@@ -25,6 +25,9 @@ import {
   Syringe,
   Copy,
   Printer,
+  Search,
+  ExternalLink,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +46,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake, snoozeIntake } from "@/lib/medications.functions";
 import { listMedicines } from "@/lib/medicines.functions";
+import { searchCimaMedicines } from "@/lib/cima.functions";
 import { createShoppingItem } from "@/lib/shopping.functions";
 import {
   listMedicalRegistry,
@@ -1036,19 +1040,31 @@ function normalizeMedicalText(value: unknown) {
     .trim();
 }
 
-function getAllergyWarnings(registry: any, memberId: string, medicationName: string, medicationNotes: string) {
+function getAllergyWarnings(
+  registry: any,
+  memberId: string,
+  medicationName: string,
+  medicationNotes: string,
+  activeIngredients: string[] = [],
+  excipients: string[] = [],
+) {
   if (!registry || !memberId) return [];
-  const haystack = normalizeMedicalText(`${medicationName} ${medicationNotes}`);
+  const haystack = normalizeMedicalText(`${medicationName} ${medicationNotes} ${activeIngredients.join(" ")} ${excipients.join(" ")}`);
   if (haystack.length < 3) return [];
   const allergies = (registry.records ?? []).filter((r: any) => r.member_id === memberId && r.record_type === "allergy");
-  return allergies.filter((allergy: any) => {
+  return allergies
+    .map((allergy: any) => {
     const allergyText = normalizeMedicalText(`${allergy.title} ${allergy.notes ?? ""}`);
-    if (!allergyText) return false;
-    if (haystack.includes(allergyText) || allergyText.includes(haystack)) return true;
+      if (!allergyText) return null;
+      if (haystack.includes(allergyText) || allergyText.includes(haystack)) return { ...allergy, matchedTerm: allergy.title };
     const allergyTerms = allergyText.split(" ").filter((term: string) => term.length >= 4);
     const medicationTerms = haystack.split(" ").filter((term: string) => term.length >= 4);
-    return allergyTerms.some((term: string) => haystack.includes(term)) || medicationTerms.some((term: string) => allergyText.includes(term));
-  });
+      const matchedTerm =
+        allergyTerms.find((term: string) => haystack.includes(term)) ??
+        medicationTerms.find((term: string) => allergyText.includes(term));
+      return matchedTerm ? { ...allergy, matchedTerm } : null;
+    })
+    .filter(Boolean);
 }
 
 function MedicationCard({
@@ -1089,6 +1105,11 @@ function MedicationCard({
             <p className="text-sm text-muted-foreground">
               {med.dose_amount} {med.unit} · {FORMS.find((f) => f.value === med.form)?.label}
             </p>
+            {med.doctor_instructions && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Pauta: {med.doctor_instructions}
+              </p>
+            )}
             {med.current_quantity != null && med.total_quantity != null && (
               <p className="text-xs text-muted-foreground">
                 Stock: {med.current_quantity} / {med.total_quantity} {med.unit}
@@ -1105,6 +1126,29 @@ function MedicationCard({
                   </Badge>
                 ))}
             </div>
+            {med.cima_nregistro && (
+              <div className="mt-2 rounded-lg border bg-muted/30 p-2 text-xs">
+                <div className="flex flex-wrap items-center gap-1">
+                  <Badge variant="secondary">AEMPS</Badge>
+                  {med.cima_prescription_required && <Badge variant="outline">Receta</Badge>}
+                  {(med.cima_active_ingredients ?? []).slice(0, 4).map((ingredient: string) => (
+                    <Badge key={ingredient} variant="outline">{ingredient}</Badge>
+                  ))}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {med.cima_prospect_url && (
+                    <a className="inline-flex items-center gap-1 font-medium text-primary hover:underline" href={med.cima_prospect_url} target="_blank" rel="noreferrer">
+                      Prospecto <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                  {med.cima_ficha_tecnica_url && (
+                    <a className="inline-flex items-center gap-1 font-medium text-primary hover:underline" href={med.cima_ficha_tecnica_url} target="_blank" rel="noreferrer">
+                      Ficha técnica <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex shrink-0 gap-1">
             <Button size="icon" variant="ghost" onClick={onEdit}>
@@ -1194,10 +1238,23 @@ function MedicationDialog({
   const [reminders, setReminders] = useState(true);
   const [escalationMinutes, setEscalationMinutes] = useState("15");
   const [notes, setNotes] = useState("");
+  const [doctorInstructions, setDoctorInstructions] = useState("");
+  const [cimaSearch, setCimaSearch] = useState("");
+  const [cimaResults, setCimaResults] = useState<any[]>([]);
+  const [cimaLoading, setCimaLoading] = useState(false);
+  const [cimaSelected, setCimaSelected] = useState<any>(null);
   const [expiryMonth, setExpiryMonth] = useState("");
   const [expiryYear, setExpiryYear] = useState("");
   const [schedules, setSchedules] = useState<any[]>([{ time_of_day: "09:00", days_of_week: [1, 2, 3, 4, 5, 6, 0], frequency_type: "daily", interval_hours: 8, active: true }]);
-  const allergyWarnings = getAllergyWarnings(medicalRegistry, memberId, name, notes);
+  const doSearchCima = useServerFn(searchCimaMedicines);
+  const allergyWarnings = getAllergyWarnings(
+    medicalRegistry,
+    memberId,
+    name,
+    notes,
+    cimaSelected?.activeIngredients ?? editing?.cima_active_ingredients ?? [],
+    cimaSelected?.excipients ?? editing?.cima_excipients ?? [],
+  );
 
   useEffect(() => {
     if (editing) {
@@ -1212,6 +1269,24 @@ function MedicationDialog({
       setReminders(editing.reminders_enabled);
       setEscalationMinutes(editing.escalation_after_minutes != null ? String(editing.escalation_after_minutes) : "15");
       setNotes(editing.notes || "");
+      setDoctorInstructions(editing.doctor_instructions || "");
+      setCimaSearch(editing.cima_name || editing.name || "");
+      setCimaSelected(
+        editing.cima_nregistro
+          ? {
+              nregistro: editing.cima_nregistro,
+              cn: editing.cima_cn,
+              name: editing.cima_name,
+              activeIngredients: editing.cima_active_ingredients ?? [],
+              excipients: editing.cima_excipients ?? [],
+              prospectUrl: editing.cima_prospect_url,
+              fichaTecnicaUrl: editing.cima_ficha_tecnica_url,
+              cimaUrl: editing.cima_url,
+              prescriptionRequired: editing.cima_prescription_required,
+            }
+          : null,
+      );
+      setCimaResults([]);
       // Prefill expiry from matching medicine in inventory
       const match = (medicines ?? []).find(
         (m: any) => m.name.toLowerCase() === (editing.name || "").toLowerCase(),
@@ -1240,6 +1315,10 @@ function MedicationDialog({
       setReminders(true);
       setEscalationMinutes("15");
       setNotes("");
+      setDoctorInstructions("");
+      setCimaSearch("");
+      setCimaSelected(null);
+      setCimaResults([]);
       setExpiryMonth("");
       setExpiryYear("");
       setSchedules([{ time_of_day: "09:00", days_of_week: [1, 2, 3, 4, 5, 6, 0], frequency_type: "daily", interval_hours: 8, active: true }]);
@@ -1260,6 +1339,16 @@ function MedicationDialog({
       reminders_enabled: reminders,
       escalation_after_minutes: escalationMinutes.trim() === "" ? null : Math.max(0, Number(escalationMinutes) || 0),
       notes,
+      doctor_instructions: doctorInstructions.trim() || null,
+      cima_nregistro: cimaSelected?.nregistro ?? null,
+      cima_cn: cimaSelected?.cn ?? null,
+      cima_name: cimaSelected?.name ?? null,
+      cima_active_ingredients: cimaSelected?.activeIngredients ?? [],
+      cima_excipients: cimaSelected?.excipients ?? [],
+      cima_prospect_url: cimaSelected?.prospectUrl ?? null,
+      cima_ficha_tecnica_url: cimaSelected?.fichaTecnicaUrl ?? null,
+      cima_url: cimaSelected?.cimaUrl ?? null,
+      cima_prescription_required: cimaSelected?.prescriptionRequired ?? null,
       expiry_month: expiryMonth ? Number(expiryMonth) : null,
       expiry_year: expiryYear ? Number(expiryYear) : null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
@@ -1282,6 +1371,32 @@ function MedicationDialog({
         return { ...s, days_of_week: Array.from(days).sort((a: number, b: number) => a - b) };
       }),
     );
+  };
+
+  const handleCimaSearch = async () => {
+    const query = (cimaSearch || name).trim();
+    if (query.length < 2) {
+      toast.error("Escribe un nombre, código nacional o EAN");
+      return;
+    }
+    setCimaLoading(true);
+    try {
+      const response = await doSearchCima({ data: { query } });
+      setCimaResults(response.results ?? []);
+      if ((response.results ?? []).length === 0) toast.warning("CIMA no encontró coincidencias");
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo consultar CIMA/AEMPS");
+    } finally {
+      setCimaLoading(false);
+    }
+  };
+
+  const pickCimaMedicine = (medicine: any) => {
+    setCimaSelected(medicine);
+    setName(medicine.name || name);
+    if (medicine.dose) setUnit(medicine.dose);
+    setCimaResults([]);
+    toast.success("Medicamento oficial vinculado");
   };
 
   return (
@@ -1325,6 +1440,22 @@ function MedicationDialog({
                   if (m.current_quantity != null) setCurrentQty(String(m.current_quantity));
                   if (m.low_stock_threshold != null) setThreshold(String(m.low_stock_threshold));
                   if (m.notes) setNotes(m.notes);
+                  if (m.doctor_instructions) setDoctorInstructions(m.doctor_instructions);
+                  setCimaSelected(
+                    m.cima_nregistro
+                      ? {
+                          nregistro: m.cima_nregistro,
+                          cn: m.cima_cn,
+                          name: m.cima_name,
+                          activeIngredients: m.cima_active_ingredients ?? [],
+                          excipients: m.cima_excipients ?? [],
+                          prospectUrl: m.cima_prospect_url,
+                          fichaTecnicaUrl: m.cima_ficha_tecnica_url,
+                          cimaUrl: m.cima_url,
+                          prescriptionRequired: m.cima_prescription_required,
+                        }
+                      : null,
+                  );
                 }}
                 onPickMedicine={(m: any) => {
                   setName(m.name);
@@ -1355,6 +1486,101 @@ function MedicationDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-3 rounded-lg border p-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[220px] flex-1 space-y-1">
+                <Label>CIMA/AEMPS oficial</Label>
+                <Input
+                  value={cimaSearch}
+                  onChange={(e) => setCimaSearch(e.target.value)}
+                  placeholder="Nombre, código nacional o EAN del envase"
+                />
+              </div>
+              <Button type="button" variant="outline" onClick={handleCimaSearch} disabled={cimaLoading}>
+                <Search className="mr-2 h-4 w-4" />
+                {cimaLoading ? "Buscando..." : "Buscar"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Vincula el medicamento oficial para guardar principios activos/excipientes y abrir prospecto o ficha técnica de AEMPS.
+            </p>
+
+            {cimaSelected && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium">{cimaSelected.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {cimaSelected.nregistro ? `Registro ${cimaSelected.nregistro}` : "Registro no disponible"}
+                      {cimaSelected.cn ? ` · CN ${cimaSelected.cn}` : ""}
+                      {cimaSelected.prescriptionRequired ? " · sujeto a receta" : ""}
+                    </p>
+                  </div>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setCimaSelected(null)}>
+                    Desvincular
+                  </Button>
+                </div>
+                {(cimaSelected.activeIngredients?.length > 0 || cimaSelected.excipients?.length > 0) && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {(cimaSelected.activeIngredients ?? []).slice(0, 8).map((ingredient: string) => (
+                      <Badge key={`active-${ingredient}`} variant="secondary">{ingredient}</Badge>
+                    ))}
+                    {(cimaSelected.excipients ?? []).slice(0, 8).map((excipient: string) => (
+                      <Badge key={`excipient-${excipient}`} variant="outline">{excipient}</Badge>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {cimaSelected.prospectUrl && (
+                    <Button type="button" asChild size="sm" variant="outline">
+                      <a href={cimaSelected.prospectUrl} target="_blank" rel="noreferrer">
+                        Prospecto <ExternalLink className="ml-1 h-3 w-3" />
+                      </a>
+                    </Button>
+                  )}
+                  {cimaSelected.fichaTecnicaUrl && (
+                    <Button type="button" asChild size="sm" variant="outline">
+                      <a href={cimaSelected.fichaTecnicaUrl} target="_blank" rel="noreferrer">
+                        Ficha técnica <ExternalLink className="ml-1 h-3 w-3" />
+                      </a>
+                    </Button>
+                  )}
+                  {cimaSelected.cimaUrl && (
+                    <Button type="button" asChild size="sm" variant="outline">
+                      <a href={cimaSelected.cimaUrl} target="_blank" rel="noreferrer">
+                        AEMPS <ExternalLink className="ml-1 h-3 w-3" />
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {cimaResults.length > 0 && (
+              <div className="space-y-2">
+                {cimaResults.map((medicine: any) => (
+                  <button
+                    key={medicine.nregistro ?? medicine.name}
+                    type="button"
+                    className="w-full rounded-lg border bg-card p-3 text-left transition hover:border-primary"
+                    onClick={() => pickCimaMedicine(medicine)}
+                  >
+                    <p className="font-medium">{medicine.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[medicine.dose, medicine.form, medicine.lab].filter(Boolean).join(" · ")}
+                    </p>
+                    {(medicine.activeIngredients?.length > 0 || medicine.excipients?.length > 0) && (
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        Principios: {(medicine.activeIngredients ?? []).join(", ") || "no disponible"}
+                        {medicine.excipients?.length ? ` · Excipientes: ${medicine.excipients.slice(0, 6).join(", ")}` : ""}
+                      </p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -1413,18 +1639,33 @@ function MedicationDialog({
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
 
+          <div className="space-y-2">
+            <Label>Toma indicada por médico/farmacéutico</Label>
+            <Textarea
+              value={doctorInstructions}
+              onChange={(e) => setDoctorInstructions(e.target.value)}
+              rows={2}
+              placeholder="Ej. tomar con comida durante 7 días; no mezclar con..."
+            />
+            <p className="text-xs text-muted-foreground">
+              Este campo guarda la pauta indicada para este medicamento en general. Las horas concretas van en las tomas.
+            </p>
+          </div>
+
           {allergyWarnings.length > 0 && (
             <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                 <div className="space-y-1">
                   <p className="font-medium text-destructive">Posible coincidencia con alergias registradas</p>
                   <p className="text-muted-foreground">
-                    Revisa antes de guardar. Esta comprobación compara texto del nombre/notas con alergias registradas; no sustituye una revisión médica ni consulta una base tipo Vademécum.
+                    Revisa antes de guardar. Esta comprobación cruza alergias con nombre, notas y datos CIMA/AEMPS si el medicamento está vinculado. No sustituye una revisión médica.
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {allergyWarnings.slice(0, 5).map((allergy: any) => (
-                      <Badge key={allergy.id} variant="destructive">{allergy.title}</Badge>
+                      <Badge key={allergy.id} variant="destructive">
+                        {allergy.title}{allergy.matchedTerm ? ` · ${allergy.matchedTerm}` : ""}
+                      </Badge>
                     ))}
                   </div>
                 </div>
