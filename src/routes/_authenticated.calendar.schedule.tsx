@@ -107,41 +107,7 @@ type DayStatus = {
 };
 
 const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-/** Real end instant of a slot on a given date (handles shifts crossing midnight). */
-function slotEndDate(date: Date, s: { start_time: string; end_time: string }): Date {
-  const end = new Date(date);
-  end.setHours(0, 0, 0, 0);
-  end.setMinutes(timeToMinutes(s.start_time) + slotHours(s) * 60);
-  return end;
-}
 
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
-}
-function slotHours(s: { start_time: string; end_time: string }): number {
-  const start = timeToMinutes(s.start_time);
-  let end = timeToMinutes(s.end_time);
-  if (end <= start) end += 24 * 60; // overnight shift crossing midnight
-  return Math.max(0, (end - start) / 60);
-}
-function adjustedHours(plannedHours: number, adjustment: number): number {
-  return Math.max(0, plannedHours + adjustment);
-}
-/**
- * Overtime for a day = manually registered extra hours + any planned hours above the daily target.
- * Manual extras always count, even when the planned shift was shorter than the target.
- */
-function dayOvertime(plannedHours: number, adjustment: number, targetHours: number): number {
-  return Math.max(0, adjustment) + Math.max(0, plannedHours - targetHours);
-}
-
-function crossesMidnight(s: { start_time: string; end_time: string }): boolean {
-  const end = timeToMinutes(s.end_time);
-  // Ending exactly at midnight closes the same day: it does not spill into the next one.
-  if (end === 0) return false;
-  return end <= timeToMinutes(s.start_time);
-}
 function fmtTime(t: string) {
   return t.slice(0, 5);
 }
