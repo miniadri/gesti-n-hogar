@@ -491,6 +491,97 @@ export type Database = {
           },
         ]
       }
+      household_activity: {
+        Row: {
+          action: string
+          actor_user_id: string
+          channel: string | null
+          created_at: string
+          details: string | null
+          domain: string
+          entity_id: string | null
+          entity_type: string | null
+          household_id: string
+          id: string
+          metadata: Json
+          status: string | null
+          title: string
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          channel?: string | null
+          created_at?: string
+          details?: string | null
+          domain: string
+          entity_id?: string | null
+          entity_type?: string | null
+          household_id: string
+          id?: string
+          metadata?: Json
+          status?: string | null
+          title: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          channel?: string | null
+          created_at?: string
+          details?: string | null
+          domain?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          household_id?: string
+          id?: string
+          metadata?: Json
+          status?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_activity_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      household_activity_reviews: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          item_key: string
+          reviewed_at: string
+          reviewed_by: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          item_key: string
+          reviewed_at?: string
+          reviewed_by: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          item_key?: string
+          reviewed_at?: string
+          reviewed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_activity_reviews_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_invites: {
         Row: {
           code: string
@@ -1100,8 +1191,6 @@ export type Database = {
       }
       medications: {
         Row: {
-          created_at: string
-          created_by: string
           cima_active_ingredients: string[]
           cima_cn: string | null
           cima_excipients: string[]
@@ -1111,6 +1200,8 @@ export type Database = {
           cima_prescription_required: boolean | null
           cima_prospect_url: string | null
           cima_url: string | null
+          created_at: string
+          created_by: string
           current_quantity: number | null
           doctor_instructions: string | null
           dose_amount: number
@@ -1129,8 +1220,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          created_at?: string
-          created_by: string
           cima_active_ingredients?: string[]
           cima_cn?: string | null
           cima_excipients?: string[]
@@ -1140,6 +1229,8 @@ export type Database = {
           cima_prescription_required?: boolean | null
           cima_prospect_url?: string | null
           cima_url?: string | null
+          created_at?: string
+          created_by: string
           current_quantity?: number | null
           doctor_instructions?: string | null
           dose_amount?: number
@@ -1158,8 +1249,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          created_at?: string
-          created_by?: string
           cima_active_ingredients?: string[]
           cima_cn?: string | null
           cima_excipients?: string[]
@@ -1169,6 +1258,8 @@ export type Database = {
           cima_prescription_required?: boolean | null
           cima_prospect_url?: string | null
           cima_url?: string | null
+          created_at?: string
+          created_by?: string
           current_quantity?: number | null
           doctor_instructions?: string | null
           dose_amount?: number
@@ -2584,6 +2675,7 @@ export type Database = {
         Args: { _is_shared: boolean; _member_id: string }
         Returns: boolean
       }
+      cleanup_household_activity_retention: { Args: never; Returns: number }
       current_household: { Args: never; Returns: string }
       get_household_contributions: {
         Args: { _household_id: string }
