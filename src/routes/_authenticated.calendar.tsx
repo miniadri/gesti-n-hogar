@@ -219,7 +219,10 @@ function CalendarPage() {
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const days = eachDayOfInterval({
+    start: startOfWeek(monthStart, { weekStartsOn: 1 }),
+    end: endOfWeek(monthEnd, { weekStartsOn: 1 }),
+  });
 
   const eventsByDay = new Map<string, any[]>();
   for (const event of data) {
