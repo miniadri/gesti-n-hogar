@@ -706,6 +706,7 @@ export type Database = {
           image_url: string | null
           last_price: number | null
           location: string | null
+          mercadona_id: string | null
           min_stock: number | null
           name: string
           quantity: number
@@ -723,6 +724,7 @@ export type Database = {
           image_url?: string | null
           last_price?: number | null
           location?: string | null
+          mercadona_id?: string | null
           min_stock?: number | null
           name: string
           quantity?: number
@@ -740,6 +742,7 @@ export type Database = {
           image_url?: string | null
           last_price?: number | null
           location?: string | null
+          mercadona_id?: string | null
           min_stock?: number | null
           name?: string
           quantity?: number
@@ -1361,6 +1364,104 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mercadona_price_history: {
+        Row: {
+          bulk_price: number | null
+          captured_on: string
+          created_at: string
+          id: string
+          product_id: string
+          unit_price: number | null
+        }
+        Insert: {
+          bulk_price?: number | null
+          captured_on?: string
+          created_at?: string
+          id?: string
+          product_id: string
+          unit_price?: number | null
+        }
+        Update: {
+          bulk_price?: number | null
+          captured_on?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mercadona_price_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "mercadona_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mercadona_products: {
+        Row: {
+          brand: string | null
+          bulk_price: number | null
+          category: string | null
+          display_name: string
+          ean: string | null
+          id: string
+          is_pack: boolean | null
+          last_seen_at: string
+          packaging: string | null
+          reference_format: string | null
+          reference_price: number | null
+          share_url: string | null
+          slug: string | null
+          thumbnail: string | null
+          unit_name: string | null
+          unit_price: number | null
+          unit_size: number | null
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          bulk_price?: number | null
+          category?: string | null
+          display_name: string
+          ean?: string | null
+          id: string
+          is_pack?: boolean | null
+          last_seen_at?: string
+          packaging?: string | null
+          reference_format?: string | null
+          reference_price?: number | null
+          share_url?: string | null
+          slug?: string | null
+          thumbnail?: string | null
+          unit_name?: string | null
+          unit_price?: number | null
+          unit_size?: number | null
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          bulk_price?: number | null
+          category?: string | null
+          display_name?: string
+          ean?: string | null
+          id?: string
+          is_pack?: boolean | null
+          last_seen_at?: string
+          packaging?: string | null
+          reference_format?: string | null
+          reference_price?: number | null
+          share_url?: string | null
+          slug?: string | null
+          thumbnail?: string | null
+          unit_name?: string | null
+          unit_price?: number | null
+          unit_size?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       merchant_suggestions: {
         Row: {
@@ -2227,6 +2328,7 @@ export type Database = {
           image_url: string | null
           linked_inventory_item_id: string | null
           manual_price: number | null
+          mercadona_id: string | null
           name: string
           ocr_price: number | null
           quantity: number
@@ -2242,6 +2344,7 @@ export type Database = {
           image_url?: string | null
           linked_inventory_item_id?: string | null
           manual_price?: number | null
+          mercadona_id?: string | null
           name: string
           ocr_price?: number | null
           quantity?: number
@@ -2257,6 +2360,7 @@ export type Database = {
           image_url?: string | null
           linked_inventory_item_id?: string | null
           manual_price?: number | null
+          mercadona_id?: string | null
           name?: string
           ocr_price?: number | null
           quantity?: number
