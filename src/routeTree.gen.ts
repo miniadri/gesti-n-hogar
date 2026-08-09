@@ -45,6 +45,7 @@ import { Route as AuthenticatedCalendarScheduleRouteImport } from './routes/_aut
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicHooksSosRemindersRouteImport } from './routes/api/public/hooks/sos-reminders'
 import { Route as ApiPublicHooksPushSchedulerRouteImport } from './routes/api/public/hooks/push-scheduler'
+import { Route as ApiPublicHooksMercadonaPricesRouteImport } from './routes/api/public/hooks/mercadona-prices'
 import { Route as ApiPublicHooksMedicationRemindersRouteImport } from './routes/api/public/hooks/medication-reminders'
 import { Route as ApiPublicHooksGoogleCalendarSyncRouteImport } from './routes/api/public/hooks/google-calendar-sync'
 
@@ -253,6 +254,12 @@ const ApiPublicHooksPushSchedulerRoute =
     path: '/api/public/hooks/push-scheduler',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksMercadonaPricesRoute =
+  ApiPublicHooksMercadonaPricesRouteImport.update({
+    id: '/api/public/hooks/mercadona-prices',
+    path: '/api/public/hooks/mercadona-prices',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksMedicationRemindersRoute =
   ApiPublicHooksMedicationRemindersRouteImport.update({
     id: '/api/public/hooks/medication-reminders',
@@ -301,6 +308,7 @@ export interface FileRoutesByFullPath {
   '/shopping/': typeof AuthenticatedShoppingIndexRoute
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
+  '/api/public/hooks/mercadona-prices': typeof ApiPublicHooksMercadonaPricesRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
   '/api/public/hooks/sos-reminders': typeof ApiPublicHooksSosRemindersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -340,6 +348,7 @@ export interface FileRoutesByTo {
   '/shopping': typeof AuthenticatedShoppingIndexRoute
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
+  '/api/public/hooks/mercadona-prices': typeof ApiPublicHooksMercadonaPricesRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
   '/api/public/hooks/sos-reminders': typeof ApiPublicHooksSosRemindersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -381,6 +390,7 @@ export interface FileRoutesById {
   '/_authenticated/shopping/': typeof AuthenticatedShoppingIndexRoute
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
+  '/api/public/hooks/mercadona-prices': typeof ApiPublicHooksMercadonaPricesRoute
   '/api/public/hooks/push-scheduler': typeof ApiPublicHooksPushSchedulerRoute
   '/api/public/hooks/sos-reminders': typeof ApiPublicHooksSosRemindersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -422,6 +432,7 @@ export interface FileRouteTypes {
     | '/shopping/'
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
+    | '/api/public/hooks/mercadona-prices'
     | '/api/public/hooks/push-scheduler'
     | '/api/public/hooks/sos-reminders'
     | '/api/public/telegram/webhook'
@@ -461,6 +472,7 @@ export interface FileRouteTypes {
     | '/shopping'
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
+    | '/api/public/hooks/mercadona-prices'
     | '/api/public/hooks/push-scheduler'
     | '/api/public/hooks/sos-reminders'
     | '/api/public/telegram/webhook'
@@ -501,6 +513,7 @@ export interface FileRouteTypes {
     | '/_authenticated/shopping/'
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
+    | '/api/public/hooks/mercadona-prices'
     | '/api/public/hooks/push-scheduler'
     | '/api/public/hooks/sos-reminders'
     | '/api/public/telegram/webhook'
@@ -512,6 +525,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   ApiPublicHooksGoogleCalendarSyncRoute: typeof ApiPublicHooksGoogleCalendarSyncRoute
   ApiPublicHooksMedicationRemindersRoute: typeof ApiPublicHooksMedicationRemindersRoute
+  ApiPublicHooksMercadonaPricesRoute: typeof ApiPublicHooksMercadonaPricesRoute
   ApiPublicHooksPushSchedulerRoute: typeof ApiPublicHooksPushSchedulerRoute
   ApiPublicHooksSosRemindersRoute: typeof ApiPublicHooksSosRemindersRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
@@ -771,6 +785,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksPushSchedulerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/mercadona-prices': {
+      id: '/api/public/hooks/mercadona-prices'
+      path: '/api/public/hooks/mercadona-prices'
+      fullPath: '/api/public/hooks/mercadona-prices'
+      preLoaderRoute: typeof ApiPublicHooksMercadonaPricesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/medication-reminders': {
       id: '/api/public/hooks/medication-reminders'
       path: '/api/public/hooks/medication-reminders'
@@ -889,6 +910,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksGoogleCalendarSyncRoute: ApiPublicHooksGoogleCalendarSyncRoute,
   ApiPublicHooksMedicationRemindersRoute:
     ApiPublicHooksMedicationRemindersRoute,
+  ApiPublicHooksMercadonaPricesRoute: ApiPublicHooksMercadonaPricesRoute,
   ApiPublicHooksPushSchedulerRoute: ApiPublicHooksPushSchedulerRoute,
   ApiPublicHooksSosRemindersRoute: ApiPublicHooksSosRemindersRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
@@ -896,13 +918,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

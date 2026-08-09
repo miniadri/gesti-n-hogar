@@ -35,3 +35,22 @@ export const getMercadonaPriceHistory = createServerFn({ method: "GET" })
     if (error) throw error;
     return rows ?? [];
   });
+
+const ProductInput = z.object({ id: z.string().min(1).max(32) });
+
+export const getMercadonaProduct = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ProductInput.parse(input))
+  .handler(async ({ data }) => {
+    const { fetchMercadonaProduct, cacheMercadonaProducts } = await import("./mercadona.server");
+    const product = await fetchMercadonaProduct(data.id);
+    if (product) {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await cacheMercadonaProducts(supabaseAdmin, [product]);
+      } catch {
+        // best-effort cache
+      }
+    }
+    return product;
+  });

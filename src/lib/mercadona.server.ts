@@ -96,8 +96,7 @@ export async function fetchMercadonaProduct(
     if (!response.ok) return null;
     const json: any = await response.json();
     const normalized = normalizeMercadonaHit(json);
-    const ean = json?.details?.danger_stamp ? null : (json?.ean ?? null);
-    return { ...normalized, ean: ean ?? normalized.ean };
+    return { ...normalized, ean: json?.ean ?? normalized.ean };
   } catch {
     return null;
   }
