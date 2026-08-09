@@ -2333,6 +2333,10 @@ export type Database = {
           ocr_price: number | null
           quantity: number
           shopping_list_id: string
+          store_product_brand: string | null
+          store_product_id: string | null
+          store_product_source: string | null
+          store_product_url: string | null
           unit: string | null
           updated_at: string
         }
@@ -2349,6 +2353,10 @@ export type Database = {
           ocr_price?: number | null
           quantity?: number
           shopping_list_id: string
+          store_product_brand?: string | null
+          store_product_id?: string | null
+          store_product_source?: string | null
+          store_product_url?: string | null
           unit?: string | null
           updated_at?: string
         }
@@ -2365,6 +2373,10 @@ export type Database = {
           ocr_price?: number | null
           quantity?: number
           shopping_list_id?: string
+          store_product_brand?: string | null
+          store_product_id?: string | null
+          store_product_source?: string | null
+          store_product_url?: string | null
           unit?: string | null
           updated_at?: string
         }
