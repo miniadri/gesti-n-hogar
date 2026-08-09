@@ -49,6 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { useServerFn } from "@tanstack/react-start";
 import {
   listStores,
@@ -56,6 +57,7 @@ import {
   listShoppingItems,
   listRecentItems,
   createStore,
+  updateStorePreferences,
   createShoppingItem,
   toggleShoppingItem,
   deleteShoppingItem,
@@ -129,6 +131,19 @@ function iconForShoppingItem(item: { name?: string; category?: string | null }) 
   return keywordIcons.find(([pattern]) => pattern.test(name))?.[1] ?? Package;
 }
 
+function isNoStore(store: any) {
+  return /sin\s*tienda/i.test(store?.name ?? "");
+}
+
+function isOfficialStore(store: any, source?: string) {
+  if (source) return store?.official_source === source;
+  return Boolean(store?.official_source);
+}
+
+function isStoreEnabled(store: any) {
+  return store?.is_enabled !== false;
+}
+
 function SnowflakeIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -190,8 +205,6 @@ function ShoppingPage() {
     queryClient.invalidateQueries({ queryKey: ["shopping"] });
     queryClient.invalidateQueries({ queryKey: ["household-activity"] });
   };
-
-  const isNoStore = (s: any) => /sin\s*tienda/i.test(s?.name ?? "");
 
   const grouped = data.stores
     .map((store) => ({
@@ -695,22 +708,30 @@ function AddItemDialog({
   const [mercadona, setMercadona] = useState<MercadonaSuggestion | null>(null);
 
   const defaultStore = stores.find((s) => s.is_default) || stores[0];
-  const isMercadonaStore = (s: any) => /mercadona/i.test(s?.name ?? "");
+  const enabledStores = stores.filter((store) => isNoStore(store) || !isOfficialStore(store) || isStoreEnabled(store));
+  const selectableStores = enabledStores.length > 0 ? enabledStores : stores;
+  const selectedStore = stores.find((store) => store.id === (storeId || defaultStore?.id));
+  const mercadonaStore = stores.find((store) => isOfficialStore(store, "mercadona")) ?? stores.find((store) => /mercadona/i.test(store?.name ?? ""));
+  const mercadonaSearchEnabled =
+    isStoreEnabled(mercadonaStore) &&
+    (!selectedStore || isNoStore(selectedStore) || isOfficialStore(selectedStore, "mercadona"));
+  const disabledMercadonaHint = selectedStore && !isNoStore(selectedStore) && !isOfficialStore(selectedStore, "mercadona")
+    ? `La búsqueda de catálogo está filtrada por ${selectedStore.name}. Esta tienda aún no tiene integración.`
+    : "Mercadona está desactivado en este hogar.";
 
   const handleSelectMercadona = (product: MercadonaSuggestion) => {
     setMercadona(product);
     if (product.unit_price != null) setPrice(String(product.unit_price));
-    const existing = stores.find(isMercadonaStore);
-    if (existing) setStoreId(existing.id);
+    if (product.category) setCategory(product.category);
+    if (mercadonaStore) setStoreId(mercadonaStore.id);
   };
 
   /** Returns the active list id for the chosen store, creating "Mercadona" if needed. */
   const resolveListId = async () => {
     let targetStoreId = storeId || defaultStore?.id;
     if (mercadona && !storeId) {
-      const existing = stores.find(isMercadonaStore);
-      if (existing) {
-        targetStoreId = existing.id;
+      if (mercadonaStore) {
+        targetStoreId = mercadonaStore.id;
       } else {
         const created: any = await doCreateStore({ data: { name: "Mercadona" } });
         targetStoreId = created?.id;
@@ -774,6 +795,35 @@ function AddItemDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
+            <Label>Tienda</Label>
+            <Select value={storeId || defaultStore?.id} onValueChange={(value) => {
+              setStoreId(value);
+              setMercadona(null);
+            }}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {selectableStores
+                  .slice()
+                  .sort((a, b) => {
+                    if (isNoStore(a)) return -1;
+                    if (isNoStore(b)) return 1;
+                    return a.name.localeCompare(b.name);
+                  })
+                  .map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Sin tienda busca en todas las tiendas activas disponibles.
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="item-name">Producto</Label>
             <MercadonaAutocomplete
               id="item-name"
@@ -784,6 +834,8 @@ function AddItemDialog({
                 setMercadona(null);
               }}
               onSelect={handleSelectMercadona}
+              enabled={mercadonaSearchEnabled}
+              disabledHint={disabledMercadonaHint}
               autoFocus
             />
             {mercadona && (
@@ -835,22 +887,6 @@ function AddItemDialog({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Tienda</Label>
-            <Select value={storeId || defaultStore?.id} onValueChange={setStoreId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {stores.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           <DialogFooter>
             <Button type="submit" disabled={submitting || !name.trim()} className="w-full">
               {submitting ? "Añadiendo..." : "Añadir a la lista"}
@@ -874,8 +910,10 @@ function ManageStoresDialog({
   onChange: () => void;
 }) {
   const doCreate = useServerFn(createStore);
+  const doUpdatePreferences = useServerFn(updateStorePreferences);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [updatingStoreId, setUpdatingStoreId] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -893,6 +931,19 @@ function ManageStoresDialog({
     }
   };
 
+  const toggleOfficialStore = async (store: any, enabled: boolean) => {
+    setUpdatingStoreId(store.id);
+    try {
+      await doUpdatePreferences({ data: { id: store.id, is_enabled: enabled } });
+      toast.success(enabled ? `${store.name} activada` : `${store.name} desactivada`);
+      onChange();
+    } catch (err: any) {
+      toast.error(err.message || "Error al actualizar tienda");
+    } finally {
+      setUpdatingStoreId(null);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -903,8 +954,27 @@ function ManageStoresDialog({
           <ul className="space-y-2">
             {stores.map((s) => (
               <li key={s.id} className="flex items-center justify-between rounded-lg border p-3">
-                <span className="font-medium">{s.name}</span>
-                {s.is_default && <Badge variant="outline">Por defecto</Badge>}
+                <span>
+                  <span className="font-medium">{s.name}</span>
+                  {isOfficialStore(s) && (
+                    <span className="block text-xs text-muted-foreground">Catálogo automático</span>
+                  )}
+                </span>
+                <span className="flex items-center gap-2">
+                  {s.is_default && <Badge variant="outline">Por defecto</Badge>}
+                  {isOfficialStore(s) ? (
+                    <>
+                      <span className="text-xs text-muted-foreground">
+                        {isStoreEnabled(s) ? "Usar" : "Oculta"}
+                      </span>
+                      <Switch
+                        checked={isStoreEnabled(s)}
+                        disabled={updatingStoreId === s.id}
+                        onCheckedChange={(checked) => toggleOfficialStore(s, checked)}
+                      />
+                    </>
+                  ) : null}
+                </span>
               </li>
             ))}
           </ul>

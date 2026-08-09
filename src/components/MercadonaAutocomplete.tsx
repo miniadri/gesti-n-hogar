@@ -23,6 +23,8 @@ export function MercadonaAutocomplete({
   value,
   onValueChange,
   onSelect,
+  enabled = true,
+  disabledHint,
   placeholder,
   autoFocus,
   id,
@@ -30,6 +32,8 @@ export function MercadonaAutocomplete({
   value: string;
   onValueChange: (value: string) => void;
   onSelect: (product: MercadonaSuggestion) => void;
+  enabled?: boolean;
+  disabledHint?: string;
   placeholder?: string;
   autoFocus?: boolean;
   id?: string;
@@ -43,6 +47,12 @@ export function MercadonaAutocomplete({
   useEffect(() => {
     if (skipNext.current) {
       skipNext.current = false;
+      return;
+    }
+    if (!enabled) {
+      setResults([]);
+      setOpen(false);
+      setLoading(false);
       return;
     }
     const query = value.trim();
@@ -69,7 +79,7 @@ export function MercadonaAutocomplete({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [value, doSearch]);
+  }, [value, doSearch, enabled]);
 
   const pick = (product: MercadonaSuggestion) => {
     skipNext.current = true;
@@ -89,6 +99,9 @@ export function MercadonaAutocomplete({
         onChange={(e) => onValueChange(e.target.value)}
         onFocus={() => results.length > 0 && setOpen(true)}
       />
+      {!enabled && disabledHint && value.trim().length >= 3 && (
+        <p className="mt-1 text-xs text-muted-foreground">{disabledHint}</p>
+      )}
       {loading && (
         <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
       )}

@@ -9,6 +9,11 @@ const StoreInput = z.object({
   icon: z.string().optional(),
 });
 
+const StorePreferencesInput = z.object({
+  id: z.string().uuid(),
+  is_enabled: z.boolean(),
+});
+
 const ShoppingItemInput = z.object({
   shopping_list_id: z.string().uuid(),
   name: z.string().min(1).max(200),
@@ -64,6 +69,24 @@ export const createStore = createServerFn({ method: "POST" })
     return store;
   });
 
+export const updateStorePreferences = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => StorePreferencesInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data: store, error } = await context.supabase
+      .from("stores")
+      .update({ is_enabled: data.is_enabled })
+      .eq("id", data.id)
+      .eq("household_id", householdId)
+      .select()
+      .single();
+    if (error) throw error;
+    return store;
+  });
+
 export const ensureDefaultLists = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -82,6 +105,26 @@ export const ensureDefaultLists = createServerFn({ method: "POST" })
       await context.supabase
         .from("stores")
         .insert({ household_id: householdId, name: "Sin tienda", is_default: true });
+    }
+
+    // First official source. Later integrations (Dia, Carrefour, etc.) can be added
+    // with the same fields without changing shopping list behaviour.
+    const { data: mercadona } = await context.supabase
+      .from("stores")
+      .select("id")
+      .eq("household_id", householdId)
+      .eq("official_source", "mercadona")
+      .maybeSingle();
+
+    if (!mercadona) {
+      await context.supabase
+        .from("stores")
+        .insert({
+          household_id: householdId,
+          name: "Mercadona",
+          official_source: "mercadona",
+          is_enabled: true,
+        });
     }
 
     // Ensure each store has a current shopping list
