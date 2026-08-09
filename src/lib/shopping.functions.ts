@@ -112,9 +112,9 @@ export const ensureDefaultLists = createServerFn({ method: "POST" })
     }
 
     const officialStores = [
-      { name: "Mercadona", official_source: "mercadona" },
-      { name: "Día", official_source: "dia" },
-      { name: "Carrefour", official_source: "carrefour" },
+      { name: "Mercadona", official_source: "mercadona", is_enabled: true },
+      { name: "Día", official_source: "dia", is_enabled: true },
+      { name: "Carrefour", official_source: "carrefour", is_enabled: false },
     ];
 
     for (const official of officialStores) {
@@ -132,7 +132,7 @@ export const ensureDefaultLists = createServerFn({ method: "POST" })
             household_id: householdId,
             name: official.name,
             official_source: official.official_source,
-            is_enabled: true,
+            is_enabled: official.is_enabled,
           });
       }
     }
