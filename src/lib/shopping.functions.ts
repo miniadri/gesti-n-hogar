@@ -23,6 +23,10 @@ const ShoppingItemInput = z.object({
   manual_price: z.number().nonnegative().optional(),
   image_url: z.string().url().optional(),
   mercadona_id: z.string().max(32).optional(),
+  store_product_source: z.enum(["mercadona", "dia", "carrefour"]).optional(),
+  store_product_id: z.string().max(80).optional(),
+  store_product_url: z.string().url().optional(),
+  store_product_brand: z.string().max(120).optional(),
   linked_inventory_item_id: z.string().uuid().optional(),
 });
 
@@ -107,24 +111,30 @@ export const ensureDefaultLists = createServerFn({ method: "POST" })
         .insert({ household_id: householdId, name: "Sin tienda", is_default: true });
     }
 
-    // First official source. Later integrations (Dia, Carrefour, etc.) can be added
-    // with the same fields without changing shopping list behaviour.
-    const { data: mercadona } = await context.supabase
-      .from("stores")
-      .select("id")
-      .eq("household_id", householdId)
-      .eq("official_source", "mercadona")
-      .maybeSingle();
+    const officialStores = [
+      { name: "Mercadona", official_source: "mercadona" },
+      { name: "Día", official_source: "dia" },
+      { name: "Carrefour", official_source: "carrefour" },
+    ];
 
-    if (!mercadona) {
-      await context.supabase
+    for (const official of officialStores) {
+      const { data: existingOfficial } = await context.supabase
         .from("stores")
-        .insert({
-          household_id: householdId,
-          name: "Mercadona",
-          official_source: "mercadona",
-          is_enabled: true,
-        });
+        .select("id")
+        .eq("household_id", householdId)
+        .eq("official_source", official.official_source)
+        .maybeSingle();
+
+      if (!existingOfficial) {
+        await context.supabase
+          .from("stores")
+          .insert({
+            household_id: householdId,
+            name: official.name,
+            official_source: official.official_source,
+            is_enabled: true,
+          });
+      }
     }
 
     // Ensure each store has a current shopping list
