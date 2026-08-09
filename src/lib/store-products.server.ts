@@ -2,6 +2,29 @@ import { algoliaSearch, type MercadonaProduct } from "./mercadona.server";
 
 export type StoreProductSource = "mercadona" | "dia" | "carrefour";
 
+export type StoreCatalogProbeSource =
+  | StoreProductSource
+  | "alcampo"
+  | "consum"
+  | "el_corte_ingles"
+  | "eroski"
+  | "mas"
+  | "caprabo"
+  | "superalba";
+
+export type StoreCatalogProbeResult = {
+  source: StoreCatalogProbeSource;
+  label: string;
+  status: "ok" | "blocked" | "empty" | "error";
+  http_status: number | null;
+  content_type: string | null;
+  endpoint: string | null;
+  product_count: number | null;
+  sample_names: string[];
+  notes: string;
+  elapsed_ms: number;
+};
+
 export type StoreProductSuggestion = {
   source: StoreProductSource;
   source_label: string;
@@ -22,6 +45,19 @@ const SOURCE_LABELS: Record<StoreProductSource, string> = {
   mercadona: "Mercadona",
   dia: "Día",
   carrefour: "Carrefour",
+};
+
+const PROBE_SOURCE_LABELS: Record<StoreCatalogProbeSource, string> = {
+  mercadona: "Mercadona",
+  dia: "Día",
+  carrefour: "Carrefour",
+  alcampo: "Alcampo",
+  consum: "Consum",
+  el_corte_ingles: "El Corte Inglés / Hipercor",
+  eroski: "Eroski",
+  mas: "MAS",
+  caprabo: "Caprabo",
+  superalba: "SuperAlba",
 };
 
 function num(value: unknown): number | null {
@@ -155,6 +191,152 @@ function rankStoreResults(products: StoreProductSuggestion[], query: string) {
     .map(({ product }) => product);
 }
 
+function uniqueStrings(values: Array<unknown>, limit = 5) {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const clean = value.replace(/\s+/g, " ").trim();
+    if (!clean || seen.has(clean.toLowerCase())) continue;
+    seen.add(clean.toLowerCase());
+    out.push(clean);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function readPath(value: any, path: string) {
+  return path.split(".").reduce((acc, key) => (acc == null ? undefined : acc[key]), value);
+}
+
+function arrayAtFirstPath(json: any, paths: string[]) {
+  for (const path of paths) {
+    const value = readPath(json, path);
+    if (Array.isArray(value)) return value;
+  }
+  return null;
+}
+
+function genericJsonSamples(json: any) {
+  const items =
+    arrayAtFirstPath(json, ["results", "items", "products", "search_items", "data.products", "data.items", "hits", "hits.hits"]) ?? [];
+  const names = items.flatMap((item: any) => [
+    item?.display_name,
+    item?.name,
+    item?.title,
+    item?.productName,
+    item?.productData?.name,
+    item?._source?.name,
+    item?._source?.title,
+  ]);
+  return {
+    count: num(json?.total) ?? num(json?.totalCount) ?? num(json?.count) ?? num(json?.nbHits) ?? items.length,
+    sampleNames: uniqueStrings(names),
+  };
+}
+
+function consumSamples(json: any) {
+  const products = Array.isArray(json?.products) ? json.products : [];
+  return {
+    count: num(json?.totalCount) ?? products.length,
+    sampleNames: uniqueStrings(products.map((item: any) => item?.productData?.name ?? item?.productData?.description)),
+  };
+}
+
+function diaSamples(json: any) {
+  const products = Array.isArray(json?.search_items) ? json.search_items : [];
+  return {
+    count: products.length,
+    sampleNames: uniqueStrings(products.map((item: any) => item?.display_name ?? item?.name)),
+  };
+}
+
+async function fetchProbe(
+  source: StoreCatalogProbeSource,
+  endpoint: string,
+  parser: (json: any) => { count: number | null; sampleNames: string[] } = genericJsonSamples,
+): Promise<StoreCatalogProbeResult> {
+  const started = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(endpoint, {
+      signal: controller.signal,
+      headers: {
+        accept: "application/json,text/html;q=0.9,*/*;q=0.8",
+        "accept-language": "es-ES,es;q=0.9",
+        "user-agent": "Mozilla/5.0 HomeSync supermarket source probe",
+      },
+    });
+    const contentType = response.headers.get("content-type");
+    if (!response.ok) {
+      return {
+        source,
+        label: PROBE_SOURCE_LABELS[source],
+        status: response.status === 401 || response.status === 403 || response.status === 429 ? "blocked" : "error",
+        http_status: response.status,
+        content_type: contentType,
+        endpoint,
+        product_count: null,
+        sample_names: [],
+        notes:
+          response.status === 401 || response.status === 403 || response.status === 429
+            ? "El servidor bloquea la petición o exige sesión/captcha."
+            : `Respuesta HTTP ${response.status}.`,
+        elapsed_ms: Date.now() - started,
+      };
+    }
+
+    const text = await response.text();
+    if (!/json/i.test(contentType ?? "")) {
+      return {
+        source,
+        label: PROBE_SOURCE_LABELS[source],
+        status: "error",
+        http_status: response.status,
+        content_type: contentType,
+        endpoint,
+        product_count: null,
+        sample_names: [],
+        notes: "Respondió, pero no parece JSON de catálogo.",
+        elapsed_ms: Date.now() - started,
+      };
+    }
+
+    const parsed = parser(JSON.parse(text));
+    return {
+      source,
+      label: PROBE_SOURCE_LABELS[source],
+      status: (parsed.count ?? 0) > 0 || parsed.sampleNames.length > 0 ? "ok" : "empty",
+      http_status: response.status,
+      content_type: contentType,
+      endpoint,
+      product_count: parsed.count,
+      sample_names: parsed.sampleNames,
+      notes:
+        parsed.sampleNames.length > 0
+          ? "Endpoint JSON accesible. Revisa si los resultados son relevantes para la búsqueda."
+          : "Endpoint JSON accesible, pero no devolvió productos para esta búsqueda.",
+      elapsed_ms: Date.now() - started,
+    };
+  } catch (error: any) {
+    return {
+      source,
+      label: PROBE_SOURCE_LABELS[source],
+      status: "error",
+      http_status: null,
+      content_type: null,
+      endpoint,
+      product_count: null,
+      sample_names: [],
+      notes: error?.name === "AbortError" ? "Timeout al consultar la fuente." : error?.message ?? "Error desconocido.",
+      elapsed_ms: Date.now() - started,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function fromCarrefour(item: any): StoreProductSuggestion | null {
   const id = String(item?.id ?? item?.productId ?? item?.code ?? item?.sku ?? "");
   const name = item?.name ?? item?.title ?? item?.display_name ?? item?.productName ?? "";
@@ -256,4 +438,49 @@ export async function searchStoreProducts(
     }),
   );
   return settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+}
+
+export async function testStoreCatalogSources(query: string): Promise<StoreCatalogProbeResult[]> {
+  const trimmed = query.trim() || "leche";
+  const encoded = encodeURIComponent(trimmed);
+
+  const started = Date.now();
+  const mercadona = algoliaSearch(trimmed, 5)
+    .then((items) => ({
+      source: "mercadona" as const,
+      label: PROBE_SOURCE_LABELS.mercadona,
+      status: items.length > 0 ? ("ok" as const) : ("empty" as const),
+      http_status: 200,
+      content_type: "application/json",
+      endpoint: "Mercadona Algolia",
+      product_count: items.length,
+      sample_names: uniqueStrings(items.map((item) => item.display_name)),
+      notes: items.length > 0 ? "Fuente actual funcional." : "La fuente respondió sin resultados.",
+      elapsed_ms: Date.now() - started,
+    }))
+    .catch((error: any) => ({
+      source: "mercadona" as const,
+      label: PROBE_SOURCE_LABELS.mercadona,
+      status: "error" as const,
+      http_status: null,
+      content_type: null,
+      endpoint: "Mercadona Algolia",
+      product_count: null,
+      sample_names: [],
+      notes: error?.message ?? "Error en Mercadona.",
+      elapsed_ms: Date.now() - started,
+    }));
+
+  return Promise.all([
+    mercadona,
+    fetchProbe("dia", `https://www.dia.es/api/v1/search-back/search/reduced?q=${encoded}`, diaSamples),
+    fetchProbe("consum", `https://tienda.consum.es/api/rest/V1.0/catalog/product?limit=8&offset=0&q=${encoded}`, consumSamples),
+    fetchProbe("carrefour", `https://www.carrefour.es/search-api/query/v1/search?query=${encoded}`),
+    fetchProbe("alcampo", `https://www.compraonline.alcampo.es/search?q=${encoded}`),
+    fetchProbe("el_corte_ingles", `https://www.elcorteingles.es/supermercado/search/?term=${encoded}`),
+    fetchProbe("eroski", `https://supermercado.eroski.es/es/search/results/?q=${encoded}`),
+    fetchProbe("mas", `https://www.supermercadosmas.com/?s=${encoded}`),
+    fetchProbe("caprabo", `https://www.capraboacasa.com/es/search?text=${encoded}`),
+    fetchProbe("superalba", `https://superalba.es/?s=${encoded}`),
+  ]);
 }
