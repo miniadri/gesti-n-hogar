@@ -229,6 +229,14 @@ export function StoreProductAutocomplete({
     acc[key].push(item);
     return acc;
   }, {});
+  const trimmed = value.trim();
+  const onlyCarrefour = sources.length === 1 && sources[0] === "carrefour";
+  const noResults =
+    enabled &&
+    !loading &&
+    trimmed.length >= 3 &&
+    !open &&
+    results.length === 0;
 
   return (
     <div className="relative">
@@ -246,6 +254,13 @@ export function StoreProductAutocomplete({
       )}
       {loading && (
         <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+      )}
+      {noResults && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {onlyCarrefour
+            ? "Carrefour está preparado, pero su catálogo está bloqueando búsquedas desde servidor. Puedes añadir el producto manualmente."
+            : "No hay coincidencias en las tiendas activas. Prueba una búsqueda más específica o añade el producto manualmente."}
+        </p>
       )}
       {open && results.length > 0 && (
         <div className="absolute z-50 mt-1 max-h-80 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
