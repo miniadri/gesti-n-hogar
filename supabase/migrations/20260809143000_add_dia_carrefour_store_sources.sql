@@ -16,6 +16,18 @@ CREATE INDEX IF NOT EXISTS shopping_list_items_store_product_idx
   ON public.shopping_list_items (store_product_source, store_product_id)
   WHERE store_product_source IS NOT NULL AND store_product_id IS NOT NULL;
 
+UPDATE public.stores s
+SET official_source = source.official_source,
+    is_enabled = COALESCE(s.is_enabled, true)
+FROM (
+  VALUES
+    ('Día', 'dia'),
+    ('Dia', 'dia'),
+    ('Carrefour', 'carrefour')
+) AS source(name, official_source)
+WHERE s.official_source IS NULL
+  AND lower(s.name) = lower(source.name);
+
 INSERT INTO public.stores (household_id, name, official_source, is_enabled, is_default)
 SELECT h.id, source.name, source.official_source, true, false
 FROM public.households h
@@ -28,7 +40,10 @@ WHERE NOT EXISTS (
   SELECT 1
   FROM public.stores s
   WHERE s.household_id = h.id
-    AND s.official_source = source.official_source
+    AND (
+      s.official_source = source.official_source
+      OR lower(s.name) = lower(source.name)
+    )
 );
 
 INSERT INTO public.shopping_lists (household_id, store_id, name)
