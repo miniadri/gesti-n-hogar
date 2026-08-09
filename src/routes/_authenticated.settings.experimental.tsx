@@ -3,6 +3,7 @@ import { FlaskConical } from "lucide-react";
 
 import { DeviceCapabilityExperiment } from "@/components/DeviceCapabilityExperiment";
 import { FallDetectionExperiment } from "@/components/FallDetectionExperiment";
+import { StoreCatalogSourceExperiment } from "@/components/StoreCatalogSourceExperiment";
 
 const EXPERIMENTAL_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com"]);
 
@@ -35,6 +36,8 @@ function ExperimentalPage() {
       <DeviceCapabilityExperiment />
 
       <FallDetectionExperiment />
+
+      <StoreCatalogSourceExperiment />
     </div>
   );
 }
