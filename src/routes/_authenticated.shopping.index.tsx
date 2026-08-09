@@ -506,6 +506,8 @@ function ShoppingItemCard({
         await doCreateInv({
           data: {
             name: item.name,
+            mercadona_id: item.mercadona_id ?? undefined,
+            image_url: item.image_url ?? undefined,
             category: item.category || undefined,
             quantity: Number(item.quantity) || 1,
             unit: item.unit || undefined,
@@ -594,9 +596,18 @@ function ShoppingItemCard({
           </div>
 
           <div className="mt-3 flex flex-col items-center text-center">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-secondary-foreground">
-              <Icon className="h-6 w-6" />
-            </div>
+            {item.image_url ? (
+              <img
+                src={item.image_url}
+                alt={item.name}
+                loading="lazy"
+                className="h-12 w-12 rounded-2xl bg-secondary object-contain"
+              />
+            ) : (
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-secondary-foreground">
+                <Icon className="h-6 w-6" />
+              </div>
+            )}
             <p className="mt-2 line-clamp-2 text-sm font-semibold leading-tight">{item.name}</p>
             <p className="text-xs text-muted-foreground">
               {item.quantity} {item.unit || "ud."}
@@ -609,6 +620,9 @@ function ShoppingItemCard({
                 Mejor: <span className="font-semibold text-foreground">€{cheapest.price.toFixed(2)}</span>{" "}
                 en {cheapest.store_name}
               </p>
+            )}
+            {item.mercadona_id && (
+              <MercadonaProductLink productId={item.mercadona_id} className="mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline" label="Ver en Mercadona" />
             )}
           </div>
         </CardContent>
