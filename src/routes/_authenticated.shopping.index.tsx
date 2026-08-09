@@ -76,9 +76,9 @@ import { comparePrices, type PriceQuote } from "@/lib/prices.functions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Euro } from "lucide-react";
 import {
-  MercadonaAutocomplete,
-  MercadonaProductLink,
-  type MercadonaSuggestion,
+  StoreProductAutocomplete,
+  StoreProductLink,
+  type StoreProductSuggestion,
 } from "@/components/MercadonaAutocomplete";
 
 function normalizeKey(s: string): string {
@@ -142,6 +142,13 @@ function isOfficialStore(store: any, source?: string) {
 
 function isStoreEnabled(store: any) {
   return store?.is_enabled !== false;
+}
+
+function storeSourceLabel(source?: string | null) {
+  if (source === "mercadona") return "Mercadona";
+  if (source === "dia") return "Día";
+  if (source === "carrefour") return "Carrefour";
+  return "tienda";
 }
 
 function SnowflakeIcon({ className }: { className?: string }) {
@@ -634,8 +641,14 @@ function ShoppingItemCard({
                 en {cheapest.store_name}
               </p>
             )}
-            {item.mercadona_id && (
-              <MercadonaProductLink productId={item.mercadona_id} className="mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline" label="Ver en Mercadona" />
+            {(item.store_product_url || item.mercadona_id) && (
+              <StoreProductLink
+                source={item.store_product_source ?? (item.mercadona_id ? "mercadona" : null)}
+                productId={item.store_product_id ?? item.mercadona_id}
+                url={item.store_product_url}
+                className="mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                label={`Ver en ${storeSourceLabel(item.store_product_source ?? (item.mercadona_id ? "mercadona" : null))}`}
+              />
             )}
           </div>
         </CardContent>
@@ -705,35 +718,48 @@ function AddItemDialog({
   const [quantity, setQuantity] = useState("1");
   const [price, setPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [mercadona, setMercadona] = useState<MercadonaSuggestion | null>(null);
+  const [selectedCatalogProduct, setSelectedCatalogProduct] = useState<StoreProductSuggestion | null>(null);
 
   const defaultStore = stores.find((s) => s.is_default) || stores[0];
   const enabledStores = stores.filter((store) => isNoStore(store) || !isOfficialStore(store) || isStoreEnabled(store));
   const selectableStores = enabledStores.length > 0 ? enabledStores : stores;
   const selectedStore = stores.find((store) => store.id === (storeId || defaultStore?.id));
-  const mercadonaStore = stores.find((store) => isOfficialStore(store, "mercadona")) ?? stores.find((store) => /mercadona/i.test(store?.name ?? ""));
-  const mercadonaSearchEnabled =
-    isStoreEnabled(mercadonaStore) &&
-    (!selectedStore || isNoStore(selectedStore) || isOfficialStore(selectedStore, "mercadona"));
-  const disabledMercadonaHint = selectedStore && !isNoStore(selectedStore) && !isOfficialStore(selectedStore, "mercadona")
+  const officialStoresBySource = stores.reduce<Record<string, any>>((acc, store) => {
+    if (store?.official_source) acc[store.official_source] = store;
+    return acc;
+  }, {});
+  const activeOfficialSources = stores
+    .filter((store) => isOfficialStore(store) && isStoreEnabled(store))
+    .map((store) => store.official_source)
+    .filter(Boolean) as StoreProductSuggestion["source"][];
+  const catalogSources =
+    selectedStore && isOfficialStore(selectedStore)
+      ? ([selectedStore.official_source].filter(Boolean) as StoreProductSuggestion["source"][])
+      : selectedStore && isNoStore(selectedStore)
+        ? activeOfficialSources
+        : [];
+  const catalogSearchEnabled = catalogSources.length > 0;
+  const disabledCatalogHint = selectedStore && !isNoStore(selectedStore) && !isOfficialStore(selectedStore)
     ? `La búsqueda de catálogo está filtrada por ${selectedStore.name}. Esta tienda aún no tiene integración.`
-    : "Mercadona está desactivado en este hogar.";
+    : "No hay tiendas oficiales activas en este hogar.";
 
-  const handleSelectMercadona = (product: MercadonaSuggestion) => {
-    setMercadona(product);
+  const handleSelectCatalogProduct = (product: StoreProductSuggestion) => {
+    setSelectedCatalogProduct(product);
     if (product.unit_price != null) setPrice(String(product.unit_price));
     if (product.category) setCategory(product.category);
-    if (mercadonaStore) setStoreId(mercadonaStore.id);
+    const sourceStore = officialStoresBySource[product.source];
+    if (sourceStore) setStoreId(sourceStore.id);
   };
 
-  /** Returns the active list id for the chosen store, creating "Mercadona" if needed. */
+  /** Returns the active list id for the chosen store, creating the official store if needed. */
   const resolveListId = async () => {
     let targetStoreId = storeId || defaultStore?.id;
-    if (mercadona && !storeId) {
-      if (mercadonaStore) {
-        targetStoreId = mercadonaStore.id;
+    if (selectedCatalogProduct && !storeId) {
+      const sourceStore = officialStoresBySource[selectedCatalogProduct.source];
+      if (sourceStore) {
+        targetStoreId = sourceStore.id;
       } else {
-        const created: any = await doCreateStore({ data: { name: "Mercadona" } });
+        const created: any = await doCreateStore({ data: { name: selectedCatalogProduct.source_label } });
         targetStoreId = created?.id;
       }
     }
@@ -769,15 +795,19 @@ function AddItemDialog({
           category,
           quantity: Number(quantity) || 1,
           manual_price: price ? Number(price) : undefined,
-          mercadona_id: mercadona?.id,
-          image_url: mercadona?.thumbnail ?? undefined,
+          mercadona_id: selectedCatalogProduct?.source === "mercadona" ? selectedCatalogProduct.id : undefined,
+          store_product_source: selectedCatalogProduct?.source,
+          store_product_id: selectedCatalogProduct?.id,
+          store_product_url: selectedCatalogProduct?.share_url ?? undefined,
+          store_product_brand: selectedCatalogProduct?.brand ?? undefined,
+          image_url: selectedCatalogProduct?.thumbnail ?? undefined,
         },
       });
       toast.success("Producto añadido");
       setName("");
       setQuantity("1");
       setPrice("");
-      setMercadona(null);
+      setSelectedCatalogProduct(null);
       onAdded();
       onOpenChange(false);
     } catch (err: any) {
@@ -798,7 +828,7 @@ function AddItemDialog({
             <Label>Tienda</Label>
             <Select value={storeId || defaultStore?.id} onValueChange={(value) => {
               setStoreId(value);
-              setMercadona(null);
+              setSelectedCatalogProduct(null);
             }}>
               <SelectTrigger>
                 <SelectValue />
@@ -825,23 +855,29 @@ function AddItemDialog({
 
           <div className="space-y-2">
             <Label htmlFor="item-name">Producto</Label>
-            <MercadonaAutocomplete
+            <StoreProductAutocomplete
               id="item-name"
               placeholder="Ej. Leche entera"
               value={name}
               onValueChange={(v) => {
                 setName(v);
-                setMercadona(null);
+                setSelectedCatalogProduct(null);
               }}
-              onSelect={handleSelectMercadona}
-              enabled={mercadonaSearchEnabled}
-              disabledHint={disabledMercadonaHint}
+              onSelect={handleSelectCatalogProduct}
+              sources={catalogSources}
+              enabled={catalogSearchEnabled}
+              disabledHint={disabledCatalogHint}
               autoFocus
             />
-            {mercadona && (
+            {selectedCatalogProduct && (
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                Mercadona · {mercadona.brand ?? "producto"}
-                <MercadonaProductLink productId={mercadona.id} label="Abrir en Mercadona" />
+                {selectedCatalogProduct.source_label} · {selectedCatalogProduct.brand ?? "producto"}
+                <StoreProductLink
+                  source={selectedCatalogProduct.source}
+                  productId={selectedCatalogProduct.id}
+                  url={selectedCatalogProduct.share_url}
+                  label={`Abrir en ${selectedCatalogProduct.source_label}`}
+                />
               </p>
             )}
           </div>
