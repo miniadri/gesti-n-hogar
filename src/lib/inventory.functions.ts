@@ -24,6 +24,8 @@ const InventoryInput = z.object({
   expiry_date: z.string().date().optional(),
   last_price: z.number().nonnegative().optional(),
   ean: z.string().min(6).max(32).optional(),
+  mercadona_id: z.string().max(32).optional(),
+  image_url: z.string().url().optional(),
 });
 
 const UpdateInventoryInput = InventoryInput.partial().extend({ id: z.string().uuid() });
@@ -88,6 +90,8 @@ export const createInventoryItem = createServerFn({ method: "POST" })
         expiry_date: data.expiry_date ?? existing.expiry_date,
         last_price: data.last_price ?? existing.last_price,
         min_stock: data.min_stock ?? existing.min_stock,
+        mercadona_id: data.mercadona_id ?? existing.mercadona_id,
+        image_url: data.image_url ?? existing.image_url,
       };
       const { data: updated, error } = await context.supabase
         .from("inventory_items")

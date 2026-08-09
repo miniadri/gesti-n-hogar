@@ -73,6 +73,11 @@ import { toast } from "sonner";
 import { comparePrices, type PriceQuote } from "@/lib/prices.functions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Euro } from "lucide-react";
+import {
+  MercadonaAutocomplete,
+  MercadonaProductLink,
+  type MercadonaSuggestion,
+} from "@/components/MercadonaAutocomplete";
 
 function normalizeKey(s: string): string {
   return s
@@ -501,6 +506,8 @@ function ShoppingItemCard({
         await doCreateInv({
           data: {
             name: item.name,
+            mercadona_id: item.mercadona_id ?? undefined,
+            image_url: item.image_url ?? undefined,
             category: item.category || undefined,
             quantity: Number(item.quantity) || 1,
             unit: item.unit || undefined,
@@ -589,9 +596,18 @@ function ShoppingItemCard({
           </div>
 
           <div className="mt-3 flex flex-col items-center text-center">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-secondary-foreground">
-              <Icon className="h-6 w-6" />
-            </div>
+            {item.image_url ? (
+              <img
+                src={item.image_url}
+                alt={item.name}
+                loading="lazy"
+                className="h-12 w-12 rounded-2xl bg-secondary object-contain"
+              />
+            ) : (
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-secondary-foreground">
+                <Icon className="h-6 w-6" />
+              </div>
+            )}
             <p className="mt-2 line-clamp-2 text-sm font-semibold leading-tight">{item.name}</p>
             <p className="text-xs text-muted-foreground">
               {item.quantity} {item.unit || "ud."}
@@ -604,6 +620,9 @@ function ShoppingItemCard({
                 Mejor: <span className="font-semibold text-foreground">€{cheapest.price.toFixed(2)}</span>{" "}
                 en {cheapest.store_name}
               </p>
+            )}
+            {item.mercadona_id && (
+              <MercadonaProductLink productId={item.mercadona_id} className="mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline" label="Ver en Mercadona" />
             )}
           </div>
         </CardContent>
@@ -666,31 +685,60 @@ function AddItemDialog({
   onAdded: () => void;
 }) {
   const doCreate = useServerFn(createShoppingItem);
+  const doCreateStore = useServerFn(createStore);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Otros");
   const [storeId, setStoreId] = useState<string>("");
   const [quantity, setQuantity] = useState("1");
   const [price, setPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [mercadona, setMercadona] = useState<MercadonaSuggestion | null>(null);
 
   const defaultStore = stores.find((s) => s.is_default) || stores[0];
+  const isMercadonaStore = (s: any) => /mercadona/i.test(s?.name ?? "");
+
+  const handleSelectMercadona = (product: MercadonaSuggestion) => {
+    setMercadona(product);
+    if (product.unit_price != null) setPrice(String(product.unit_price));
+    const existing = stores.find(isMercadonaStore);
+    if (existing) setStoreId(existing.id);
+  };
+
+  /** Returns the active list id for the chosen store, creating "Mercadona" if needed. */
+  const resolveListId = async () => {
+    let targetStoreId = storeId || defaultStore?.id;
+    if (mercadona && !storeId) {
+      const existing = stores.find(isMercadonaStore);
+      if (existing) {
+        targetStoreId = existing.id;
+      } else {
+        const created: any = await doCreateStore({ data: { name: "Mercadona" } });
+        targetStoreId = created?.id;
+      }
+    }
+    let { data: lists } = await supabase
+      .from("shopping_lists")
+      .select("id")
+      .eq("store_id", targetStoreId)
+      .eq("is_archived", false);
+    if (!lists?.[0]?.id) {
+      await ensureDefaultLists();
+      ({ data: lists } = await supabase
+        .from("shopping_lists")
+        .select("id")
+        .eq("store_id", targetStoreId)
+        .eq("is_archived", false));
+    }
+    return lists?.[0]?.id as string | undefined;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const selectedStoreId = storeId || defaultStore?.id;
-    const list = stores.find((s) => s.id === selectedStoreId)?.shopping_list;
-
     setSubmitting(true);
     try {
-      // Find the active list for this store
-      const { data: lists } = await supabase
-        .from("shopping_lists")
-        .select("id")
-        .eq("store_id", selectedStoreId)
-        .eq("is_archived", false);
-      const listId = lists?.[0]?.id;
+      const listId = await resolveListId();
       if (!listId) throw new Error("No list found");
 
       await doCreate({
@@ -700,12 +748,15 @@ function AddItemDialog({
           category,
           quantity: Number(quantity) || 1,
           manual_price: price ? Number(price) : undefined,
+          mercadona_id: mercadona?.id,
+          image_url: mercadona?.thumbnail ?? undefined,
         },
       });
       toast.success("Producto añadido");
       setName("");
       setQuantity("1");
       setPrice("");
+      setMercadona(null);
       onAdded();
       onOpenChange(false);
     } catch (err: any) {
@@ -724,14 +775,25 @@ function AddItemDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="item-name">Producto</Label>
-            <Input
+            <MercadonaAutocomplete
               id="item-name"
               placeholder="Ej. Leche entera"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onValueChange={(v) => {
+                setName(v);
+                setMercadona(null);
+              }}
+              onSelect={handleSelectMercadona}
               autoFocus
             />
+            {mercadona && (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                Mercadona · {mercadona.brand ?? "producto"}
+                <MercadonaProductLink productId={mercadona.id} label="Abrir en Mercadona" />
+              </p>
+            )}
           </div>
+
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

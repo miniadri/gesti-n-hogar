@@ -17,6 +17,7 @@ const ShoppingItemInput = z.object({
   unit: z.string().optional(),
   manual_price: z.number().nonnegative().optional(),
   image_url: z.string().url().optional(),
+  mercadona_id: z.string().max(32).optional(),
   linked_inventory_item_id: z.string().uuid().optional(),
 });
 

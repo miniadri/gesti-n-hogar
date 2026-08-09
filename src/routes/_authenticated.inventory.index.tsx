@@ -27,6 +27,12 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useServerFn } from "@tanstack/react-start";
+import {
+  MercadonaAutocomplete,
+  MercadonaProductLink,
+  type MercadonaSuggestion,
+} from "@/components/MercadonaAutocomplete";
+import { getMercadonaProduct } from "@/lib/mercadona.functions";
 import { listInventory, createInventoryItem, deleteInventoryItem, restoreInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
 import { listMedicines, createMedicine, updateMedicine, deleteMedicine, restoreMedicine } from "@/lib/medicines.functions";
 import { listHouseholdActivity } from "@/lib/activity.functions";
@@ -106,6 +112,7 @@ function InventoryPage() {
   const [minEdit, setMinEdit] = useState<{ id: string; name: string; value: string } | null>(null);
   const [savingMin, setSavingMin] = useState(false);
   const [expiringOnly, setExpiringOnly] = useState(false);
+  const [mercadona, setMercadona] = useState<(MercadonaSuggestion & { ean?: string | null }) | null>(null);
 
   const parseDecimal = (v: string) => {
     const n = Number(v.replace(",", "."));
@@ -113,6 +120,7 @@ function InventoryPage() {
   };
 
   const doCreate = useServerFn(createInventoryItem);
+  const doMercadonaDetail = useServerFn(getMercadonaProduct);
   const doDelete = useServerFn(deleteInventoryItem);
   const doRestore = useServerFn(restoreInventoryItem);
   const doUpdate = useServerFn(updateInventoryItem);
@@ -184,6 +192,10 @@ function InventoryPage() {
           min_stock: (() => { const n = parseDecimal(minStock); return Number.isFinite(n) && n >= 0 ? n : 0; })(),
           location,
           expiry_date: expiry || undefined,
+          mercadona_id: mercadona?.id,
+          image_url: mercadona?.thumbnail ?? undefined,
+          ean: mercadona?.ean ?? undefined,
+          last_price: mercadona?.unit_price ?? undefined,
         },
       });
       toast.success("Producto añadido al inventario");
@@ -193,6 +205,7 @@ function InventoryPage() {
       setMinStock("0");
       setExpiry("");
       setLocation("Armario");
+      setMercadona(null);
       refresh();
       setOpen(false);
     } catch (err: any) {
@@ -519,7 +532,30 @@ function InventoryPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label>Nombre</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+              <MercadonaAutocomplete
+                value={name}
+                onValueChange={(v) => {
+                  setName(v);
+                  setMercadona(null);
+                }}
+                onSelect={async (product) => {
+                  setMercadona(product);
+                  if (product.category) setLocation(suggestLocation(product.category));
+                  try {
+                    const detail: any = await doMercadonaDetail({ data: { id: product.id } });
+                    if (detail?.ean) setMercadona({ ...product, ean: detail.ean });
+                  } catch {
+                    /* el EAN es opcional */
+                  }
+                }}
+                autoFocus
+              />
+              {mercadona && (
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                  Mercadona · {mercadona.unit_price != null ? `${mercadona.unit_price.toFixed(2)} €` : "sin precio"}
+                  <MercadonaProductLink productId={mercadona.id} label="Abrir en Mercadona" />
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
