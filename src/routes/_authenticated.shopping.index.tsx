@@ -73,6 +73,11 @@ import { toast } from "sonner";
 import { comparePrices, type PriceQuote } from "@/lib/prices.functions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Euro } from "lucide-react";
+import {
+  MercadonaAutocomplete,
+  MercadonaProductLink,
+  type MercadonaSuggestion,
+} from "@/components/MercadonaAutocomplete";
 
 function normalizeKey(s: string): string {
   return s
