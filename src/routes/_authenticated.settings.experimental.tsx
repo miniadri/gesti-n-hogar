@@ -5,6 +5,7 @@ import { DeviceCapabilityExperiment } from "@/components/DeviceCapabilityExperim
 import { FallDetectionExperiment } from "@/components/FallDetectionExperiment";
 import { FirecrawlStoreExperiment } from "@/components/FirecrawlStoreExperiment";
 import { StoreCatalogSourceExperiment } from "@/components/StoreCatalogSourceExperiment";
+import { StoreCatalogProviderLab } from "@/components/StoreCatalogProviderLab";
 
 const EXPERIMENTAL_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com"]);
 
@@ -39,6 +40,8 @@ function ExperimentalPage() {
       <FallDetectionExperiment />
 
       <StoreCatalogSourceExperiment />
+
+      <StoreCatalogProviderLab />
 
       <FirecrawlStoreExperiment />
 

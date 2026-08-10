@@ -147,6 +147,7 @@ function isStoreEnabled(store: any) {
 function storeSourceLabel(source?: string | null) {
   if (source === "mercadona") return "Mercadona";
   if (source === "dia") return "Día";
+  if (source === "consum") return "Consum";
   if (source === "carrefour") return "Carrefour";
   return "tienda";
 }
