@@ -20,7 +20,7 @@ export type MercadonaSuggestion = {
 };
 
 export type StoreProductSuggestion = MercadonaSuggestion & {
-  source: "mercadona" | "dia" | "carrefour";
+  source: "mercadona" | "dia" | "consum" | "carrefour";
   source_label: string;
 };
 
@@ -230,7 +230,7 @@ export function StoreProductAutocomplete({
     return acc;
   }, {});
   const trimmed = value.trim();
-  const onlyCarrefour = sources.length === 1 && sources[0] === "carrefour";
+  const onlyCachedUnavailable = sources.length === 1 && sources[0] === "carrefour";
   const noResults =
     enabled &&
     !loading &&
@@ -257,8 +257,8 @@ export function StoreProductAutocomplete({
       )}
       {noResults && (
         <p className="mt-1 text-xs text-muted-foreground">
-          {onlyCarrefour
-            ? "Carrefour está preparado, pero su catálogo está bloqueando búsquedas desde servidor. Puedes añadir el producto manualmente."
+          {onlyCachedUnavailable
+            ? "Esta tienda está preparada como fuente cacheada/externa, pero no tiene catálogo vivo disponible. Puedes añadir el producto manualmente."
             : "No hay coincidencias en las tiendas activas. Prueba una búsqueda más específica o añade el producto manualmente."}
         </p>
       )}
@@ -347,7 +347,7 @@ export function StoreProductLink({
     return <MercadonaProductLink productId={productId} className={className} label={label ?? "Ver en Mercadona"} />;
   }
   if (!url) return null;
-  const sourceLabel = source === "dia" ? "Día" : source === "carrefour" ? "Carrefour" : "tienda";
+  const sourceLabel = source === "dia" ? "Día" : source === "consum" ? "Consum" : source === "carrefour" ? "Carrefour" : "tienda";
   return (
     <a
       href={url}
