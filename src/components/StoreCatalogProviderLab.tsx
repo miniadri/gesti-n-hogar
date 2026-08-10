@@ -14,6 +14,7 @@ import {
   getStoreCatalogLabState,
   queueStoreCatalogTerm,
   runStoreCatalogManualProbe,
+  runStoreCatalogProviderMatrixProbe,
   updateStoreCatalogProvider,
   updateStoreCatalogSource,
 } from "@/lib/store-catalog-admin.functions";
@@ -117,6 +118,7 @@ export function StoreCatalogProviderLab() {
   const saveSource = useServerFn(updateStoreCatalogSource);
   const queueTerm = useServerFn(queueStoreCatalogTerm);
   const runManualProbe = useServerFn(runStoreCatalogManualProbe);
+  const runMatrixProbe = useServerFn(runStoreCatalogProviderMatrixProbe);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [queue, setQueue] = useState<QueueRow[]>([]);
@@ -127,6 +129,7 @@ export function StoreCatalogProviderLab() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [term, setTerm] = useState("leche");
   const [queueStore, setQueueStore] = useState("alcampo");
+  const [matrixStore, setMatrixStore] = useState("carrefour");
 
   const cachedSources = useMemo(() => sources.filter((source) => source.mode === "cached"), [sources]);
 
@@ -231,6 +234,26 @@ export function StoreCatalogProviderLab() {
       toast.success(`Prueba terminada para “${clean}”`);
     } catch (error: any) {
       toast.error(error?.message ?? "No se pudo ejecutar la prueba manual.");
+    } finally {
+      setManualLoading(false);
+    }
+  };
+
+  const executeMatrixProbe = async () => {
+    const clean = term.trim();
+    if (clean.length < 2) {
+      toast.error("Escribe un término de al menos 2 caracteres.");
+      return;
+    }
+    setManualLoading(true);
+    try {
+      const data: any = await runMatrixProbe({ data: { term: clean, store_key: matrixStore as any } });
+      setManualProbes(data?.probes ?? []);
+      setManualCheckedAt(data?.checked_at ?? new Date().toISOString());
+      const sourceName = sources.find((source) => source.store_key === matrixStore)?.store_name ?? matrixStore;
+      toast.success(`Prueba de ${sourceName} terminada para “${clean}”`);
+    } catch (error: any) {
+      toast.error(error?.message ?? "No se pudo ejecutar la prueba por proveedor.");
     } finally {
       setManualLoading(false);
     }
@@ -418,13 +441,39 @@ export function StoreCatalogProviderLab() {
           <h3 className="font-semibold">Prueba manual ahora</h3>
           <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
             Ejecuta el término contra todas las tiendas activas: Mercadona, Día y Consum en vivo; las cacheadas con su
-            proveedor configurado. No guarda productos ni activa cron.
+            proveedor configurado, aunque ese proveedor esté desactivado para capturas automáticas. No guarda productos
+            ni activa cron.
           </div>
           <div className="grid gap-3 md:grid-cols-[1fr_auto]">
             <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="leche, cola, pañales..." />
             <Button onClick={executeManualProbe} disabled={manualLoading}>
               {manualLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-              Buscar ahora
+              Buscar con configuración
+            </Button>
+          </div>
+          <div className="grid gap-3 rounded-md border p-3 md:grid-cols-[220px_1fr_auto] md:items-end">
+            <div className="space-y-1">
+              <Label className="text-xs">Tienda para matriz</Label>
+              <Select value={matrixStore} onValueChange={setMatrixStore}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sources.map((source) => (
+                    <SelectItem key={source.store_key} value={source.store_key}>
+                      {source.store_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Prueba una tienda concreta con todos los proveedores configurados. Útil para Carrefour y otras tiendas
+              bloqueadas. No cambia el proveedor preferido ni guarda caché.
+            </p>
+            <Button variant="outline" onClick={executeMatrixProbe} disabled={manualLoading}>
+              {manualLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+              Probar tienda con todos
             </Button>
           </div>
           {manualCheckedAt && (
