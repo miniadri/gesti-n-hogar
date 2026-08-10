@@ -1,45 +1,59 @@
-# Revisión de HogarSync y propuestas
+# Precios de más supermercados (Carrefour, Eroski, ECI, Alcampo, MAS, Caprabo…)
 
-Estado revisado hoy: 30 rutas, ~25.000 líneas en pantallas y funciones de servidor. Los módulos grandes (Medicación 1.481 líneas, Cuadrante 1.288, Dashboard 1.142, Compra 971, Tarjetas 1.104) están completos funcionalmente, pero la base ya pide una fase de consolidación antes de seguir añadiendo cosas.
+## Diagnóstico (comprobado ahora mismo)
 
-## Lo que encontré ahora mismo
+He lanzado peticiones reales desde el servidor a los endpoints de esas cadenas. Resultado:
 
-- **Registro médico a medias**: existe `src/lib/medical-records.functions.ts` y la tabla, y se usa desde Medicación, SOS y avisos, pero no hay una pantalla propia ni entrada en Ajustes. Es la funcionalidad más "a medio camino" del proyecto.
-- **i18n solo cubre 8 de 30 pantallas**: el resto tiene los textos escritos directamente en español. El cambio de idioma a inglés hoy deja la mayoría de la app sin traducir.
-- **Avisos de la base de datos**: el linter reporta 1 tabla con seguridad activada pero sin ninguna regla de acceso (queda bloqueada del todo), 7 funciones internas ejecutables por cualquier usuario registrado y 1 extensión instalada en el esquema público.
-- **Sin pruebas automáticas**: no hay ninguna suite; los cálculos delicados (horas del cuadrante, extras, stock de medicación, importe de tickets) no están protegidos frente a regresiones.
+| Cadena | Resultado real |
+|---|---|
+| Carrefour (`search-api` y `cloud-api`) | 403 + pantalla "Just a moment…" (Cloudflare) |
+| Eroski | 403 Forbidden |
+| El Corte Inglés / Hipercor | 403 Access Denied (Akamai) |
+| Alcampo | 404 (endpoint interno cambiado, y el resto protegido) |
+| Caprabo | 403 Forbidden |
 
-## Propuesta por prioridad
+Conclusión: **no es un problema de URL ni de cabeceras**. Estas cadenas usan protección anti-bot (Cloudflare / Akamai) que bloquea cualquier petición hecha desde un servidor de datacenter. Mercadona, Día y Consum funcionan porque exponen APIs abiertas sin esa protección. Reintentar en tiempo real con otras cabeceras no va a funcionar de forma estable.
 
-### 1. Consolidación (recomendado hacer primero)
-- Cerrar los avisos de base de datos: regla de acceso para la tabla sin políticas, restringir la ejecución de las funciones internas y mover la extensión fuera del esquema público.
-- Tests de las fórmulas críticas: horas semanales/mensuales y extras del cuadrante, descuento de stock por toma, reparto de gastos por aportación.
-- Refactorizar las 5 pantallas más largas dividiéndolas en componentes más pequeños y reutilizables (por ejemplo: las tarjetas del dashboard, la vista semanal/plantilla del cuadrante, el pastillero y el stock de medicación). La interfaz visible quedará exactamente igual; solo se reorganiza el código interno para que sea más fácil de mantener y probar.
+## Estrategia propuesta: dos velocidades
 
-### 2. Completar Registro médico
-- Pantalla propia dentro de Medicación con condiciones, alergias a medicamentos y notas por miembro.
-- Visibilidad por registro: solo yo / adultos del hogar / todo el hogar; los perfiles infantiles los gestionan los adultos.
-- Aviso al crear una medicación que coincida con una alergia registrada.
-- Bloque de emergencia (alergias y condiciones críticas) visible en la ficha SOS.
+1. **Tiempo real (como ahora)** para las fuentes abiertas: Mercadona, Día y **Consum** (Consum ya está probado pero aún no está conectado al buscador; se añade).
+2. **Caché alimentada por un rastreo programado** para las cadenas protegidas. Un trabajo diario/semanal recorre sus buscadores usando **Firecrawl** (navegador real con resolución de anti-bot, ya disponible como conector en el workspace) y guarda producto + precio + imagen + enlace en la base de datos. La búsqueda del usuario lee de esa caché: instantánea y sin depender de que la tienda responda en ese momento.
 
-### 3. i18n completo
-- Extraer los textos de las 22 pantallas restantes y completar el diccionario inglés, empezando por Dashboard, Compra, Inventario, Tareas y Cuadrante.
+Así, al buscar un producto verás una fila por tienda con precio, foto y enlace: las abiertas en vivo, las protegidas desde la última captura (con etiqueta "precio del <fecha>").
 
-### 4. Nuevas funciones (elige las que te interesen)
-- **Uso sin conexión**: cachear listas de compra e inventario y encolar los cambios para enviarlos al recuperar red. Es lo que más se nota en un supermercado con mala cobertura.
-- **Resumen semanal del hogar**: un aviso los domingos con gasto de la semana, tareas pendientes, caducidades próximas y horas trabajadas.
-- **Buscador global** (atajo de teclado) sobre productos, recetas, tareas, medicación y tarjetas.
-- **Informe mensual de gastos** exportable en PDF, con evolución por categoría y comparativa entre meses.
-- **Historial de precios por producto** con gráfica y aviso cuando algo sube por encima de un umbral.
-- **Tareas: puntos y recompensas** para perfiles infantiles, aprovechando el `child_allowed` que ya existe.
+## Qué se construye
+
+**Base de datos (nuevas tablas, genéricas para cualquier cadena)**
+- `store_catalog_products`: producto por cadena (fuente, id, nombre, marca, EAN si aparece, imagen, url, categoría, precio, precio por unidad, formato, fecha de captura).
+- `store_catalog_price_history`: histórico diario de precios por producto, igual que ya existe para Mercadona, para ver subidas/bajadas.
+- `store_catalog_terms`: lista de términos a rastrear (se alimenta sola con lo que la gente busca y con los productos del inventario/lista de la compra), para no rastrear el catálogo entero.
+
+**Servidor (sin renombrar nada existente)**
+- `src/lib/store-products.server.ts` (modificar): añadir Consum en vivo; añadir Eroski, Carrefour, ECI/Hipercor, Alcampo, MAS y Caprabo leyendo de la caché; unificar el ranking y el dedupe ya existentes; devolver `captured_at` y `is_cached` en cada sugerencia.
+- `src/lib/store-scrape.server.ts` (nuevo): adaptadores Firecrawl por cadena (URL de búsqueda + extracción estructurada de nombre/precio/imagen/enlace), con reintentos, límite de peticiones y tolerancia a fallos por cadena.
+- `src/lib/store-products.functions.ts` (modificar): ampliar el enum de fuentes y exponer `queueStoreTerm` para registrar términos buscados.
+- `src/routes/api/public/hooks/store-catalog-refresh.ts` (nuevo): endpoint del cron protegido con `CRON_BEARER`, procesa un lote de términos por ejecución y escribe caché + histórico. Programado con pg_cron (diario de madrugada, escalonado respecto al de Mercadona).
+
+**Interfaz (mismo estilo actual)**
+- `src/components/MercadonaAutocomplete.tsx` (modificar, sin renombrar): resultados agrupados por tienda, etiquetas de las nuevas cadenas y aviso "precio del <fecha>" en las cacheadas.
+- `src/lib/shopping.functions.ts` y `src/routes/_authenticated.shopping.index.tsx` (modificar): aceptar las nuevas fuentes al guardar un artículo y mostrar "Ver en <tienda>".
+- `src/routes/_authenticated.inventory.index.tsx` (modificar): mismas fuentes al autocompletar productos del inventario.
+- `src/components/StoreCatalogSourceExperiment.tsx` (modificar): el test de fuentes pasa a mostrar también estado de la caché (última captura, nº de productos, errores del último rastreo).
+
+**Documentación**
+- `docs/STORE-CATALOGS.md` (nuevo): cómo funciona cada fuente, por qué unas van en vivo y otras por caché, cómo añadir una cadena nueva, cómo se programa el cron y cómo diagnosticar fallos.
 
 ## Detalles técnicos
 
-- Sin cambios de arquitectura: se mantiene TanStack Start, funciones de servidor y el cliente generado del backend.
-- Las migraciones nuevas incluirán los permisos y políticas correspondientes en la misma migración.
-- El trabajo de troceado es puramente de presentación: misma lógica, mismos datos.
-- Uso sin conexión sobre el service worker que ya existe (`public/sw.js`) más una cola local de cambios.
+- Firecrawl se enlaza al proyecto con el conector (conexión ya existente, modo API directa con clave `fc-`); las llamadas se hacen sólo desde servidor.
+- Coste controlado: sólo se rastrean los términos en `store_catalog_terms` (los que realmente se usan), con tope de peticiones por ejecución y frecuencia configurable (diaria por defecto, semanal para cadenas lentas).
+- Reglas de la casa respetadas: RLS + GRANT en cada tabla nueva, lectura para miembros autenticados, escritura sólo `service_role`; cron autenticado con `CRON_BEARER`; ningún archivo se renombra.
+- Si una cadena cambia su web, su adaptador falla de forma aislada: el resto sigue funcionando y el fallo aparece en el panel de fuentes.
 
-## Siguiente paso sugerido
+## Fases
 
-Empezar por el bloque 1 (consolidación) y el 2 (registro médico), y elegir 2 o 3 funciones del bloque 4 para la siguiente iteración.
+1. Enlazar Firecrawl + migración de las tres tablas nuevas.
+2. Adaptadores de rastreo + endpoint de cron + programación pg_cron.
+3. Búsqueda unificada (vivo + caché) y Consum en vivo.
+4. Ajustes de interfaz en lista de la compra, inventario y panel de fuentes.
+5. README `docs/STORE-CATALOGS.md`.
