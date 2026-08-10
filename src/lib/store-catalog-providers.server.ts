@@ -388,6 +388,17 @@ async function probeLiveSource(source: SourceRow, query: string): Promise<StoreC
   }
 }
 
+async function probeSourceWithProvider(
+  source: SourceRow,
+  provider: ProviderRow,
+  query: string,
+): Promise<StoreCatalogManualProbe> {
+  if (provider.provider_key === "firecrawl") {
+    return probeFirecrawlSource(source, provider, query);
+  }
+  return probeHtmlProvider(source, provider, query);
+}
+
 export async function runConfiguredStoreCatalogProbe(
   query: string,
   sources: SourceRow[],
@@ -442,31 +453,28 @@ export async function runConfiguredStoreCatalogProbe(
       continue;
     }
 
-    if (!provider.enabled) {
-      probes.push({
-        store_key: source.store_key,
-        store_name: source.store_name,
-        provider_key: provider.provider_key,
-        provider_name: provider.name,
-        mode: source.mode,
-        query,
-        url: configuredUrl(source, query),
-        status: "skipped",
-        http_status: null,
-        elapsed_ms: 0,
-        credits_used: null,
-        notes: "El proveedor está desactivado en el laboratorio.",
-        products: [],
-      });
-      continue;
-    }
+    probes.push(await probeSourceWithProvider(source, provider, query));
+  }
 
-    if (provider.provider_key === "firecrawl") {
-      probes.push(await probeFirecrawlSource(source, provider, query));
-      continue;
-    }
+  return probes;
+}
 
-    probes.push(await probeHtmlProvider(source, provider, query));
+export async function runStoreCatalogProviderMatrixProbe(
+  query: string,
+  sources: SourceRow[],
+  providers: ProviderRow[],
+  storeKey: StoreCatalogManualStore,
+): Promise<StoreCatalogManualProbe[]> {
+  const source = sources.find((item) => item.store_key === storeKey);
+  if (!source) return [];
+
+  const probes: StoreCatalogManualProbe[] = [];
+  if (source.mode === "live" && LIVE_SOURCES.has(source.store_key)) {
+    probes.push(await probeLiveSource(source, query));
+  }
+
+  for (const provider of providers) {
+    probes.push(await probeSourceWithProvider(source, provider, query));
   }
 
   return probes;

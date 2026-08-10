@@ -43,6 +43,11 @@ const ManualProbeInput = z.object({
   term: z.string().min(2).max(80),
 });
 
+const ManualMatrixProbeInput = z.object({
+  term: z.string().min(2).max(80),
+  store_key: StoreKey,
+});
+
 function assertExperimentalAdmin(context: any) {
   const email =
     String(context?.claims?.email ?? context?.claims?.user_metadata?.email ?? "")
@@ -228,6 +233,36 @@ export const runStoreCatalogManualProbe = createServerFn({ method: "POST" })
     const probes = await runConfiguredStoreCatalogProbe(data.term.trim(), sources.data ?? [], providers.data ?? []);
     return {
       term: data.term.trim(),
+      probes,
+      checked_at: new Date().toISOString(),
+    };
+  });
+
+export const runStoreCatalogProviderMatrixProbe = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ManualMatrixProbeInput.parse(input))
+  .handler(async ({ data, context }) => {
+    assertExperimentalAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { runStoreCatalogProviderMatrixProbe } = await import("./store-catalog-providers.server");
+    const admin = supabaseAdmin as any;
+
+    const [providers, sources] = await Promise.all([
+      admin.from("store_scrape_providers").select("*").order("name"),
+      admin.from("store_catalog_source_settings").select("*").order("store_name"),
+    ]);
+    if (providers.error) throw providers.error;
+    if (sources.error) throw sources.error;
+
+    const probes = await runStoreCatalogProviderMatrixProbe(
+      data.term.trim(),
+      sources.data ?? [],
+      providers.data ?? [],
+      data.store_key,
+    );
+    return {
+      term: data.term.trim(),
+      store_key: data.store_key,
       probes,
       checked_at: new Date().toISOString(),
     };
