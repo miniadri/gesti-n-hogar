@@ -23,7 +23,7 @@ const ShoppingItemInput = z.object({
   manual_price: z.number().nonnegative().optional(),
   image_url: z.string().url().optional(),
   mercadona_id: z.string().max(32).optional(),
-  store_product_source: z.enum(["mercadona", "dia", "carrefour"]).optional(),
+  store_product_source: z.enum(["mercadona", "dia", "consum", "carrefour"]).optional(),
   store_product_id: z.string().max(80).optional(),
   store_product_url: z.string().url().optional(),
   store_product_brand: z.string().max(120).optional(),
@@ -114,6 +114,7 @@ export const ensureDefaultLists = createServerFn({ method: "POST" })
     const officialStores = [
       { name: "Mercadona", official_source: "mercadona", is_enabled: true },
       { name: "Día", official_source: "dia", is_enabled: true },
+      { name: "Consum", official_source: "consum", is_enabled: true },
       { name: "Carrefour", official_source: "carrefour", is_enabled: false },
     ];
 

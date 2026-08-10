@@ -1,6 +1,6 @@
 import { algoliaSearch, type MercadonaProduct } from "./mercadona.server";
 
-export type StoreProductSource = "mercadona" | "dia" | "carrefour";
+export type StoreProductSource = "mercadona" | "dia" | "consum" | "carrefour";
 
 export type StoreCatalogProbeSource =
   | StoreProductSource
@@ -44,6 +44,7 @@ export type StoreProductSuggestion = {
 const SOURCE_LABELS: Record<StoreProductSource, string> = {
   mercadona: "Mercadona",
   dia: "Día",
+  consum: "Consum",
   carrefour: "Carrefour",
 };
 
@@ -109,6 +110,37 @@ function fromDia(item: any): StoreProductSuggestion {
     reference_price: num(prices.price_per_unit),
     reference_format: prices.measure_unit ?? null,
     packaging: item?.packaging ?? null,
+  };
+}
+
+function fromConsum(item: any): StoreProductSuggestion {
+  const product = item?.productData ?? item ?? {};
+  const id = String(product?.id ?? product?.sku ?? product?.code ?? item?.id ?? "");
+  const name = product?.name ?? product?.description ?? item?.name ?? "";
+  const price = item?.priceData?.prices?.[0]?.value?.centAmount ?? item?.priceData?.value?.centAmount ?? product?.price;
+  const priceNumber = typeof price === "number" && price > 100 ? price / 100 : price;
+  const image =
+    product?.images?.[0]?.url ??
+    product?.imageUrl ??
+    product?.image ??
+    item?.imageUrl ??
+    item?.image;
+  return {
+    source: "consum",
+    source_label: SOURCE_LABELS.consum,
+    id,
+    ean: product?.ean ?? product?.gtin ?? product?.barcode ?? null,
+    display_name: name,
+    brand: product?.brand ?? product?.brandName ?? null,
+    thumbnail: absUrl("https://tienda.consum.es", image),
+    share_url: product?.slug
+      ? `https://tienda.consum.es/es/p/${product.slug}`
+      : `https://tienda.consum.es/es/search?q=${encodeURIComponent(name || id)}`,
+    category: product?.categoryName ?? product?.category ?? item?.categoryName ?? null,
+    unit_price: num(priceNumber),
+    reference_price: num(product?.pricePerUnit ?? product?.unitPrice ?? item?.pricePerUnit),
+    reference_format: product?.unit ?? product?.unitMeasure ?? null,
+    packaging: product?.packaging ?? product?.format ?? null,
   };
 }
 
@@ -390,6 +422,32 @@ async function searchDia(query: string, limit: number) {
   return rankStoreResults(dedupeProducts(results), query).slice(0, limit);
 }
 
+async function searchConsum(query: string, limit: number) {
+  const results: StoreProductSuggestion[] = [];
+  for (const variant of buildQueryVariants(query)) {
+    const url = new URL("https://tienda.consum.es/api/rest/V1.0/catalog/product");
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("offset", "0");
+    url.searchParams.set("q", variant);
+    const response = await fetch(url, {
+      headers: {
+        accept: "application/json",
+        "accept-language": "es-ES,es;q=0.9",
+        "user-agent": "Mozilla/5.0 HomeSync product search",
+      },
+    });
+    if (!response.ok) throw new Error(`Consum búsqueda devolvió ${response.status}`);
+    const json: any = await response.json();
+    const products = Array.isArray(json?.products) ? json.products : [];
+    results.push(
+      ...products
+        .map(fromConsum)
+        .filter((item: StoreProductSuggestion) => item.id && item.display_name),
+    );
+  }
+  return rankStoreResults(dedupeProducts(results), query).slice(0, limit);
+}
+
 async function searchCarrefour(query: string, limit: number) {
   const results: StoreProductSuggestion[] = [];
   for (const variant of buildQueryVariants(query)) {
@@ -433,6 +491,7 @@ export async function searchStoreProducts(
     uniqueSources.map(async (source) => {
       if (source === "mercadona") return searchMercadona(query, limitPerSource);
       if (source === "dia") return searchDia(query, limitPerSource);
+      if (source === "consum") return searchConsum(query, limitPerSource);
       if (source === "carrefour") return searchCarrefour(query, limitPerSource);
       return [];
     }),

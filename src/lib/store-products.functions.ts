@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const StoreProductSourceInput = z.enum(["mercadona", "dia", "carrefour"]);
+const StoreProductSourceInput = z.enum(["mercadona", "dia", "consum", "carrefour"]);
 
 const SearchInput = z.object({
   query: z.string().min(2).max(120),
