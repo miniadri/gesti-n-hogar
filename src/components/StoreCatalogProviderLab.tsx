@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Database, Loader2, RefreshCw, Save, Search, Settings2 } from "lucide-react";
+import { CheckCircle2, Database, ExternalLink, Loader2, RefreshCw, Save, Search, Settings2, ShieldAlert, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   getStoreCatalogLabState,
   queueStoreCatalogTerm,
+  runStoreCatalogManualProbe,
   updateStoreCatalogProvider,
   updateStoreCatalogSource,
 } from "@/lib/store-catalog-admin.functions";
@@ -52,6 +53,29 @@ type QueueRow = {
   term?: { term?: string; search_count?: number };
 };
 
+type ManualProbe = {
+  store_key: string;
+  store_name: string;
+  provider_key: string;
+  provider_name: string;
+  mode: "live" | "cached" | "external";
+  query: string;
+  url: string | null;
+  status: "ok" | "empty" | "blocked" | "error" | "config_needed" | "skipped";
+  http_status: number | null;
+  elapsed_ms: number;
+  credits_used: number | null;
+  notes: string;
+  products: Array<{
+    name: string;
+    brand: string | null;
+    price: number | null;
+    price_per_unit: string | null;
+    image_url: string | null;
+    url: string | null;
+  }>;
+};
+
 const PROVIDER_LABELS: Record<string, string> = {
   firecrawl: "Firecrawl",
   apify: "Apify",
@@ -67,9 +91,24 @@ const MODE_LABELS: Record<string, string> = {
   external: "Enlace externo",
 };
 
+const PROBE_STATUS_META: Record<ManualProbe["status"], { label: string; className: string }> = {
+  ok: { label: "OK", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  empty: { label: "Sin resultados", className: "border-slate-200 bg-slate-50 text-slate-700" },
+  blocked: { label: "Bloqueado", className: "border-amber-200 bg-amber-50 text-amber-700" },
+  error: { label: "Error", className: "border-red-200 bg-red-50 text-red-700" },
+  config_needed: { label: "Configurar", className: "border-blue-200 bg-blue-50 text-blue-700" },
+  skipped: { label: "Omitido", className: "border-slate-200 bg-slate-50 text-slate-700" },
+};
+
 function formatDate(value?: string | null) {
   if (!value) return "Sin captura";
   return new Date(value).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" });
+}
+
+function statusIcon(status: ManualProbe["status"]) {
+  if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
+  if (status === "blocked" || status === "config_needed") return <ShieldAlert className="h-4 w-4 text-amber-600" />;
+  return <XCircle className="h-4 w-4 text-muted-foreground" />;
 }
 
 export function StoreCatalogProviderLab() {
@@ -77,10 +116,14 @@ export function StoreCatalogProviderLab() {
   const saveProvider = useServerFn(updateStoreCatalogProvider);
   const saveSource = useServerFn(updateStoreCatalogSource);
   const queueTerm = useServerFn(queueStoreCatalogTerm);
+  const runManualProbe = useServerFn(runStoreCatalogManualProbe);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [queue, setQueue] = useState<QueueRow[]>([]);
+  const [manualProbes, setManualProbes] = useState<ManualProbe[]>([]);
+  const [manualCheckedAt, setManualCheckedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [manualLoading, setManualLoading] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [term, setTerm] = useState("leche");
   const [queueStore, setQueueStore] = useState("alcampo");
@@ -171,6 +214,25 @@ export function StoreCatalogProviderLab() {
       toast.error(error?.message ?? "No se pudo añadir a la cola.");
     } finally {
       setSavingKey(null);
+    }
+  };
+
+  const executeManualProbe = async () => {
+    const clean = term.trim();
+    if (clean.length < 2) {
+      toast.error("Escribe un término de al menos 2 caracteres.");
+      return;
+    }
+    setManualLoading(true);
+    try {
+      const data: any = await runManualProbe({ data: { term: clean } });
+      setManualProbes(data?.probes ?? []);
+      setManualCheckedAt(data?.checked_at ?? new Date().toISOString());
+      toast.success(`Prueba terminada para “${clean}”`);
+    } catch (error: any) {
+      toast.error(error?.message ?? "No se pudo ejecutar la prueba manual.");
+    } finally {
+      setManualLoading(false);
     }
   };
 
@@ -353,7 +415,102 @@ export function StoreCatalogProviderLab() {
         </section>
 
         <section className="space-y-3">
-          <h3 className="font-semibold">Cola manual de prueba</h3>
+          <h3 className="font-semibold">Prueba manual ahora</h3>
+          <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+            Ejecuta el término contra todas las tiendas activas: Mercadona, Día y Consum en vivo; las cacheadas con su
+            proveedor configurado. No guarda productos ni activa cron.
+          </div>
+          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+            <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="leche, cola, pañales..." />
+            <Button onClick={executeManualProbe} disabled={manualLoading}>
+              {manualLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+              Buscar ahora
+            </Button>
+          </div>
+          {manualCheckedAt && (
+            <p className="text-xs text-muted-foreground">
+              Última prueba: {new Date(manualCheckedAt).toLocaleString("es-ES")}
+            </p>
+          )}
+          {manualProbes.length > 0 && (
+            <div className="grid gap-3">
+              {manualProbes.map((probe) => {
+                const meta = PROBE_STATUS_META[probe.status];
+                return (
+                  <div key={`${probe.store_key}-${probe.provider_key}`} className="rounded-lg border p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="flex items-center gap-2 font-medium">
+                          {statusIcon(probe.status)}
+                          {probe.store_name}
+                          <span className="text-sm font-normal text-muted-foreground">· {probe.provider_name}</span>
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {MODE_LABELS[probe.mode]} · HTTP {probe.http_status ?? "-"} ·{" "}
+                          {Math.round(probe.elapsed_ms / 100) / 10}s
+                          {probe.credits_used != null ? ` · ${probe.credits_used} créditos` : ""}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className={meta.className}>
+                        {meta.label}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{probe.notes}</p>
+                    {probe.products.length > 0 && (
+                      <ul className="mt-3 space-y-2">
+                        {probe.products.map((product, index) => (
+                          <li key={`${probe.store_key}-${product.name}-${index}`} className="flex items-center gap-3 rounded-md border p-2">
+                            {product.image_url ? (
+                              <img
+                                src={product.image_url}
+                                alt={product.name}
+                                className="h-10 w-10 rounded object-contain"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded bg-muted" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">{product.name}</p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {[product.brand, product.price_per_unit].filter(Boolean).join(" · ") || "—"}
+                              </p>
+                            </div>
+                            <div className="text-right text-sm font-medium">
+                              {product.price != null ? `${product.price.toFixed(2)} €` : "—"}
+                            </div>
+                            {product.url && (
+                              <a href={product.url} target="_blank" rel="noreferrer" className="text-primary">
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {probe.url && (
+                      <a
+                        href={probe.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex max-w-full items-center gap-1 truncate text-xs text-primary hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{probe.url}</span>
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <h3 className="font-semibold">Cola manual futura</h3>
+          <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+            Esto solo apunta términos para una captura semanal futura. No ejecuta búsqueda real todavía.
+          </div>
           <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
             <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="leche, aceite, pañales..." />
             <Select value={queueStore} onValueChange={setQueueStore}>
