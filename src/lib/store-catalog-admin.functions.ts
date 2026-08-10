@@ -39,6 +39,10 @@ const QueueTermInput = z.object({
   store_key: StoreKey,
 });
 
+const ManualProbeInput = z.object({
+  term: z.string().min(2).max(80),
+});
+
 function assertExperimentalAdmin(context: any) {
   const email =
     String(context?.claims?.email ?? context?.claims?.user_metadata?.email ?? "")
@@ -203,4 +207,28 @@ export const queueStoreCatalogTerm = createServerFn({ method: "POST" })
       .single();
     if (queueError) throw queueError;
     return queued;
+  });
+
+export const runStoreCatalogManualProbe = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ManualProbeInput.parse(input))
+  .handler(async ({ data, context }) => {
+    assertExperimentalAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { runConfiguredStoreCatalogProbe } = await import("./store-catalog-providers.server");
+    const admin = supabaseAdmin as any;
+
+    const [providers, sources] = await Promise.all([
+      admin.from("store_scrape_providers").select("*").order("name"),
+      admin.from("store_catalog_source_settings").select("*").order("priority_weight", { ascending: false }),
+    ]);
+    if (providers.error) throw providers.error;
+    if (sources.error) throw sources.error;
+
+    const probes = await runConfiguredStoreCatalogProbe(data.term.trim(), sources.data ?? [], providers.data ?? []);
+    return {
+      term: data.term.trim(),
+      probes,
+      checked_at: new Date().toISOString(),
+    };
   });
