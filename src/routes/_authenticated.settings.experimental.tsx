@@ -39,6 +39,9 @@ function ExperimentalPage() {
       <FallDetectionExperiment />
 
       <StoreCatalogSourceExperiment />
+
+      <FirecrawlStoreExperiment />
+
     </div>
   );
 }
