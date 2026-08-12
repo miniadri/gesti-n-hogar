@@ -130,6 +130,13 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
 
+  // Apply the stored/browser language only after hydration to avoid SSR mismatches.
+  useEffect(() => {
+    const lng = detectStoredLanguage();
+    if (i18n.language !== lng) i18n.changeLanguage(lng);
+    document.documentElement.setAttribute("lang", lng);
+  }, []);
+
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
