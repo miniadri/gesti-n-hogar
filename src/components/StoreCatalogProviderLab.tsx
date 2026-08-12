@@ -1,6 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, Database, ExternalLink, Loader2, RefreshCw, Save, Search, Settings2, ShieldAlert, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Copy,
+  Database,
+  Download,
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+  Save,
+  Search,
+  Settings2,
+  ShieldAlert,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +81,10 @@ type ManualProbe = {
   elapsed_ms: number;
   credits_used: number | null;
   notes: string;
+  content_type?: string | null;
+  response_bytes?: number | null;
+  page_title?: string | null;
+  response_sample?: string | null;
   products: Array<{
     name: string;
     brand: string | null;
@@ -75,6 +93,15 @@ type ManualProbe = {
     image_url: string | null;
     url: string | null;
   }>;
+};
+
+type ProbeRun = {
+  id: string;
+  kind: "configured" | "matrix";
+  term: string;
+  store_key: string | null;
+  checked_at: string;
+  probes: ManualProbe[];
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -101,6 +128,8 @@ const PROBE_STATUS_META: Record<ManualProbe["status"], { label: string; classNam
   skipped: { label: "Omitido", className: "border-slate-200 bg-slate-50 text-slate-700" },
 };
 
+const LAB_HISTORY_KEY = "homesync.storeCatalogProviderLab.history.v1";
+
 function formatDate(value?: string | null) {
   if (!value) return "Sin captura";
   return new Date(value).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" });
@@ -110,6 +139,74 @@ function statusIcon(status: ManualProbe["status"]) {
   if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
   if (status === "blocked" || status === "config_needed") return <ShieldAlert className="h-4 w-4 text-amber-600" />;
   return <XCircle className="h-4 w-4 text-muted-foreground" />;
+}
+
+function buildRunSummary(probes: ManualProbe[]) {
+  const total = probes.length;
+  const ok = probes.filter((probe) => probe.status === "ok").length;
+  const empty = probes.filter((probe) => probe.status === "empty").length;
+  const blocked = probes.filter((probe) => probe.status === "blocked").length;
+  const config = probes.filter((probe) => probe.status === "config_needed").length;
+  const errors = probes.filter((probe) => probe.status === "error").length;
+  const products = probes.reduce((sum, probe) => sum + probe.products.length, 0);
+  return { total, ok, empty, blocked, config, errors, products };
+}
+
+function probeRowsToTsv(runs: ProbeRun[]) {
+  const header = [
+    "Fecha",
+    "Tipo",
+    "Tienda",
+    "Proveedor",
+    "Termino",
+    "Estado",
+    "HTTP",
+    "Tiempo_ms",
+    "Productos",
+    "Creditos",
+    "Content_type",
+    "Bytes",
+    "Titulo",
+    "Notas",
+    "Muestra",
+    "URL",
+    "Muestras",
+  ];
+  const rows = runs.flatMap((run) =>
+    run.probes.map((probe) => [
+      new Date(run.checked_at).toLocaleString("es-ES"),
+      run.kind === "configured" ? "configuracion" : "matriz",
+      probe.store_name,
+      probe.provider_name,
+      probe.query,
+      probe.status,
+      probe.http_status ?? "",
+      probe.elapsed_ms,
+      probe.products.length,
+      probe.credits_used ?? "",
+      probe.content_type ?? "",
+      probe.response_bytes ?? "",
+      probe.page_title ?? "",
+      probe.notes.replace(/\s+/g, " ").trim(),
+      (probe.response_sample ?? "").replace(/\s+/g, " ").trim(),
+      probe.url ?? "",
+      probe.products
+        .slice(0, 3)
+        .map((product) => product.name)
+        .join(" | "),
+    ]),
+  );
+  return [header, ...rows].map((row) => row.map((cell) => String(cell).replace(/\t/g, " ")).join("\t")).join("\n");
+}
+
+function downloadText(filename: string, content: string) {
+  const blob = new Blob([content], { type: "text/tab-separated-values;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 export function StoreCatalogProviderLab() {
@@ -124,6 +221,7 @@ export function StoreCatalogProviderLab() {
   const [queue, setQueue] = useState<QueueRow[]>([]);
   const [manualProbes, setManualProbes] = useState<ManualProbe[]>([]);
   const [manualCheckedAt, setManualCheckedAt] = useState<string | null>(null);
+  const [probeHistory, setProbeHistory] = useState<ProbeRun[]>([]);
   const [loading, setLoading] = useState(false);
   const [manualLoading, setManualLoading] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -150,6 +248,29 @@ export function StoreCatalogProviderLab() {
   useEffect(() => {
     void refresh();
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LAB_HISTORY_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) setProbeHistory(parsed.slice(0, 50));
+    } catch {
+      setProbeHistory([]);
+    }
+  }, []);
+
+  const rememberRun = (run: ProbeRun) => {
+    setProbeHistory((prev) => {
+      const next = [run, ...prev].slice(0, 50);
+      try {
+        localStorage.setItem(LAB_HISTORY_KEY, JSON.stringify(next));
+      } catch {
+        // Local history is only a testing convenience.
+      }
+      return next;
+    });
+  };
 
   const updateProviderLocal = (providerKey: string, patch: Partial<Provider>) => {
     setProviders((prev) =>
@@ -229,8 +350,18 @@ export function StoreCatalogProviderLab() {
     setManualLoading(true);
     try {
       const data: any = await runManualProbe({ data: { term: clean } });
-      setManualProbes(data?.probes ?? []);
-      setManualCheckedAt(data?.checked_at ?? new Date().toISOString());
+      const probes = data?.probes ?? [];
+      const checkedAt = data?.checked_at ?? new Date().toISOString();
+      setManualProbes(probes);
+      setManualCheckedAt(checkedAt);
+      rememberRun({
+        id: `${checkedAt}:configured:${clean}`,
+        kind: "configured",
+        term: clean,
+        store_key: null,
+        checked_at: checkedAt,
+        probes,
+      });
       toast.success(`Prueba terminada para “${clean}”`);
     } catch (error: any) {
       toast.error(error?.message ?? "No se pudo ejecutar la prueba manual.");
@@ -248,8 +379,18 @@ export function StoreCatalogProviderLab() {
     setManualLoading(true);
     try {
       const data: any = await runMatrixProbe({ data: { term: clean, store_key: matrixStore as any } });
-      setManualProbes(data?.probes ?? []);
-      setManualCheckedAt(data?.checked_at ?? new Date().toISOString());
+      const probes = data?.probes ?? [];
+      const checkedAt = data?.checked_at ?? new Date().toISOString();
+      setManualProbes(probes);
+      setManualCheckedAt(checkedAt);
+      rememberRun({
+        id: `${checkedAt}:matrix:${matrixStore}:${clean}`,
+        kind: "matrix",
+        term: clean,
+        store_key: matrixStore,
+        checked_at: checkedAt,
+        probes,
+      });
       const sourceName = sources.find((source) => source.store_key === matrixStore)?.store_name ?? matrixStore;
       toast.success(`Prueba de ${sourceName} terminada para “${clean}”`);
     } catch (error: any) {
@@ -260,6 +401,33 @@ export function StoreCatalogProviderLab() {
   };
 
   const weeklyBudget = providers.reduce((sum, provider) => sum + (provider.enabled ? Number(provider.weekly_budget_credits) || 0 : 0), 0);
+  const currentSummary = buildRunSummary(manualProbes);
+  const historySummary = buildRunSummary(probeHistory.flatMap((run) => run.probes));
+
+  const copyCurrentResults = async () => {
+    if (manualProbes.length === 0) return;
+    const run: ProbeRun = {
+      id: "current",
+      kind: "configured",
+      term: term.trim(),
+      store_key: null,
+      checked_at: manualCheckedAt ?? new Date().toISOString(),
+      probes: manualProbes,
+    };
+    await navigator.clipboard.writeText(probeRowsToTsv([run]));
+    toast.success("Tabla de la última prueba copiada");
+  };
+
+  const exportHistory = () => {
+    if (probeHistory.length === 0) return;
+    downloadText(`homesync-laboratorio-tiendas-${new Date().toISOString().slice(0, 10)}.tsv`, probeRowsToTsv(probeHistory));
+  };
+
+  const clearHistory = () => {
+    setProbeHistory([]);
+    localStorage.removeItem(LAB_HISTORY_KEY);
+    toast.success("Historial local del laboratorio borrado");
+  };
 
   return (
     <Card>
@@ -278,6 +446,7 @@ export function StoreCatalogProviderLab() {
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">Presupuesto semanal activo: {weeklyBudget} créditos</Badge>
           <Badge variant="outline">Tiendas cacheadas: {cachedSources.filter((source) => source.enabled).length}</Badge>
+          <Badge variant="outline">Historial local: {probeHistory.length} pruebas</Badge>
           <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Actualizar
@@ -477,9 +646,18 @@ export function StoreCatalogProviderLab() {
             </Button>
           </div>
           {manualCheckedAt && (
-            <p className="text-xs text-muted-foreground">
-              Última prueba: {new Date(manualCheckedAt).toLocaleString("es-ES")}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>Última prueba: {new Date(manualCheckedAt).toLocaleString("es-ES")}</span>
+              <Badge variant="outline">OK: {currentSummary.ok}</Badge>
+              <Badge variant="outline">Sin extracción: {currentSummary.empty}</Badge>
+              <Badge variant="outline">Bloqueadas: {currentSummary.blocked}</Badge>
+              <Badge variant="outline">Configurar: {currentSummary.config}</Badge>
+              <Badge variant="outline">Productos: {currentSummary.products}</Badge>
+              <Button variant="outline" size="sm" onClick={copyCurrentResults} disabled={manualProbes.length === 0}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copiar tabla
+              </Button>
+            </div>
           )}
           {manualProbes.length > 0 && (
             <div className="grid gap-3">
@@ -505,6 +683,24 @@ export function StoreCatalogProviderLab() {
                       </Badge>
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground">{probe.notes}</p>
+                    {(probe.page_title || probe.content_type || probe.response_bytes || probe.response_sample) && (
+                      <div className="mt-2 rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                          {probe.page_title && <span>Título: {probe.page_title}</span>}
+                          {probe.content_type && <span>Tipo: {probe.content_type}</span>}
+                          {probe.response_bytes != null && <span>Tamaño: {probe.response_bytes} bytes</span>}
+                        </div>
+                        {probe.response_sample && (
+                          <p className="mt-1 line-clamp-3 break-words">Muestra: {probe.response_sample}</p>
+                        )}
+                      </div>
+                    )}
+                    {probe.status === "empty" && probe.http_status && probe.http_status >= 200 && probe.http_status < 300 && (
+                      <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                        Acceso correcto, extracción pendiente. Esta combinación puede servir, pero necesita un extractor
+                        específico para reconocer productos, precios e imágenes en la respuesta del proveedor.
+                      </div>
+                    )}
                     {probe.products.length > 0 && (
                       <ul className="mt-3 space-y-2">
                         {probe.products.map((product, index) => (
@@ -553,6 +749,66 @@ export function StoreCatalogProviderLab() {
               })}
             </div>
           )}
+        </section>
+
+        <section className="space-y-3">
+          <h3 className="font-semibold">Historial local de pruebas</h3>
+          <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+            Se guarda solo en este navegador para acelerar las pruebas. No sube datos a la base ni activa capturas.
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">Pruebas: {probeHistory.length}</Badge>
+            <Badge variant="outline">OK: {historySummary.ok}</Badge>
+            <Badge variant="outline">Sin extracción: {historySummary.empty}</Badge>
+            <Badge variant="outline">Bloqueadas: {historySummary.blocked}</Badge>
+            <Badge variant="outline">Errores: {historySummary.errors}</Badge>
+            <Badge variant="outline">Productos detectados: {historySummary.products}</Badge>
+            <Button variant="outline" size="sm" onClick={exportHistory} disabled={probeHistory.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar TSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={clearHistory} disabled={probeHistory.length === 0}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Borrar historial
+            </Button>
+          </div>
+          <div className="grid gap-2">
+            {probeHistory.slice(0, 8).map((run) => {
+              const summary = buildRunSummary(run.probes);
+              const storeName = run.store_key
+                ? sources.find((source) => source.store_key === run.store_key)?.store_name ?? run.store_key
+                : "tiendas activas";
+              return (
+                <button
+                  key={run.id}
+                  type="button"
+                  onClick={() => {
+                    setManualProbes(run.probes);
+                    setManualCheckedAt(run.checked_at);
+                    setTerm(run.term);
+                    if (run.store_key) setMatrixStore(run.store_key);
+                  }}
+                  className="rounded-md border p-3 text-left text-sm transition-colors hover:bg-accent"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">
+                      {run.term} · {run.kind === "configured" ? "configuración" : `matriz ${storeName}`}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{new Date(run.checked_at).toLocaleString("es-ES")}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    OK {summary.ok} · Sin extracción {summary.empty} · Bloqueadas {summary.blocked} · Configurar{" "}
+                    {summary.config} · Productos {summary.products}
+                  </p>
+                </button>
+              );
+            })}
+            {probeHistory.length === 0 && (
+              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                Ejecuta una prueba manual para empezar a guardar resultados locales.
+              </div>
+            )}
+          </div>
         </section>
 
         <section className="space-y-3">
