@@ -4,6 +4,7 @@ import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList, Calendar, 
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { APP_VERSION } from "@/lib/app-version";
 
 const PRIVATE_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com"]);
 
@@ -99,7 +100,7 @@ function SettingsHubPage() {
   ], [canSeePrivateTools, t]);
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6 pb-8">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">{t("nav.settings")}</h2>
         <p className="text-muted-foreground">Configuración del hogar y de la cuenta</p>
@@ -125,6 +126,9 @@ function SettingsHubPage() {
             </Link>
           );
         })}
+      </div>
+      <div className="pointer-events-none absolute bottom-0 right-0 text-xs text-muted-foreground">
+        {APP_VERSION}
       </div>
     </div>
   );
