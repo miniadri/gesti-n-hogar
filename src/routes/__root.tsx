@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import "@/i18n";
+import i18n, { detectStoredLanguage } from "@/i18n";
 
 function NotFoundComponent() {
   const { t } = useTranslation();
@@ -129,6 +129,13 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  // Apply the stored/browser language only after hydration to avoid SSR mismatches.
+  useEffect(() => {
+    const lng = detectStoredLanguage();
+    if (i18n.language !== lng) i18n.changeLanguage(lng);
+    document.documentElement.setAttribute("lang", lng);
+  }, []);
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
