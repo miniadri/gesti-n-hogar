@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import "@/i18n";
+import i18n, { detectStoredLanguage } from "@/i18n";
 
 function NotFoundComponent() {
   const { t } = useTranslation();
