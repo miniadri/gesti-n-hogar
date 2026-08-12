@@ -19,7 +19,8 @@ export type StoreCatalogManualStore =
   | "el_corte_ingles"
   | "alcampo"
   | "mas"
-  | "caprabo";
+  | "caprabo"
+  | "lidl";
 
 export type StoreCatalogManualProduct = {
   name: string;
@@ -43,6 +44,10 @@ export type StoreCatalogManualProbe = {
   elapsed_ms: number;
   credits_used: number | null;
   notes: string;
+  content_type?: string | null;
+  response_bytes?: number | null;
+  page_title?: string | null;
+  response_sample?: string | null;
   products: StoreCatalogManualProduct[];
 };
 
@@ -74,6 +79,7 @@ const STORE_URLS: Record<StoreCatalogManualStore, (query: string) => string> = {
   alcampo: (query) => `https://www.compraonline.alcampo.es/search?q=${encodeURIComponent(query)}`,
   mas: (query) => `https://www.supermercadosmas.com/catalogsearch/result/?q=${encodeURIComponent(query)}`,
   caprabo: (query) => `https://www.capraboacasa.com/es/search?text=${encodeURIComponent(query)}`,
+  lidl: (query) => `https://www.lidl.es/search?query=${encodeURIComponent(query)}`,
 };
 
 function env(name: string | null | undefined) {
@@ -100,7 +106,7 @@ function productFromSuggestion(product: StoreProductSuggestion): StoreCatalogMan
 }
 
 function providerLabel(provider: ProviderRow | null, fallback: StoreCatalogManualProvider) {
-  if (fallback === "direct") return "API directa";
+  if (fallback === "direct") return "API/Web directa";
   return provider?.name ?? fallback;
 }
 
@@ -112,6 +118,126 @@ function configuredUrl(source: SourceRow, query: string) {
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function asAbsoluteUrl(baseUrl: string, value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    return new URL(value, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+function findPageTitle(html: string) {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return match ? normalizeWhitespace(match[1].replace(/&amp;/g, "&")) : null;
+}
+
+function plainTextSample(html: string) {
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&");
+  const clean = normalizeWhitespace(text);
+  return clean ? clean.slice(0, 500) : null;
+}
+
+function productFromUnknownNode(node: any, baseUrl: string): StoreCatalogManualProduct | null {
+  if (!node || typeof node !== "object") return null;
+  const name =
+    node.name ??
+    node.title ??
+    node.display_name ??
+    node.displayName ??
+    node.productName ??
+    node.product?.name ??
+    node.productData?.name ??
+    node.productData?.description ??
+    node._source?.name ??
+    node._source?.title;
+  if (typeof name !== "string" || !name.trim()) return null;
+
+  const price =
+    node.price ??
+    node.currentPrice ??
+    node.current_price ??
+    node.salePrice ??
+    node.priceValue ??
+    node.price_data?.price ??
+    node.priceData?.price ??
+    node.priceData?.value?.centAmount ??
+    node.offers?.price ??
+    node.product?.price;
+  const priceNumber = typeof price === "number" && price > 1000 ? price / 100 : price;
+  const image =
+    node.image ??
+    node.imageUrl ??
+    node.thumbnail ??
+    node.thumbnailUrl ??
+    node.productImage ??
+    node.images?.[0]?.url ??
+    node.productData?.images?.[0]?.url ??
+    node.offers?.image;
+  const url = node.url ?? node.productUrl ?? node.link ?? node.href ?? node.product?.url;
+
+  return {
+    name: normalizeWhitespace(name),
+    brand:
+      typeof node.brand?.name === "string"
+        ? node.brand.name
+        : typeof node.brand === "string"
+          ? node.brand
+          : typeof node.brandName === "string"
+            ? node.brandName
+            : null,
+    price: Number.isFinite(Number(priceNumber)) ? Number(priceNumber) : null,
+    price_per_unit:
+      typeof node.pricePerUnit === "string"
+        ? node.pricePerUnit
+        : typeof node.unitPrice === "string"
+          ? node.unitPrice
+          : null,
+    image_url: asAbsoluteUrl(baseUrl, image),
+    url: asAbsoluteUrl(baseUrl, url),
+  };
+}
+
+function collectProductLikeNodes(value: any, baseUrl: string, out: StoreCatalogManualProduct[], visited = new Set<any>()) {
+  if (out.length >= 12 || value == null) return;
+  if (typeof value !== "object") return;
+  if (visited.has(value)) return;
+  visited.add(value);
+
+  if (Array.isArray(value)) {
+    for (const item of value) collectProductLikeNodes(item, baseUrl, out, visited);
+    return;
+  }
+
+  const maybe = productFromUnknownNode(value, baseUrl);
+  if (maybe) out.push(maybe);
+
+  for (const key of Object.keys(value)) {
+    if (out.length >= 12) break;
+    const child = value[key];
+    if (child && typeof child === "object") collectProductLikeNodes(child, baseUrl, out, visited);
+  }
+}
+
+function readJsonScriptProducts(html: string, baseUrl: string): StoreCatalogManualProduct[] {
+  const products: StoreCatalogManualProduct[] = [];
+  const scripts = html.match(/<script[^>]*(?:id=["']__NEXT_DATA__["'][^>]*)?[^>]*type=["']application\/json["'][^>]*>[\s\S]*?<\/script>/gi) ?? [];
+  for (const script of scripts) {
+    const raw = script.replace(/^<script[^>]*>/i, "").replace(/<\/script>$/i, "").trim();
+    try {
+      collectProductLikeNodes(JSON.parse(raw), baseUrl, products);
+    } catch {
+      // Ignore non-JSON script contents.
+    }
+  }
+  return products;
 }
 
 function readLdJsonProducts(html: string, baseUrl: string): StoreCatalogManualProduct[] {
@@ -135,13 +261,13 @@ function readLdJsonProducts(html: string, baseUrl: string): StoreCatalogManualPr
             if (!name) continue;
             const offer = Array.isArray(item?.offers) ? item.offers[0] : item?.offers;
             const image = Array.isArray(item?.image) ? item.image[0] : item?.image;
-            const url = typeof item?.url === "string" ? new URL(item.url, baseUrl).toString() : null;
+            const url = asAbsoluteUrl(baseUrl, item?.url);
             products.push({
               name,
               brand: typeof item?.brand?.name === "string" ? item.brand.name : typeof item?.brand === "string" ? item.brand : null,
               price: Number.isFinite(Number(offer?.price)) ? Number(offer.price) : null,
               price_per_unit: null,
-              image_url: typeof image === "string" ? new URL(image, baseUrl).toString() : null,
+              image_url: asAbsoluteUrl(baseUrl, image),
               url,
             });
           }
@@ -154,6 +280,10 @@ function readLdJsonProducts(html: string, baseUrl: string): StoreCatalogManualPr
   return dedupeProducts(products).slice(0, 5);
 }
 
+function readHtmlProducts(html: string, targetUrl: string) {
+  return dedupeProducts([...readLdJsonProducts(html, targetUrl), ...readJsonScriptProducts(html, targetUrl)]).slice(0, 5);
+}
+
 function dedupeProducts(products: StoreCatalogManualProduct[]) {
   const seen = new Set<string>();
   const out: StoreCatalogManualProduct[] = [];
@@ -164,11 +294,6 @@ function dedupeProducts(products: StoreCatalogManualProduct[]) {
     out.push(product);
   }
   return out;
-}
-
-async function readHtmlProducts(response: Response, targetUrl: string) {
-  const text = await response.text();
-  return readLdJsonProducts(text, targetUrl);
 }
 
 async function fetchViaScrapingBee(targetUrl: string, apiKey: string) {
@@ -194,6 +319,78 @@ async function fetchViaScrapeDo(targetUrl: string, token: string) {
   url.searchParams.set("url", targetUrl);
   url.searchParams.set("geoCode", "es");
   return fetch(url);
+}
+
+async function probeDirectWebSource(source: SourceRow, query: string): Promise<StoreCatalogManualProbe> {
+  const started = Date.now();
+  const targetUrl = configuredUrl(source, query);
+  if (!targetUrl) {
+    return {
+      store_key: source.store_key,
+      store_name: source.store_name,
+      provider_key: "direct",
+      provider_name: "Web directa",
+      mode: source.mode,
+      query,
+      url: null,
+      status: "config_needed",
+      http_status: null,
+      elapsed_ms: elapsed(started),
+      credits_used: 0,
+      notes: "No hay URL de búsqueda configurada para esta tienda.",
+      products: [],
+    };
+  }
+
+  try {
+    const response = await fetch(targetUrl);
+    const contentType = response.headers.get("content-type");
+    const text = await response.text();
+    const products = response.ok ? readHtmlProducts(text, targetUrl) : [];
+    const pageTitle = /html/i.test(contentType ?? "") ? findPageTitle(text) : null;
+    const sample = /html/i.test(contentType ?? "") ? plainTextSample(text) : text.slice(0, 500);
+    const blocked = response.status === 401 || response.status === 403 || response.status === 429;
+
+    return {
+      store_key: source.store_key,
+      store_name: source.store_name,
+      provider_key: "direct",
+      provider_name: "Web directa",
+      mode: source.mode,
+      query,
+      url: targetUrl,
+      status: response.ok ? (products.length > 0 ? "ok" : "empty") : blocked ? "blocked" : "error",
+      http_status: response.status,
+      elapsed_ms: elapsed(started),
+      credits_used: 0,
+      content_type: contentType,
+      response_bytes: text.length,
+      page_title: pageTitle,
+      response_sample: sample,
+      notes: response.ok
+        ? products.length > 0
+          ? "La web pública respondió y se detectaron productos estructurados."
+          : "La web pública respondió, pero no se detectaron productos estructurados automáticamente."
+        : `La web pública devolvió HTTP ${response.status}.`,
+      products,
+    };
+  } catch (error: any) {
+    return {
+      store_key: source.store_key,
+      store_name: source.store_name,
+      provider_key: "direct",
+      provider_name: "Web directa",
+      mode: source.mode,
+      query,
+      url: targetUrl,
+      status: "error",
+      http_status: null,
+      elapsed_ms: elapsed(started),
+      credits_used: 0,
+      notes: error?.message ?? "Error consultando la web pública.",
+      products: [],
+    };
+  }
 }
 
 async function probeHtmlProvider(
@@ -265,7 +462,11 @@ async function probeHtmlProvider(
       };
     }
 
-    const products = response.ok ? await readHtmlProducts(response, targetUrl) : [];
+    const contentType = response.headers.get("content-type");
+    const text = await response.text();
+    const products = response.ok ? readHtmlProducts(text, targetUrl) : [];
+    const pageTitle = /html/i.test(contentType ?? "") ? findPageTitle(text) : null;
+    const sample = /html/i.test(contentType ?? "") ? plainTextSample(text) : text.slice(0, 500);
     return {
       store_key: source.store_key,
       store_name: source.store_name,
@@ -278,10 +479,14 @@ async function probeHtmlProvider(
       http_status: response.status,
       elapsed_ms: elapsed(started),
       credits_used: null,
+      content_type: contentType,
+      response_bytes: text.length,
+      page_title: pageTitle,
+      response_sample: sample,
       notes: response.ok
         ? products.length > 0
           ? "El proveedor devolvió página accesible y se detectaron productos estructurados."
-          : "El proveedor devolvió página accesible, pero no se detectaron productos estructurados automáticamente."
+          : "El proveedor devolvió página accesible, pero no se detectaron productos estructurados automáticamente. Revisa título y muestra para saber si cargó buscador, bloqueo o página vacía."
         : `El proveedor devolvió HTTP ${response.status}.`,
       products,
     };
@@ -471,6 +676,8 @@ export async function runStoreCatalogProviderMatrixProbe(
   const probes: StoreCatalogManualProbe[] = [];
   if (source.mode === "live" && LIVE_SOURCES.has(source.store_key)) {
     probes.push(await probeLiveSource(source, query));
+  } else {
+    probes.push(await probeDirectWebSource(source, query));
   }
 
   for (const provider of providers) {

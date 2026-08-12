@@ -11,7 +11,8 @@ export type FirecrawlStoreId =
   | "el_corte_ingles"
   | "alcampo"
   | "mas"
-  | "caprabo";
+  | "caprabo"
+  | "lidl";
 
 type StoreTarget = {
   id: FirecrawlStoreId;
@@ -49,6 +50,11 @@ export const FIRECRAWL_STORE_TARGETS: StoreTarget[] = [
     id: "caprabo",
     label: "Caprabo",
     buildUrl: (q) => `https://www.capraboacasa.com/es/search?text=${encodeURIComponent(q)}`,
+  },
+  {
+    id: "lidl",
+    label: "Lidl",
+    buildUrl: (q) => `https://www.lidl.es/search?query=${encodeURIComponent(q)}`,
   },
 ];
 

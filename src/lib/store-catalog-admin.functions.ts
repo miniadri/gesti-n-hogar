@@ -12,6 +12,7 @@ const StoreKey = z.enum([
   "alcampo",
   "mas",
   "caprabo",
+  "lidl",
   "consum",
   "mercadona",
   "dia",
