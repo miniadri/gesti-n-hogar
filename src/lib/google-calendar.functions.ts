@@ -73,7 +73,12 @@ export const getGoogleCalendarStatus = createServerFn({ method: "GET" })
       return { connected, configured: true, connectorConfigured };
     } catch (err: any) {
       const message = String(err?.message ?? "");
-      if (message.includes("SUPABASE_SERVICE_ROLE_KEY") || message.includes("SUPABASE_URL")) {
+      if (
+        message.includes("SUPABASE_SERVICE_ROLE_KEY") ||
+        message.includes("APP_SUPABASE_SERVICE_ROLE_KEY") ||
+        message.includes("SUPABASE_URL") ||
+        message.includes("VITE_SUPABASE_URL")
+      ) {
         console.warn("Google Calendar status unavailable: Supabase admin client is not configured");
         return { connected: false, configured: false, connectorConfigured };
       }

@@ -187,16 +187,30 @@ export const getDiagnostics = createServerFn({ method: "GET" })
     const googleEnvConfigured = hasEnv("GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY");
     const homeAssistantConfigured = Boolean(homeAssistantConnection);
 
+    const supabaseUrlConfigured = hasEnv("SUPABASE_URL") || hasEnv("VITE_SUPABASE_URL");
+    const supabasePublishableConfigured =
+      hasEnv("SUPABASE_PUBLISHABLE_KEY") ||
+      hasEnv("VITE_SUPABASE_PUBLISHABLE_KEY") ||
+      hasEnv("VITE_SUPABASE_ANON_KEY");
+    const supabaseServiceConfigured =
+      hasEnv("SUPABASE_SERVICE_ROLE_KEY") || hasEnv("APP_SUPABASE_SERVICE_ROLE_KEY");
+
     const environment: DiagnosticCheck[] = [
-      check("supabase_url", "Supabase URL", hasEnv("SUPABASE_URL"), "Configurada", "Falta SUPABASE_URL"),
+      check(
+        "supabase_url",
+        "Supabase URL",
+        supabaseUrlConfigured,
+        "Configurada",
+        "Falta SUPABASE_URL o VITE_SUPABASE_URL",
+      ),
       check(
         "supabase_publishable",
         "Supabase publishable key",
-        hasEnv("SUPABASE_PUBLISHABLE_KEY"),
+        supabasePublishableConfigured,
         "Configurada",
-        "Falta SUPABASE_PUBLISHABLE_KEY",
+        "Falta SUPABASE_PUBLISHABLE_KEY, VITE_SUPABASE_PUBLISHABLE_KEY o VITE_SUPABASE_ANON_KEY",
       ),
-      hasEnv("SUPABASE_SERVICE_ROLE_KEY")
+      supabaseServiceConfigured
         ? check("supabase_service", "Supabase service role", true, "Configurada", "")
         : warningCheck(
             "supabase_service",
