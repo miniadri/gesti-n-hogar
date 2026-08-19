@@ -11,6 +11,7 @@ import { scanTicket } from "@/lib/ocr.functions";
 import { createExpense } from "@/lib/finances.functions";
 import { importReceiptToInventory } from "@/lib/inventory.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { deleteReceiptUpload, markReceiptUploadDeleted } from "@/lib/receipt-storage";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/shopping/scan-ticket")({
@@ -25,6 +26,7 @@ function ScanTicketPage() {
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [receiptId, setReceiptId] = useState<string | null>(null);
+  const [receiptUploadPath, setReceiptUploadPath] = useState<string | null>(null);
   const [expenseId, setExpenseId] = useState<string | null>(null);
   const [editStore, setEditStore] = useState("");
   const [editTotal, setEditTotal] = useState("");
@@ -39,7 +41,11 @@ function ScanTicketPage() {
   const handleFile = async (file: File) => {
     setScanning(true);
     setResult(null);
+    setReceiptId(null);
+    setReceiptUploadPath(null);
     setExpenseId(null);
+    let uploadedPath: string | null = null;
+    let keepUpload = false;
     try {
       const householdId = (await supabase.rpc("current_household")).data;
       if (!householdId) throw new Error("No household");
@@ -53,10 +59,11 @@ function ScanTicketPage() {
         .from("receipts")
         .upload(path, file, { contentType: file.type || undefined });
       if (uploadError) throw uploadError;
+      uploadedPath = upload.path;
 
       const { data: signed, error: signedError } = await supabase.storage
         .from("receipts")
-        .createSignedUrl(upload.path, 3600);
+        .createSignedUrl(uploadedPath, 3600);
       if (signedError) throw signedError;
 
       const { data: receipt, error: receiptError } = await supabase
@@ -69,11 +76,16 @@ function ScanTicketPage() {
       const scanResult = await doScan({ data: { imageUrl: signed.signedUrl, receiptId: receipt.id } });
       setResult(scanResult.receipt);
       setReceiptId(receipt.id);
+      setReceiptUploadPath(uploadedPath);
+      keepUpload = true;
       setEditStore(scanResult.receipt.store || "");
       setEditTotal(scanResult.receipt.total ? String(scanResult.receipt.total) : "");
       setEditDate(scanResult.receipt.date || new Date().toISOString().split("T")[0]);
       toast.success("Ticket escaneado. Revisa y confirma para añadir a Gastos.");
     } catch (err: any) {
+      if (uploadedPath && !keepUpload) {
+        await deleteReceiptUpload(uploadedPath);
+      }
       toast.error(err.message || "Error al escanear ticket");
     } finally {
       setScanning(false);
@@ -100,11 +112,16 @@ function ScanTicketPage() {
       setExpenseId(expense.id);
       try {
         const inv = await doImportInv({ data: { receiptId } });
+        const deleted = await deleteReceiptUpload(receiptUploadPath);
+        await markReceiptUploadDeleted(receiptId, receiptUploadPath);
         toast.success(
-          `Añadido a Gastos. Inventario: ${inv.added} añadidos, ${inv.skipped} ya presentes.`,
+          `Añadido a Gastos. Inventario: ${inv.added} añadidos, ${inv.skipped} ya presentes.${deleted ? " Foto temporal borrada." : ""}`,
         );
       } catch (invErr: any) {
+        const deleted = await deleteReceiptUpload(receiptUploadPath);
+        await markReceiptUploadDeleted(receiptId, receiptUploadPath);
         toast.success("Añadido a Gastos");
+        if (deleted) toast.success("Foto temporal borrada");
         toast.error(`Inventario: ${invErr.message || "no se pudo importar"}`);
       }
     } catch (err: any) {

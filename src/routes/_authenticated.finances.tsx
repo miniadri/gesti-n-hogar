@@ -35,6 +35,7 @@ import { scanTicket } from "@/lib/ocr.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { ActivityList } from "@/components/ActivityList";
 import { undoableToast } from "@/hooks/use-undoable";
+import { deleteReceiptUpload, markReceiptUploadDeleted } from "@/lib/receipt-storage";
 import { toast } from "sonner";
 
 
@@ -344,11 +345,17 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
   const [recurrence, setRecurrence] = useState("monthly");
   const [submitting, setSubmitting] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scannedReceiptId, setScannedReceiptId] = useState<string | null>(null);
+  const [scannedUploadPath, setScannedUploadPath] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
 
   const handleScan = async (file: File) => {
     setScanning(true);
+    setScannedReceiptId(null);
+    setScannedUploadPath(null);
+    let uploadedPath: string | null = null;
+    let keepUpload = false;
     try {
       const householdId = (await supabase.rpc("current_household")).data;
       if (!householdId) throw new Error("No household");
@@ -362,9 +369,10 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
         .from("receipts")
         .upload(path, file, { contentType: file.type || undefined });
       if (uploadError) throw uploadError;
+      uploadedPath = upload.path;
       const { data: signed, error: signedError } = await supabase.storage
         .from("receipts")
-        .createSignedUrl(upload.path, 3600);
+        .createSignedUrl(uploadedPath, 3600);
       if (signedError) throw signedError;
 
       const { data: receipt, error: receiptError } = await supabase
@@ -377,8 +385,14 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
       const scanResult = await doScan({ data: { imageUrl: signed.signedUrl, receiptId: receipt.id } });
       if (scanResult.receipt.total) setAmount(String(scanResult.receipt.total));
       if (scanResult.receipt.store) setDescription(scanResult.receipt.store);
+      setScannedReceiptId(receipt.id);
+      setScannedUploadPath(uploadedPath);
+      keepUpload = true;
       toast.success("Ticket escaneado, revisa los datos");
     } catch (err: any) {
+      if (uploadedPath && !keepUpload) {
+        await deleteReceiptUpload(uploadedPath);
+      }
       toast.error(err.message || "Error al escanear ticket");
     } finally {
       setScanning(false);
@@ -402,14 +416,22 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
           category_id: finalCategoryId || undefined,
           is_subscription: isRecurring,
           recurrence: isRecurring ? recurrence : undefined,
+          receipt_id: scannedReceiptId || undefined,
         },
       });
+      if (scannedReceiptId) {
+        const deleted = await deleteReceiptUpload(scannedUploadPath);
+        await markReceiptUploadDeleted(scannedReceiptId, scannedUploadPath);
+        if (deleted) toast.success("Foto temporal del ticket borrada");
+      }
       toast.success("Gasto añadido");
       setAmount("");
       setDescription("");
       setNewCategory("");
       setIsRecurring(false);
       setRecurrence("monthly");
+      setScannedReceiptId(null);
+      setScannedUploadPath(null);
       onAdded();
       onOpenChange(false);
     } catch (err: any) {
