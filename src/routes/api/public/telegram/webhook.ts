@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, timingSafeEqual, randomBytes } from "crypto";
+import { requireSupabaseAdminEnv } from "@/integrations/supabase/env.server";
 
 function deriveTelegramWebhookSecret(telegramApiKey: string): string {
   return createHash("sha256").update(`telegram-webhook:${telegramApiKey}`).digest("base64url");
@@ -32,9 +33,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         }
 
         const update = await request.json();
+        const { url, serviceRoleKey } = requireSupabaseAdminEnv();
         const supabase = createClient(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          url,
+          serviceRoleKey,
           { auth: { persistSession: false, autoRefreshToken: false } },
         );
 
