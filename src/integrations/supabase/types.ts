@@ -1750,7 +1750,9 @@ export type Database = {
           created_by: string
           household_id: string
           id: string
-          image_url: string
+          image_deleted_at: string | null
+          image_path: string | null
+          image_url: string | null
           receipt_date: string | null
           status: string
           store_id: string | null
@@ -1762,7 +1764,9 @@ export type Database = {
           created_by: string
           household_id: string
           id?: string
-          image_url: string
+          image_deleted_at?: string | null
+          image_path?: string | null
+          image_url?: string | null
           receipt_date?: string | null
           status?: string
           store_id?: string | null
@@ -1774,7 +1778,9 @@ export type Database = {
           created_by?: string
           household_id?: string
           id?: string
-          image_url?: string
+          image_deleted_at?: string | null
+          image_path?: string | null
+          image_url?: string | null
           receipt_date?: string | null
           status?: string
           store_id?: string | null
@@ -2590,6 +2596,329 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      store_catalog_price_history: {
+        Row: {
+          captured_at: string
+          created_at: string
+          id: string
+          price: number | null
+          provider_key: string | null
+          reference_format: string | null
+          reference_price: number | null
+          store_catalog_product_id: string
+          store_key: string
+        }
+        Insert: {
+          captured_at?: string
+          created_at?: string
+          id?: string
+          price?: number | null
+          provider_key?: string | null
+          reference_format?: string | null
+          reference_price?: number | null
+          store_catalog_product_id: string
+          store_key: string
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string
+          id?: string
+          price?: number | null
+          provider_key?: string | null
+          reference_format?: string | null
+          reference_price?: number | null
+          store_catalog_product_id?: string
+          store_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_catalog_price_history_store_catalog_product_id_fkey"
+            columns: ["store_catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "store_catalog_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_catalog_products: {
+        Row: {
+          brand: string | null
+          captured_at: string
+          category: string | null
+          created_at: string
+          ean: string | null
+          external_id: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          packaging: string | null
+          price: number | null
+          product_url: string | null
+          provider_key: string | null
+          query_term: string | null
+          raw: Json
+          reference_format: string | null
+          reference_price: number | null
+          store_key: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          captured_at?: string
+          category?: string | null
+          created_at?: string
+          ean?: string | null
+          external_id?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          packaging?: string | null
+          price?: number | null
+          product_url?: string | null
+          provider_key?: string | null
+          query_term?: string | null
+          raw?: Json
+          reference_format?: string | null
+          reference_price?: number | null
+          store_key: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          captured_at?: string
+          category?: string | null
+          created_at?: string
+          ean?: string | null
+          external_id?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          packaging?: string | null
+          price?: number | null
+          product_url?: string | null
+          provider_key?: string | null
+          query_term?: string | null
+          raw?: Json
+          reference_format?: string | null
+          reference_price?: number | null
+          store_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_catalog_products_provider_key_fkey"
+            columns: ["provider_key"]
+            isOneToOne: false
+            referencedRelation: "store_scrape_providers"
+            referencedColumns: ["provider_key"]
+          },
+          {
+            foreignKeyName: "store_catalog_products_store_key_fkey"
+            columns: ["store_key"]
+            isOneToOne: false
+            referencedRelation: "store_catalog_source_settings"
+            referencedColumns: ["store_key"]
+          },
+        ]
+      }
+      store_catalog_refresh_queue: {
+        Row: {
+          created_at: string
+          estimated_credits: number
+          id: string
+          last_attempt_at: string | null
+          last_error: string | null
+          last_success_at: string | null
+          priority_score: number
+          provider_key: string | null
+          status: string
+          store_key: string
+          term_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          estimated_credits?: number
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          last_success_at?: string | null
+          priority_score?: number
+          provider_key?: string | null
+          status?: string
+          store_key: string
+          term_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          estimated_credits?: number
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          last_success_at?: string | null
+          priority_score?: number
+          provider_key?: string | null
+          status?: string
+          store_key?: string
+          term_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_catalog_refresh_queue_provider_key_fkey"
+            columns: ["provider_key"]
+            isOneToOne: false
+            referencedRelation: "store_scrape_providers"
+            referencedColumns: ["provider_key"]
+          },
+          {
+            foreignKeyName: "store_catalog_refresh_queue_store_key_fkey"
+            columns: ["store_key"]
+            isOneToOne: false
+            referencedRelation: "store_catalog_source_settings"
+            referencedColumns: ["store_key"]
+          },
+          {
+            foreignKeyName: "store_catalog_refresh_queue_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "store_catalog_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_catalog_source_settings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          external_search_url_template: string | null
+          mode: string
+          notes: string | null
+          preferred_provider_key: string | null
+          priority_weight: number
+          store_key: string
+          store_name: string
+          updated_at: string
+          weekly_term_limit: number
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          external_search_url_template?: string | null
+          mode?: string
+          notes?: string | null
+          preferred_provider_key?: string | null
+          priority_weight?: number
+          store_key: string
+          store_name: string
+          updated_at?: string
+          weekly_term_limit?: number
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          external_search_url_template?: string | null
+          mode?: string
+          notes?: string | null
+          preferred_provider_key?: string | null
+          priority_weight?: number
+          store_key?: string
+          store_name?: string
+          updated_at?: string
+          weekly_term_limit?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_catalog_source_settings_preferred_provider_key_fkey"
+            columns: ["preferred_provider_key"]
+            isOneToOne: false
+            referencedRelation: "store_scrape_providers"
+            referencedColumns: ["provider_key"]
+          },
+        ]
+      }
+      store_catalog_terms: {
+        Row: {
+          created_at: string
+          id: string
+          inventory_count: number
+          last_added_at: string
+          last_searched_at: string | null
+          normalized_term: string
+          search_count: number
+          shopping_count: number
+          term: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inventory_count?: number
+          last_added_at?: string
+          last_searched_at?: string | null
+          normalized_term: string
+          search_count?: number
+          shopping_count?: number
+          term: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inventory_count?: number
+          last_added_at?: string
+          last_searched_at?: string | null
+          normalized_term?: string
+          search_count?: number
+          shopping_count?: number
+          term?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      store_scrape_providers: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          estimated_credits_per_query: number
+          monthly_budget_credits: number
+          name: string
+          notes: string | null
+          provider_key: string
+          secret_name: string | null
+          updated_at: string
+          weekly_budget_credits: number
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          estimated_credits_per_query?: number
+          monthly_budget_credits?: number
+          name: string
+          notes?: string | null
+          provider_key: string
+          secret_name?: string | null
+          updated_at?: string
+          weekly_budget_credits?: number
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          estimated_credits_per_query?: number
+          monthly_budget_credits?: number
+          name?: string
+          notes?: string | null
+          provider_key?: string
+          secret_name?: string | null
+          updated_at?: string
+          weekly_budget_credits?: number
+        }
+        Relationships: []
       }
       stores: {
         Row: {
