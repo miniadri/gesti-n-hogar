@@ -1,9 +1,19 @@
+// Override layer: APP_SUPABASE_* / VITE_OWN_SUPABASE_* take priority over the
+// Lovable Cloud managed SUPABASE_* variables.
 export function getSupabaseUrl() {
-  return process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  return (
+    process.env.APP_SUPABASE_URL ||
+    process.env.VITE_OWN_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL
+  );
 }
 
 export function getSupabasePublishableKey() {
   return (
+    process.env.APP_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.APP_SUPABASE_ANON_KEY ||
+    process.env.VITE_OWN_SUPABASE_ANON_KEY ||
     process.env.SUPABASE_PUBLISHABLE_KEY ||
     process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
     process.env.VITE_SUPABASE_ANON_KEY
@@ -11,7 +21,7 @@ export function getSupabasePublishableKey() {
 }
 
 export function getSupabaseServiceRoleKey() {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.APP_SUPABASE_SERVICE_ROLE_KEY;
+  return process.env.APP_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 }
 
 export function requireSupabasePublicEnv() {
