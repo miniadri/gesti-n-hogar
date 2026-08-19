@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import webPush from "web-push";
+import { requireSupabaseAdminEnv } from "@/integrations/supabase/env.server";
 
 export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
   server: {
@@ -13,11 +14,10 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
           return new Response("Unauthorized", { status: 401 });
         }
 
-        const supabase = createClient(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          { auth: { persistSession: false, autoRefreshToken: false } },
-        );
+        const { url, serviceRoleKey } = requireSupabaseAdminEnv();
+        const supabase = createClient(url, serviceRoleKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
 
         const now = new Date().toISOString();
         const { data: intakes, error } = await supabase

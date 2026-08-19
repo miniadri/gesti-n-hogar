@@ -5,6 +5,7 @@ import {
   extractStartISO,
   extractEndISO,
 } from "@/lib/google-calendar.server";
+import { requireSupabaseAdminEnv } from "@/integrations/supabase/env.server";
 
 function getLocalHour(tz: string): number {
   const now = new Date();
@@ -31,11 +32,10 @@ export const Route = createFileRoute("/api/public/hooks/google-calendar-sync")({
           return new Response("Unauthorized", { status: 401 });
         }
 
-        const supabase = createClient(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          { auth: { persistSession: false, autoRefreshToken: false } },
-        );
+        const { url, serviceRoleKey } = requireSupabaseAdminEnv();
+        const supabase = createClient(url, serviceRoleKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
 
         const { data: profiles, error } = await supabase
           .from("profiles")

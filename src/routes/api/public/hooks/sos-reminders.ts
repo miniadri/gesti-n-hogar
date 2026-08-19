@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
+import { requireSupabaseAdminEnv } from "@/integrations/supabase/env.server";
 import { dispatchSosNotifications } from "@/lib/notify.server";
 
 const REMINDER_INTERVAL_MS = 2 * 60 * 1000;
@@ -19,11 +20,10 @@ export const Route = createFileRoute("/api/public/hooks/sos-reminders")({
           return new Response("Unauthorized", { status: 401 });
         }
 
-        const supabase = createClient(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          { auth: { persistSession: false, autoRefreshToken: false } },
-        );
+        const { url, serviceRoleKey } = requireSupabaseAdminEnv();
+        const supabase = createClient(url, serviceRoleKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
 
         const now = Date.now();
         const { data: events, error } = await supabase

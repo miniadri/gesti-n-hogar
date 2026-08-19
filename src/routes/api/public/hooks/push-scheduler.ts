@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import webPush from "web-push";
+import { requireSupabaseAdminEnv } from "@/integrations/supabase/env.server";
 import { sendTelegramToUsers } from "@/lib/notify.server";
 
 // Runs every few minutes via pg_cron. Sends push notifications for:
@@ -17,9 +18,8 @@ export const Route = createFileRoute("/api/public/hooks/push-scheduler")({
           return new Response("Unauthorized", { status: 401 });
         }
 
-        const url = process.env.SUPABASE_URL!;
-        const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabase = createClient(url, key, {
+        const { url, serviceRoleKey } = requireSupabaseAdminEnv();
+        const supabase = createClient(url, serviceRoleKey, {
           auth: { persistSession: false, autoRefreshToken: false },
         });
 

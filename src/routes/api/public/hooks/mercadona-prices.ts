@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
+import { requireSupabaseAdminEnv } from "@/integrations/supabase/env.server";
 import { cacheMercadonaProducts, fetchMercadonaProduct } from "@/lib/mercadona.server";
 
 // Daily pg_cron job: refreshes prices for every cached Mercadona product
@@ -14,11 +15,10 @@ export const Route = createFileRoute("/api/public/hooks/mercadona-prices")({
           return new Response("Unauthorized", { status: 401 });
         }
 
-        const supabase = createClient(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          { auth: { persistSession: false, autoRefreshToken: false } },
-        );
+        const { url, serviceRoleKey } = requireSupabaseAdminEnv();
+        const supabase = createClient(url, serviceRoleKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
 
         const { data: cached } = await supabase
           .from("mercadona_products")
