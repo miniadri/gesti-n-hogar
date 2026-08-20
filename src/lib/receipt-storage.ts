@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client-app";
 
 export async function deleteReceiptUpload(path: string | null | undefined) {
   if (!path) return false;

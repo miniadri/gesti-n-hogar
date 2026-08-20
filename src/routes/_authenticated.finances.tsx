@@ -32,7 +32,7 @@ import {
 } from "@/lib/finances.functions";
 import { listHouseholdActivity } from "@/lib/activity.functions";
 import { scanTicket } from "@/lib/ocr.functions";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client-app";
 import { ActivityList } from "@/components/ActivityList";
 import { undoableToast } from "@/hooks/use-undoable";
 import { deleteReceiptUpload, markReceiptUploadDeleted } from "@/lib/receipt-storage";
