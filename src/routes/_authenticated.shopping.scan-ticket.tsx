@@ -10,7 +10,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { scanTicket } from "@/lib/ocr.functions";
 import { createExpense } from "@/lib/finances.functions";
 import { importReceiptToInventory } from "@/lib/inventory.functions";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client-app";
 import { deleteReceiptUpload, markReceiptUploadDeleted } from "@/lib/receipt-storage";
 import { toast } from "sonner";
 

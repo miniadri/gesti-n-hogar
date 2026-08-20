@@ -12,7 +12,7 @@ import { Toaster } from "sonner";
 import { useTranslation } from "react-i18next";
 
 import appCss from "../styles.css?url";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client-app";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import i18n, { detectStoredLanguage } from "@/i18n";
 

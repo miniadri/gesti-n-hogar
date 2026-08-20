@@ -446,7 +446,7 @@ function MissingDialog({
       const store = stores.find((s: any) => s.id === storeId) ?? stores[0];
       if (!store) throw new Error("Crea una tienda primero");
       const { data: lists } = (await (
-        await import("@/integrations/supabase/client")
+        await import("@/integrations/supabase/client-app")
       ).supabase
         .from("shopping_lists")
         .select("id")

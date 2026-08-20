@@ -58,7 +58,7 @@ import { getGoogleCalendarStatus } from "@/lib/google-calendar.functions";
 import { undoableToast } from "@/hooks/use-undoable";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client-app";
 
 const calendarQueryOptions = queryOptions({
   queryKey: ["calendar"],

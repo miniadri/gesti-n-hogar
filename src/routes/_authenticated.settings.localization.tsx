@@ -12,7 +12,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { updateProfile } from "@/lib/household.functions";
 import { toast } from "sonner";
 import { setLanguage } from "@/i18n";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client-app";
 
 const profileQueryOptions = queryOptions({
   queryKey: ["profile"],

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 import { AppShell } from "@/components/AppShell";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client-app";
 import { joinHousehold } from "@/lib/household.functions";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { setLanguage } from "@/i18n";
