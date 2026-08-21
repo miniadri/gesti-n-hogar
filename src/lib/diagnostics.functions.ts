@@ -192,8 +192,7 @@ export const getDiagnostics = createServerFn({ method: "GET" })
       hasEnv("SUPABASE_PUBLISHABLE_KEY") ||
       hasEnv("VITE_SUPABASE_PUBLISHABLE_KEY") ||
       hasEnv("VITE_SUPABASE_ANON_KEY");
-    const supabaseServiceConfigured =
-      hasEnv("SUPABASE_SERVICE_ROLE_KEY") || hasEnv("APP_SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseServiceConfigured = hasEnv("SUPABASE_SERVICE_ROLE_KEY");
 
     const environment: DiagnosticCheck[] = [
       check(
