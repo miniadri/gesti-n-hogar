@@ -13,6 +13,40 @@ function normalizeName(s: string): string {
     .trim();
 }
 
+async function ensureProductForInventoryItem(
+  supabase: any,
+  userId: string,
+  item: {
+    ean?: string | null;
+    name?: string | null;
+    category?: string | null;
+    image_url?: string | null;
+    location?: string | null;
+  },
+) {
+  const ean = item.ean?.trim();
+  if (!ean) return null;
+
+  const { data: existing, error: readError } = await supabase
+    .from("products")
+    .select("ean")
+    .eq("ean", ean)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (existing) return ean;
+
+  const { error } = await supabase.from("products").insert({
+    ean,
+    name: item.name?.trim() || `Producto ${ean}`,
+    category: item.category ?? null,
+    image_url: item.image_url ?? null,
+    default_location: item.location ?? null,
+    created_by: userId,
+  });
+  if (error) throw error;
+  return ean;
+}
+
 
 const InventoryInput = z.object({
   name: z.string().min(1).max(200),
@@ -52,17 +86,21 @@ export const createInventoryItem = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    const inventoryData = { ...data };
+    if (inventoryData.ean) {
+      inventoryData.ean = await ensureProductForInventoryItem(context.supabase, context.userId, inventoryData) ?? undefined;
+    }
 
     // Merge into an existing row when possible so scans don't create duplicates:
     //  - same EAN, OR
     //  - same name (case-insensitive) and no EAN yet on the existing row
     let existing: any = null;
-    if (data.ean) {
+    if (inventoryData.ean) {
       const { data: byEan } = await context.supabase
         .from("inventory_items")
         .select("*")
         .eq("household_id", householdId)
-        .eq("ean", data.ean)
+        .eq("ean", inventoryData.ean)
         .limit(1)
         .maybeSingle();
       existing = byEan;
@@ -72,7 +110,7 @@ export const createInventoryItem = createServerFn({ method: "POST" })
         .from("inventory_items")
         .select("*")
         .eq("household_id", householdId)
-        .ilike("name", data.name)
+        .ilike("name", inventoryData.name)
         .is("ean", null)
         .limit(1)
         .maybeSingle();
@@ -81,17 +119,17 @@ export const createInventoryItem = createServerFn({ method: "POST" })
 
     if (existing) {
       const merged = {
-        name: data.name, // trust the user's latest name
-        quantity: Number(existing.quantity ?? 0) + Number(data.quantity ?? 1),
-        ean: data.ean ?? existing.ean ?? null,
-        category: data.category ?? existing.category,
-        unit: data.unit ?? existing.unit,
-        location: data.location ?? existing.location,
-        expiry_date: data.expiry_date ?? existing.expiry_date,
-        last_price: data.last_price ?? existing.last_price,
-        min_stock: data.min_stock ?? existing.min_stock,
-        mercadona_id: data.mercadona_id ?? existing.mercadona_id,
-        image_url: data.image_url ?? existing.image_url,
+        name: inventoryData.name, // trust the user's latest name
+        quantity: Number(existing.quantity ?? 0) + Number(inventoryData.quantity ?? 1),
+        ean: inventoryData.ean ?? existing.ean ?? null,
+        category: inventoryData.category ?? existing.category,
+        unit: inventoryData.unit ?? existing.unit,
+        location: inventoryData.location ?? existing.location,
+        expiry_date: inventoryData.expiry_date ?? existing.expiry_date,
+        last_price: inventoryData.last_price ?? existing.last_price,
+        min_stock: inventoryData.min_stock ?? existing.min_stock,
+        mercadona_id: inventoryData.mercadona_id ?? existing.mercadona_id,
+        image_url: inventoryData.image_url ?? existing.image_url,
       };
       const { data: updated, error } = await context.supabase
         .from("inventory_items")
@@ -114,7 +152,7 @@ export const createInventoryItem = createServerFn({ method: "POST" })
 
     const { data: item, error } = await context.supabase
       .from("inventory_items")
-      .insert({ ...data, household_id: householdId })
+      .insert({ ...inventoryData, household_id: householdId })
       .select()
       .single();
     if (error) throw error;
@@ -143,6 +181,12 @@ export const updateInventoryItem = createServerFn({ method: "POST" })
       .eq("household_id", householdId)
       .eq("id", id)
       .maybeSingle();
+    if (rest.ean) {
+      rest.ean = await ensureProductForInventoryItem(context.supabase, context.userId, {
+        ...before,
+        ...rest,
+      }) ?? undefined;
+    }
     const { data: item, error } = await context.supabase
       .from("inventory_items")
       .update(rest)
