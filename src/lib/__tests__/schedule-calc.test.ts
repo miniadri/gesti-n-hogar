@@ -66,8 +66,17 @@ describe("dayOvertime", () => {
     const total = dayOvertime(8, 2, 8) + dayOvertime(8, 1, 8) + dayOvertime(8, 1, 8);
     expect(total).toBe(4);
   });
-  it("never returns a negative value", () => {
-    expect(dayOvertime(4, -2, 8)).toBe(0);
+  it("allows negative adjustments to compensate overtime from other days", () => {
+    const total =
+      dayOvertime(10, 0, 8) +
+      dayOvertime(10, 0, 8) +
+      dayOvertime(10, 0, 8) +
+      dayOvertime(10, 0, 8) +
+      dayOvertime(0, -8, 8);
+    expect(total).toBe(0);
+  });
+  it("can return a negative contribution for a compensating day", () => {
+    expect(dayOvertime(0, -8, 8)).toBe(-8);
   });
 });
 
