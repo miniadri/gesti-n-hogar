@@ -32,7 +32,7 @@ Tablas:
   - `household_id`, `created_by_member_id`, `for_member_id`, `title`, `description`, `url`, `estimated_price`, `priority`, `status` (`active` | `fulfilled` | `archived`), `recipient_reaction` (`pending` | `liked` | `dismissed`), `created_at`, `updated_at` + trigger `set_updated_at`.
   - GRANTs a `authenticated` y `service_role`; RLS con `is_household_member(household_id, auth.uid())` para leer; insertar/editar/borrar por autor, destinatario o admin del hogar.
 - `public.wishlist_claims`
-  - `wishlist_item_id`, `household_id`, `claimer_member_id`, `status` (`considering` | `purchased` | `gifted`), `notes`, timestamps, único por (item, claimer).
+  - `wishlist_item_id`, `household_id`, `claimer_member_id`, `status` (`considering` | `purchased` | `gifted`), `notes`, `tracked_price`, `tracked_store`, `tracked_url`, timestamps, único por (item, claimer).
   - RLS clave: la política de SELECT usa una función `security definer` `public.can_view_wishlist_claim(_item_id uuid)` que devuelve `false` si `auth.uid()` es el usuario del `for_member_id` del deseo, y `true` para el resto de miembros del hogar. Así, aunque alguien consulte la API directamente, el destinatario no puede ver reservas de sus propios deseos.
   - INSERT/UPDATE/DELETE solo del propio `claimer_member_id` y nunca sobre deseos dirigidos a uno mismo.
 
