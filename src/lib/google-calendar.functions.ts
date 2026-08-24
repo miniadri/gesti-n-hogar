@@ -15,9 +15,12 @@ import {
   GATEWAY_BASE_URL,
   GOOGLE_CALENDAR_CONNECTOR,
   GOOGLE_CALENDAR_SCOPES,
+  createGoogleAuthorizationUrl,
+  isDirectGoogleOAuthConfigured,
   listPrimaryEvents,
   extractStartISO,
   extractEndISO,
+  revokeDirectGoogleConnection,
 } from "./google-calendar.server";
 
 // -------- OAuth start --------
@@ -26,9 +29,16 @@ export const startGoogleCalendarConnect = createServerFn({ method: "POST" })
   .inputValidator((targetOrigin: string) => z.string().url().parse(targetOrigin))
   .handler(async ({ data: targetOrigin, context }) => {
     const clientKey = process.env.GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY;
+    if (isDirectGoogleOAuthConfigured()) {
+      return {
+        authorizationUrl: createGoogleAuthorizationUrl(context.userId, targetOrigin),
+        mode: "redirect" as const,
+      };
+    }
+
     if (!clientKey) {
       throw new Error(
-        "Google Calendar no está configurado en Lovable. Falta GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY.",
+        "Google Calendar no está configurado. Faltan GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI o GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY.",
       );
     }
 
@@ -45,7 +55,7 @@ export const startGoogleCalendarConnect = createServerFn({ method: "POST" })
       connectionAPIKey: existing ?? undefined,
       credentialsConfiguration: { scopes: GOOGLE_CALENDAR_SCOPES },
     });
-    return { authorizationUrl };
+    return { authorizationUrl, mode: "lovable_connector" as const };
   });
 
 // -------- Save key after popup --------
@@ -67,10 +77,17 @@ export const saveGoogleCalendarConnection = createServerFn({ method: "POST" })
 export const getGoogleCalendarStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const connectorConfigured = Boolean(process.env.GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY);
+    const directConfigured = isDirectGoogleOAuthConfigured();
+    const lovableConnectorConfigured = Boolean(process.env.GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY);
+    const connectorConfigured = directConfigured || lovableConnectorConfigured;
     try {
       const connected = await hasConnection(context.userId, GOOGLE_CALENDAR_CONNECTOR);
-      return { connected, configured: true, connectorConfigured };
+      return {
+        connected,
+        configured: true,
+        connectorConfigured,
+        mode: directConfigured ? "direct_oauth" : lovableConnectorConfigured ? "lovable_connector" : "none",
+      };
     } catch (err: any) {
       const message = String(err?.message ?? "");
       if (
@@ -93,13 +110,16 @@ export const disconnectGoogleCalendar = createServerFn({ method: "POST" })
     const key = await getConnectionKeyForUser(context.userId, GOOGLE_CALENDAR_CONNECTOR);
     if (key) {
       try {
-        await disconnectAppUser({
-          gatewayBaseUrl: GATEWAY_BASE_URL,
-          connectionAPIKey: key,
-          connectorId: GOOGLE_CALENDAR_CONNECTOR,
-        });
+        const handledDirect = await revokeDirectGoogleConnection(context.userId);
+        if (!handledDirect) {
+          await disconnectAppUser({
+            gatewayBaseUrl: GATEWAY_BASE_URL,
+            connectionAPIKey: key,
+            connectorId: GOOGLE_CALENDAR_CONNECTOR,
+          });
+        }
       } catch (e) {
-        console.error("Gateway disconnect failed:", e);
+        console.error("Google disconnect failed:", e);
       }
     }
     await deleteConnectionKeyForUser(context.userId, GOOGLE_CALENDAR_CONNECTOR);
