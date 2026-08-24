@@ -46,11 +46,13 @@ export function adjustedHours(plannedHours: number, adjustment: number): number 
 }
 
 /**
- * Overtime for a day = manually registered extra hours + any planned hours above the daily target.
- * Manual extras always count, even when the planned shift was shorter than the target.
+ * Overtime contribution for a day.
+ *
+ * Positive manual adjustments add extra time. Negative manual adjustments are
+ * allowed to compensate overtime accumulated on other days in the same period.
  */
 export function dayOvertime(plannedHours: number, adjustment: number, targetHours: number): number {
-  return Math.max(0, adjustment) + Math.max(0, plannedHours - targetHours);
+  return Math.max(0, plannedHours - targetHours) + adjustment;
 }
 
 /** Sum of the hours of the slots that count towards the worked/attended total. */
