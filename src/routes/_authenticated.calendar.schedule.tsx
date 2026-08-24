@@ -347,7 +347,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       worked += actualHours;
       if (!member.is_child) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
-    return { worked, extra };
+    return { worked, extra: Math.max(0, extra) };
   }, [weekDays, template, daySlots, statuses, settings]);
 
   // Totals — month (only hours already worked: past days and finished shifts)
@@ -377,7 +377,7 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       worked += actualHours;
       if (dayComplete && !member.is_child) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
-    return { worked, extra, vacations };
+    return { worked, extra: Math.max(0, extra), vacations };
   }, [weekStart, template, daySlots, statuses, settings]);
 
 
