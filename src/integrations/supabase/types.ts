@@ -3113,6 +3113,140 @@ export type Database = {
           },
         ]
       }
+      wishlist_claims: {
+        Row: {
+          claimer_member_id: string
+          created_at: string
+          household_id: string
+          id: string
+          notes: string | null
+          status: string
+          tracked_price: number | null
+          tracked_store: string | null
+          tracked_url: string | null
+          updated_at: string
+          wishlist_item_id: string
+        }
+        Insert: {
+          claimer_member_id: string
+          created_at?: string
+          household_id: string
+          id?: string
+          notes?: string | null
+          status?: string
+          tracked_price?: number | null
+          tracked_store?: string | null
+          tracked_url?: string | null
+          updated_at?: string
+          wishlist_item_id: string
+        }
+        Update: {
+          claimer_member_id?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          tracked_price?: number | null
+          tracked_store?: string | null
+          tracked_url?: string | null
+          updated_at?: string
+          wishlist_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wishlist_claims_claimer_member_id_fkey"
+            columns: ["claimer_member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wishlist_claims_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wishlist_claims_wishlist_item_id_fkey"
+            columns: ["wishlist_item_id"]
+            isOneToOne: false
+            referencedRelation: "wishlist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wishlist_items: {
+        Row: {
+          created_at: string
+          created_by_member_id: string
+          description: string | null
+          estimated_price: number | null
+          for_member_id: string
+          household_id: string
+          id: string
+          priority: string
+          recipient_reaction: string
+          status: string
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by_member_id: string
+          description?: string | null
+          estimated_price?: number | null
+          for_member_id: string
+          household_id: string
+          id?: string
+          priority?: string
+          recipient_reaction?: string
+          status?: string
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by_member_id?: string
+          description?: string | null
+          estimated_price?: number | null
+          for_member_id?: string
+          household_id?: string
+          id?: string
+          priority?: string
+          recipient_reaction?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wishlist_items_created_by_member_id_fkey"
+            columns: ["created_by_member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wishlist_items_for_member_id_fkey"
+            columns: ["for_member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wishlist_items_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -3126,6 +3260,7 @@ export type Database = {
         Args: { _is_shared: boolean; _member_id: string }
         Returns: boolean
       }
+      can_view_wishlist_claim: { Args: { _item_id: string }; Returns: boolean }
       cleanup_household_activity_retention: { Args: never; Returns: number }
       current_household: { Args: never; Returns: string }
       get_household_contributions: {
