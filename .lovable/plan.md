@@ -13,7 +13,7 @@ Nueva subsección dentro de Tareas para gestionar deseos/regalos del hogar, con 
 - Reservas secretas (regalos):
   - En los deseos de **otros** miembros aparece "Lo regalo yo" para marcar seguimiento, con notas y estado (pensándolo / comprado / entregado).
   - Una pestaña/filtro "Mis regalos" reúne todo lo que has reservado.
-  - Enlace rápido a comparar precios: reutiliza el buscador de productos de tienda ya existente para buscar el título del deseo.
+  - Seguimiento de precio independiente de la Lista de Compra (no usa el catálogo de supermercados): quien reserva puede guardar el precio visto y la tienda (Amazon, MediaMarkt, PcComponentes, tienda física, otra) junto al enlace, además de accesos rápidos para buscar el título del deseo en esas tiendas online.
   - **El dueño del deseo nunca ve las reservas**: ni contador, ni nombre, ni indicio alguno. La ocultación se aplica en la base de datos, no solo en la interfaz.
 
 ## Reglas de privacidad
