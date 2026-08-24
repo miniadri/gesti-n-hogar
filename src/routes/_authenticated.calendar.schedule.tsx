@@ -9,10 +9,12 @@ import {
   differenceInCalendarDays,
   differenceInCalendarMonths,
   endOfMonth,
+  endOfYear,
   endOfWeek,
   format,
   parseISO,
   startOfMonth,
+  startOfYear,
   startOfWeek,
   subWeeks,
 } from "date-fns";
@@ -24,6 +26,7 @@ import {
   ChevronRight,
   Copy,
   GraduationCap,
+  FileDown,
   Plus,
   Settings2,
   Trash2,
@@ -64,6 +67,14 @@ import {
   slotEndDate,
   slotHours,
 } from "@/lib/schedule-calc";
+
+import {
+  buildScheduleExportReport,
+  scheduleReportToCsv,
+  scheduleReportToHtml,
+  type ScheduleExportData,
+  type ScheduleExportOptions,
+} from "@/lib/schedule-export";
 
 
 
@@ -142,9 +153,11 @@ function stateLabel(s: DayStatus["state"]): string {
 function SchedulePage() {
   const qc = useQueryClient();
   const membersFn = useServerFn(listScheduleMembers);
+  const getSchedule = useServerFn(getMemberSchedule);
   const { data: members = [] } = useQuery({ queryKey: ["schedule", "members"], queryFn: () => membersFn() });
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const selected = members.find((m) => m.id === selectedId) ?? members[0];
 
   useEffect(() => {
@@ -170,6 +183,10 @@ function SchedulePage() {
             <p className="text-sm text-muted-foreground">Horario laboral y escolar por miembro</p>
           </div>
         </div>
+        <Button variant="outline" onClick={() => setExportOpen(true)} disabled={members.length === 0}>
+          <FileDown className="mr-2 h-4 w-4" />
+          Exportar
+        </Button>
       </div>
 
       {/* Member chips */}
@@ -193,8 +210,244 @@ function SchedulePage() {
       </div>
 
       {selected && <MemberSchedule key={selected.id} member={selected} onChanged={() => qc.invalidateQueries({ queryKey: ["schedule"] })} />}
+      {exportOpen && (
+        <ScheduleExportDialog
+          members={members}
+          selectedMemberId={selected?.id ?? null}
+          getSchedule={getSchedule}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
     </div>
   );
+}
+
+function ScheduleExportDialog({
+  members,
+  selectedMemberId,
+  getSchedule,
+  onClose,
+}: {
+  members: Member[];
+  selectedMemberId: string | null;
+  getSchedule: (args: { data: { member_id: string; from: string; to: string } }) => Promise<any>;
+  onClose: () => void;
+}) {
+  const today = new Date();
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => selectedMemberId ? [selectedMemberId] : members.map((m) => m.id));
+  const [period, setPeriod] = useState<"week" | "fortnight" | "month" | "year" | "custom">("month");
+  const [from, setFrom] = useState(format(startOfMonth(today), "yyyy-MM-dd"));
+  const [to, setTo] = useState(format(endOfMonth(today), "yyyy-MM-dd"));
+  const [formatKind, setFormatKind] = useState<"csv" | "html">("csv");
+  const [includeSlots, setIncludeSlots] = useState(true);
+  const [includeStatuses, setIncludeStatuses] = useState(true);
+  const [includeNotes, setIncludeNotes] = useState(true);
+  const [includeBreaks, setIncludeBreaks] = useState(false);
+  const [onlyOvertime, setOnlyOvertime] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  function setPreset(next: typeof period) {
+    setPeriod(next);
+    const now = new Date();
+    if (next === "week") {
+      setFrom(format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"));
+      setTo(format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"));
+    } else if (next === "fortnight") {
+      const start = now.getDate() <= 15 ? startOfMonth(now) : new Date(now.getFullYear(), now.getMonth(), 16);
+      const end = now.getDate() <= 15 ? new Date(now.getFullYear(), now.getMonth(), 15) : endOfMonth(now);
+      setFrom(format(start, "yyyy-MM-dd"));
+      setTo(format(end, "yyyy-MM-dd"));
+    } else if (next === "month") {
+      setFrom(format(startOfMonth(now), "yyyy-MM-dd"));
+      setTo(format(endOfMonth(now), "yyyy-MM-dd"));
+    } else if (next === "year") {
+      setFrom(format(startOfYear(now), "yyyy-MM-dd"));
+      setTo(format(endOfYear(now), "yyyy-MM-dd"));
+    }
+  }
+
+  function toggleMember(id: string, checked: boolean) {
+    setSelectedIds((current) =>
+      checked ? Array.from(new Set([...current, id])) : current.filter((memberId) => memberId !== id),
+    );
+  }
+
+  async function runExport() {
+    if (selectedIds.length === 0) {
+      toast.error("Elige al menos un miembro");
+      return;
+    }
+    if (to < from) {
+      toast.error("La fecha final no puede ser anterior a la inicial");
+      return;
+    }
+    setExporting(true);
+    try {
+      const chosenMembers = members.filter((m) => selectedIds.includes(m.id));
+      const entries: ScheduleExportData[] = [];
+      for (const member of chosenMembers) {
+        const data = await getSchedule({ data: { member_id: member.id, from, to } });
+        entries.push({
+          member: {
+            id: member.id,
+            display_name: member.display_name,
+            is_child: member.is_child,
+          },
+          settings: data?.settings ?? null,
+          template: data?.template ?? [],
+          days: data?.days ?? [],
+          status: data?.status ?? [],
+        });
+      }
+      const options: ScheduleExportOptions = {
+        from,
+        to,
+        includeSlots,
+        includeStatuses,
+        includeNotes,
+        includeBreaks,
+        onlyOvertime,
+      };
+      const report = buildScheduleExportReport(entries, options);
+      const suffix = `${from}_${to}`;
+      if (formatKind === "csv") {
+        downloadText(`cuadrante_${suffix}.csv`, scheduleReportToCsv(report), "text/csv;charset=utf-8");
+      } else {
+        openPrintableReport(scheduleReportToHtml(report));
+      }
+      toast.success("Informe generado");
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudo exportar el cuadrante");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Exportar cuadrante</DialogTitle>
+          <DialogDescription>
+            Genera un informe por miembro y periodo con franjas, horas trabajadas, extras, ausencias y notas.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label>Miembros</Label>
+            <div className="flex flex-wrap gap-2">
+              {members.map((member) => (
+                <label key={member.id} className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm">
+                  <Checkbox
+                    checked={selectedIds.includes(member.id)}
+                    onCheckedChange={(checked) => toggleMember(member.id, checked === true)}
+                  />
+                  {member.display_name}
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setSelectedIds(members.map((m) => m.id))}>
+                Todos
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => selectedMemberId && setSelectedIds([selectedMemberId])}>
+                Solo seleccionado
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-1.5">
+              <Label>Periodo rápido</Label>
+              <Select value={period} onValueChange={(value: any) => setPreset(value)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="week">Semana actual</SelectItem>
+                  <SelectItem value="fortnight">Quincena actual</SelectItem>
+                  <SelectItem value="month">Mes actual</SelectItem>
+                  <SelectItem value="year">Año actual</SelectItem>
+                  <SelectItem value="custom">Personalizado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Desde</Label>
+              <Input type="date" value={from} onChange={(e) => { setPeriod("custom"); setFrom(e.target.value); }} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Hasta</Label>
+              <Input type="date" value={to} onChange={(e) => { setPeriod("custom"); setTo(e.target.value); }} />
+            </div>
+          </div>
+
+          <div className="grid gap-3 rounded border p-3 sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={includeSlots} onCheckedChange={(v) => setIncludeSlots(v === true)} />
+              Incluir franjas horarias
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={includeStatuses} onCheckedChange={(v) => setIncludeStatuses(v === true)} />
+              Incluir ausencias/libres sin horas
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={includeNotes} onCheckedChange={(v) => setIncludeNotes(v === true)} />
+              Incluir anotaciones
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={includeBreaks} onCheckedChange={(v) => setIncludeBreaks(v === true)} />
+              Incluir descansos en detalle
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={onlyOvertime} onCheckedChange={(v) => setOnlyOvertime(v === true)} />
+              Solo días con extras/compensaciones
+            </label>
+            <div className="grid gap-1.5">
+              <Label>Formato</Label>
+              <Select value={formatKind} onValueChange={(value: any) => setFormatKind(value)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">CSV / hoja de cálculo</SelectItem>
+                  <SelectItem value="html">Informe imprimible / PDF</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={runExport} disabled={exporting}>
+            <FileDown className="mr-2 h-4 w-4" />
+            {exporting ? "Generando..." : "Exportar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function downloadText(filename: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function openPrintableReport(html: string) {
+  const win = window.open("", "_blank", "noopener,noreferrer");
+  if (!win) {
+    downloadText("cuadrante_informe.html", html, "text/html;charset=utf-8");
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
 }
 
 function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () => void }) {
