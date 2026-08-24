@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Calendar, CheckCircle2, RefreshCw, Unplug } from "lucide-react";
@@ -55,6 +55,20 @@ function GoogleCalendarSettings() {
   const [busy, setBusy] = useState<"connect" | "sync" | "disconnect" | null>(null);
   const hours = selectedHours ?? hoursData?.hours ?? [6, 15];
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google") === "connected") {
+      toast.success("Google Calendar conectado");
+      qc.invalidateQueries({ queryKey: ["google-calendar-status"] });
+      window.history.replaceState({}, "", "/settings/google-calendar");
+    }
+    const googleError = params.get("google_error");
+    if (googleError) {
+      toast.error(`Google Calendar: ${googleError}`);
+      window.history.replaceState({}, "", "/settings/google-calendar");
+    }
+  }, [qc]);
+
   const toggleHour = (h: number) => {
     const base = selectedHours ?? hoursData?.hours ?? [6, 15];
     const next = base.includes(h) ? base.filter((x) => x !== h) : [...base, h].sort((a, b) => a - b);
@@ -80,10 +94,15 @@ function GoogleCalendarSettings() {
     }
     setBusy("connect");
     try {
+      const started = await startConnect({ data: window.location.origin });
+      if (started.mode === "redirect") {
+        window.location.href = started.authorizationUrl;
+        return;
+      }
       const result = await connectAppUser({
         connectorId: CONNECTOR_ID,
         gatewayBaseUrl: GATEWAY_BASE_URL,
-        start: (targetOrigin) => startConnect({ data: targetOrigin }),
+        start: () => Promise.resolve(started),
       });
       if (!result.success) {
         toast.error(result.error || "No se pudo conectar");
@@ -163,11 +182,23 @@ function GoogleCalendarSettings() {
               <div>
                 <p className="font-medium">Google Calendar no está configurado en este entorno.</p>
                 <p className="text-xs">
-                  Falta <code>GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY</code> en Lovable. Hasta que esté
-                  configurada, no se puede iniciar una vinculación nueva.
+                  En Cloudflare faltan <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code> y{" "}
+                  <code>GOOGLE_REDIRECT_URI</code>. En Lovable también puede usarse el conector antiguo.
                 </p>
               </div>
             </div>
+          )}
+          {status?.connectorConfigured && (
+            <p className="text-xs text-muted-foreground">
+              Modo de conexión:{" "}
+              <strong>
+                {status.mode === "direct_oauth"
+                  ? "OAuth propio"
+                  : status.mode === "lovable_connector"
+                    ? "Conector Lovable"
+                    : "no configurado"}
+              </strong>
+            </p>
           )}
           {status && !status.configured && status.connectorConfigured && (
             <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
