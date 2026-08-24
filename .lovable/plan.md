@@ -41,4 +41,4 @@ Servidor: nuevo `src/lib/wishlist.functions.ts` con `createServerFn` + `requireS
 
 Interfaz: nuevo componente `src/components/wishlist/WishlistPanel.tsx` (formulario, tarjetas, diálogo de reserva) y pestañas en `src/routes/_authenticated.tasks.tsx` sin renombrar el archivo. Invalidación de queries `["wishlist"]` y `["wishlist-claims"]`; se añade `wishlist_items` al mapa de realtime existente (las claims quedan fuera de realtime para no filtrar señales al destinatario).
 
-Versión visible en Ajustes: v0.24.
+Versión visible en Ajustes: v0.30.
