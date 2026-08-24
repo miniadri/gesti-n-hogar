@@ -48,6 +48,7 @@ import { Route as ApiPublicHooksPushSchedulerRouteImport } from './routes/api/pu
 import { Route as ApiPublicHooksMercadonaPricesRouteImport } from './routes/api/public/hooks/mercadona-prices'
 import { Route as ApiPublicHooksMedicationRemindersRouteImport } from './routes/api/public/hooks/medication-reminders'
 import { Route as ApiPublicHooksGoogleCalendarSyncRouteImport } from './routes/api/public/hooks/google-calendar-sync'
+import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google/callback'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -272,6 +273,11 @@ const ApiPublicHooksGoogleCalendarSyncRoute =
     path: '/api/public/hooks/google-calendar-sync',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
+  id: '/api/auth/google/callback',
+  path: '/api/auth/google/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -306,6 +312,7 @@ export interface FileRoutesByFullPath {
   '/recipes/': typeof AuthenticatedRecipesIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/shopping/': typeof AuthenticatedShoppingIndexRoute
+  '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/mercadona-prices': typeof ApiPublicHooksMercadonaPricesRoute
@@ -346,6 +353,7 @@ export interface FileRoutesByTo {
   '/recipes': typeof AuthenticatedRecipesIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/shopping': typeof AuthenticatedShoppingIndexRoute
+  '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/mercadona-prices': typeof ApiPublicHooksMercadonaPricesRoute
@@ -388,6 +396,7 @@ export interface FileRoutesById {
   '/_authenticated/recipes/': typeof AuthenticatedRecipesIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/shopping/': typeof AuthenticatedShoppingIndexRoute
+  '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
   '/api/public/hooks/mercadona-prices': typeof ApiPublicHooksMercadonaPricesRoute
@@ -430,6 +439,7 @@ export interface FileRouteTypes {
     | '/recipes/'
     | '/settings/'
     | '/shopping/'
+    | '/api/auth/google/callback'
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/mercadona-prices'
@@ -470,6 +480,7 @@ export interface FileRouteTypes {
     | '/recipes'
     | '/settings'
     | '/shopping'
+    | '/api/auth/google/callback'
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/mercadona-prices'
@@ -511,6 +522,7 @@ export interface FileRouteTypes {
     | '/_authenticated/recipes/'
     | '/_authenticated/settings/'
     | '/_authenticated/shopping/'
+    | '/api/auth/google/callback'
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
     | '/api/public/hooks/mercadona-prices'
@@ -523,6 +535,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  ApiAuthGoogleCallbackRoute: typeof ApiAuthGoogleCallbackRoute
   ApiPublicHooksGoogleCalendarSyncRoute: typeof ApiPublicHooksGoogleCalendarSyncRoute
   ApiPublicHooksMedicationRemindersRoute: typeof ApiPublicHooksMedicationRemindersRoute
   ApiPublicHooksMercadonaPricesRoute: typeof ApiPublicHooksMercadonaPricesRoute
@@ -806,6 +819,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksGoogleCalendarSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/google/callback': {
+      id: '/api/auth/google/callback'
+      path: '/api/auth/google/callback'
+      fullPath: '/api/auth/google/callback'
+      preLoaderRoute: typeof ApiAuthGoogleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -907,6 +927,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  ApiAuthGoogleCallbackRoute: ApiAuthGoogleCallbackRoute,
   ApiPublicHooksGoogleCalendarSyncRoute: ApiPublicHooksGoogleCalendarSyncRoute,
   ApiPublicHooksMedicationRemindersRoute:
     ApiPublicHooksMedicationRemindersRoute,
