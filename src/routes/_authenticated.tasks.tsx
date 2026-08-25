@@ -152,13 +152,29 @@ function TasksPage() {
           <h2 className="text-2xl font-bold tracking-tight">Tareas del hogar</h2>
           <p className="text-muted-foreground">Organiza las tareas entre los miembros</p>
         </div>
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nueva tarea
-        </Button>
+        {tab === "tasks" && (
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva tarea
+          </Button>
+        )}
       </div>
 
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "tasks" | "wishlist")}>
+        <TabsList>
+          <TabsTrigger value="tasks">Tareas</TabsTrigger>
+          <TabsTrigger value="wishlist">
+            <Gift className="mr-2 h-4 w-4" /> Lista de Deseos
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="wishlist" className="mt-6">
+          <WishlistPanel members={members} />
+        </TabsContent>
+
+        <TabsContent value="tasks" className="mt-6 space-y-6">
       <div className="space-y-3">
+
         {pending.length === 0 && (
           <p className="text-sm text-muted-foreground">No hay tareas pendientes.</p>
         )}
