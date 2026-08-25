@@ -150,7 +150,7 @@ export function KioskVoiceAssistant() {
         speak(result?.found ? `${result.item?.name ?? pendingIntent.item} eliminado de la compra.` : `No he encontrado ${pendingIntent.item} pendiente en la compra.`);
         toast.success(result?.found ? "Producto eliminado" : "No encontrado");
       } else if (pendingIntent.type === "open") {
-        await navigate({ to: NAV_TARGETS[pendingIntent.target] as any });
+        await navigate({ to: NAV_TARGETS[pendingIntent.target] as any, search: { kiosk: "1" } as any });
         speak(`Abriendo ${targetLabel(pendingIntent.target)}.`);
       } else if (pendingIntent.type === "find_recipe") {
         const recipes: any[] = await doListRecipes();
@@ -163,10 +163,10 @@ export function KioskVoiceAssistant() {
           speak(`He encontrado ${match.title}. Puedes abrirla desde aquí.`);
         }
       } else if (pendingIntent.type === "medication_status") {
-        await navigate({ to: "/medications" as any });
+        await navigate({ to: "/medications" as any, search: { kiosk: "1" } as any });
         speak("Abro Salud para revisar medicación y tomas pendientes.");
       } else if (pendingIntent.type === "alerts_status") {
-        await navigate({ to: "/settings/notifications" as any });
+        await navigate({ to: "/settings/notifications" as any, search: { kiosk: "1" } as any });
         speak("Abro notificaciones para revisar avisos.");
       } else if (pendingIntent.type === "sos_help") {
         speak("Para evitar falsas alarmas, el SOS por voz no se envía automáticamente. Usa el botón SOS y mantenlo pulsado.");

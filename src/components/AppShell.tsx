@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Home,
@@ -18,8 +18,9 @@ import {
   CreditCard,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -79,10 +80,31 @@ interface AppShellProps {
 export function AppShell({ children, title, userName, notificationCount = 0, realtimeStatus }: AppShellProps) {
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const location = useRouterState({ select: (s) => s.location });
+  const pathname = location.pathname;
+  const kioskQuery = (location.search as any)?.kiosk === "1" || (location.search as any)?.kiosk === true;
+  const isKioskPath = pathname === "/kiosk" || pathname.startsWith("/kiosk/");
+  const [kioskSession, setKioskSession] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("homesync:kiosk-active") === "true";
+  });
 
-  if (pathname === "/kiosk" || pathname.startsWith("/kiosk/")) {
+  useEffect(() => {
+    if (!isKioskPath && !kioskQuery) return;
+    setKioskSession(true);
+    window.localStorage.setItem("homesync:kiosk-active", "true");
+  }, [isKioskPath, kioskQuery]);
+
+  if (isKioskPath) {
     return <>{children}</>;
+  }
+
+  if (kioskSession || kioskQuery) {
+    return (
+      <KioskSectionShell title={title} onExit={() => setKioskSession(false)}>
+        {children}
+      </KioskSectionShell>
+    );
   }
 
   return (
@@ -115,6 +137,64 @@ export function AppShell({ children, title, userName, notificationCount = 0, rea
           <MobileSidebar onClose={() => setMobileMenuOpen(false)} />
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+function KioskSectionShell({
+  children,
+  title,
+  onExit,
+}: {
+  children: React.ReactNode;
+  title?: string;
+  onExit: () => void;
+}) {
+  const navigate = useNavigate();
+
+  const exitKiosk = () => {
+    window.localStorage.removeItem("homesync:kiosk-active");
+    onExit();
+    navigate({ to: "/dashboard" as any });
+  };
+
+  const goBack = () => {
+    if (window.history.length > 1) window.history.back();
+    else navigate({ to: "/kiosk" as any });
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-30 border-b border-border bg-card/90 px-3 py-3 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Button type="button" variant="outline" size="icon" onClick={goBack} title="Atrás">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Atrás</span>
+            </Button>
+            <Button asChild variant="outline" size="icon" title="Inicio kiosko">
+              <Link to="/kiosk">
+                <Home className="h-5 w-5" />
+                <span className="sr-only">Inicio kiosko</span>
+              </Link>
+            </Button>
+            <div className="min-w-0 pl-1">
+              <p className="truncate text-sm font-semibold text-muted-foreground">Modo kiosko</p>
+              {title && <h1 className="truncate text-lg font-bold leading-tight">{title}</h1>}
+            </div>
+          </div>
+          <Button type="button" variant="ghost" onClick={exitKiosk}>
+            <X className="mr-2 h-4 w-4" />
+            Salir del kiosko
+          </Button>
+        </div>
+      </header>
+      <main className="px-3 pb-8 pt-4 sm:px-5 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <SosAckBanner />
+          {children}
+        </div>
+      </main>
     </div>
   );
 }
