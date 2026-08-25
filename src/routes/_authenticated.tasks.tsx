@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Plus, Check, Trash2, Calendar, Repeat, ListChecks, Image as ImageIcon, X } from "lucide-react";
+import { Plus, Check, Trash2, Calendar, Repeat, ListChecks, Image as ImageIcon, X, Gift } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { WishlistPanel } from "@/components/wishlist/WishlistPanel";
 import { useServerFn } from "@tanstack/react-start";
 import { listTasks, createTask, updateTask, deleteTask, restoreTask, getTaskPhotoUrl } from "@/lib/tasks.functions";
 import { undoableToast } from "@/hooks/use-undoable";
@@ -67,6 +69,7 @@ function TasksPage() {
   const { data: household } = useSuspenseQuery(householdQueryOptions);
   const members = (household?.household_members ?? []) as Array<{ id: string; display_name: string; is_child: boolean }>;
 
+  const [tab, setTab] = useState<"tasks" | "wishlist">("tasks");
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("medium");
@@ -152,13 +155,29 @@ function TasksPage() {
           <h2 className="text-2xl font-bold tracking-tight">Tareas del hogar</h2>
           <p className="text-muted-foreground">Organiza las tareas entre los miembros</p>
         </div>
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nueva tarea
-        </Button>
+        {tab === "tasks" && (
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva tarea
+          </Button>
+        )}
       </div>
 
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "tasks" | "wishlist")}>
+        <TabsList>
+          <TabsTrigger value="tasks">Tareas</TabsTrigger>
+          <TabsTrigger value="wishlist">
+            <Gift className="mr-2 h-4 w-4" /> Lista de Deseos
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="wishlist" className="mt-6">
+          <WishlistPanel members={members} />
+        </TabsContent>
+
+        <TabsContent value="tasks" className="mt-6 space-y-6">
       <div className="space-y-3">
+
         {pending.length === 0 && (
           <p className="text-sm text-muted-foreground">No hay tareas pendientes.</p>
         )}
@@ -214,6 +233,10 @@ function TasksPage() {
           ))}
         </div>
       )}
+        </TabsContent>
+      </Tabs>
+
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
