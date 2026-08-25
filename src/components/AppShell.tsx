@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  ArrowLeft,
   Home,
   ListTodo,
   Calendar,
@@ -15,6 +16,8 @@ import {
   Zap,
   Pill,
   CreditCard,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -76,6 +79,11 @@ interface AppShellProps {
 export function AppShell({ children, title, userName, notificationCount = 0, realtimeStatus }: AppShellProps) {
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  if (pathname === "/kiosk" || pathname.startsWith("/kiosk/")) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -93,6 +101,7 @@ export function AppShell({ children, title, userName, notificationCount = 0, rea
         <main className="flex-1 overflow-y-auto px-4 pb-28 pt-4 md:px-6 md:pb-6 md:pt-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <SosAckBanner />
+            <SectionNavControls />
             {children}
           </div>
 
@@ -106,6 +115,33 @@ export function AppShell({ children, title, userName, notificationCount = 0, rea
           <MobileSidebar onClose={() => setMobileMenuOpen(false)} />
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+function SectionNavControls() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  if (pathname === "/dashboard") return null;
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          if (window.history.length > 1) window.history.back();
+        }}
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Atrás
+      </Button>
+      <Button asChild variant="outline" size="sm">
+        <Link to="/dashboard">
+          <Home className="mr-2 h-4 w-4" />
+          Inicio
+        </Link>
+      </Button>
     </div>
   );
 }
@@ -198,17 +234,44 @@ function TopBar({
 function DesktopSidebar() {
   const { t } = useTranslation();
   const sidebarNavItems = useSidebarNav();
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("homesync:sidebar-collapsed") === "true";
+  });
+
+  const toggleCollapsed = () => {
+    setCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem("homesync:sidebar-collapsed", String(next));
+      return next;
+    });
+  };
+
   return (
-    <aside className="sticky top-[61px] hidden h-[calc(100vh-61px)] w-64 shrink-0 border-r border-border bg-card lg:block">
+    <aside className={cn(
+      "sticky top-[61px] hidden h-[calc(100vh-61px)] shrink-0 border-r border-border bg-card transition-[width] lg:block",
+      collapsed ? "w-20" : "w-64",
+    )}>
       <div className="flex h-full flex-col p-4">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="mb-3 self-end"
+          onClick={toggleCollapsed}
+          title={collapsed ? "Mostrar menú" : "Contraer menú"}
+        >
+          {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+          <span className="sr-only">{collapsed ? "Mostrar menú" : "Contraer menú"}</span>
+        </Button>
         <nav className="flex-1 space-y-1">
           {sidebarNavItems.map((item) => (
-            <NavItem key={item.to} item={item} />
+            <NavItem key={item.to} item={item} collapsed={collapsed} />
           ))}
         </nav>
         <div className="border-t border-border pt-4">
-          <NavItem item={{ to: "/settings", label: t("nav.settings"), icon: Settings }} />
-          <SignOutButton />
+          <NavItem item={{ to: "/settings", label: t("nav.settings"), icon: Settings }} collapsed={collapsed} />
+          <SignOutButton collapsed={collapsed} />
         </div>
       </div>
     </aside>
@@ -242,9 +305,11 @@ function MobileSidebar({ onClose }: { onClose: () => void }) {
 function NavItem({
   item,
   onClick,
+  collapsed = false,
 }: {
   item: { to: string; label: string; icon: React.ComponentType<{ className?: string }> };
   onClick?: () => void;
+  collapsed?: boolean;
 }) {
   const Icon = item.icon;
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -254,28 +319,34 @@ function NavItem({
     <Link
       to={item.to}
       onClick={onClick}
+      title={collapsed ? item.label : undefined}
       className={cn(
         "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+        collapsed && "justify-center px-2",
         active
           ? "bg-primary text-primary-foreground"
           : "text-muted-foreground hover:bg-accent hover:text-foreground",
       )}
     >
       <Icon className="h-5 w-5 shrink-0" />
-      <span className="truncate">{item.label}</span>
+      {!collapsed && <span className="truncate">{item.label}</span>}
     </Link>
   );
 }
 
-function SignOutButton() {
+function SignOutButton({ collapsed = false }: { collapsed?: boolean }) {
   const { t } = useTranslation();
   return (
     <button
       onClick={() => supabase.auth.signOut()}
-      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+      title={collapsed ? t("common.signOut") : undefined}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive",
+        collapsed && "justify-center px-2",
+      )}
     >
       <LogOut className="h-5 w-5 shrink-0" />
-      <span>{t("common.signOut")}</span>
+      {!collapsed && <span>{t("common.signOut")}</span>}
     </button>
   );
 }

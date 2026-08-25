@@ -42,6 +42,11 @@ const AddInventorySuggestionInput = z.object({
   inventory_item_id: z.string().uuid(),
 });
 
+const VoiceShoppingItemInput = z.object({
+  name: z.string().min(1).max(200),
+  quantity: z.number().positive().default(1),
+});
+
 export const listStores = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -319,6 +324,109 @@ export const addInventorySuggestionToShopping = createServerFn({ method: "POST" 
     return { added: true, duplicate: false, item };
   });
 
+export const addShoppingItemByName = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => VoiceShoppingItemInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const listId = await getDefaultShoppingListId(context.supabase, householdId);
+    const normalizedName = normalizeShoppingName(data.name);
+
+    const { data: activeItems, error: activeError } = await context.supabase
+      .from("shopping_list_items")
+      .select("id, name, quantity, unit")
+      .eq("shopping_list_id", listId)
+      .eq("checked", false)
+      .limit(200);
+    if (activeError) throw activeError;
+
+    const existing = (activeItems ?? []).find((item: any) => normalizeShoppingName(item.name) === normalizedName);
+    if (existing) {
+      const nextQuantity = Number(existing.quantity ?? 0) + data.quantity;
+      const { data: item, error } = await context.supabase
+        .from("shopping_list_items")
+        .update({ quantity: nextQuantity })
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (error) throw error;
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "shopping",
+        action: "voice_updated",
+        title: `${item.name} actualizado por voz`,
+        details: `${item.quantity ?? 0} ${item.unit || "ud."}`,
+        entityType: "shopping_list_item",
+        entityId: item.id,
+        metadata: { voice_command: true, quantity: item.quantity },
+      });
+      return { mode: "updated", item };
+    }
+
+    const { data: item, error } = await context.supabase
+      .from("shopping_list_items")
+      .insert({ shopping_list_id: listId, name: data.name, quantity: data.quantity })
+      .select()
+      .single();
+    if (error) throw error;
+
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "shopping",
+      action: "voice_created",
+      title: `${item.name} añadido por voz`,
+      details: `${item.quantity ?? 0} ${item.unit || "ud."}`,
+      entityType: "shopping_list_item",
+      entityId: item.id,
+      metadata: { voice_command: true, quantity: item.quantity },
+    });
+    return { mode: "created", item };
+  });
+
+export const removeShoppingItemByName = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ name: z.string().min(1).max(200) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data: lists, error: listsError } = await context.supabase
+      .from("shopping_lists")
+      .select("id")
+      .eq("household_id", householdId)
+      .eq("is_archived", false);
+    if (listsError) throw listsError;
+    const listIds = (lists ?? []).map((list: any) => list.id);
+    if (!listIds.length) return { found: false };
+
+    const { data: items, error: itemsError } = await context.supabase
+      .from("shopping_list_items")
+      .select("id, name, quantity, unit")
+      .in("shopping_list_id", listIds)
+      .eq("checked", false)
+      .limit(300);
+    if (itemsError) throw itemsError;
+
+    const target = normalizeShoppingName(data.name);
+    const item = (items ?? []).find((row: any) => normalizeShoppingName(row.name) === target)
+      ?? (items ?? []).find((row: any) => normalizeShoppingName(row.name).includes(target) || target.includes(normalizeShoppingName(row.name)));
+
+    if (!item) return { found: false };
+
+    const { error } = await context.supabase.from("shopping_list_items").delete().eq("id", item.id);
+    if (error) throw error;
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "shopping",
+      action: "voice_deleted",
+      title: `${item.name} eliminado por voz`,
+      details: `${item.quantity ?? 0} ${item.unit || "ud."}`,
+      entityType: "shopping_list_item",
+      entityId: item.id,
+      metadata: { voice_command: true },
+    });
+    return { found: true, item };
+  });
+
 function normalizeShoppingName(value: string) {
   return value
     .toLowerCase()
@@ -326,6 +434,43 @@ function normalizeShoppingName(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+async function getDefaultShoppingListId(supabase: any, householdId: string) {
+  let storeId: string | null = null;
+  const { data: defaultStore } = await supabase
+    .from("stores")
+    .select("id")
+    .eq("household_id", householdId)
+    .eq("is_default", true)
+    .maybeSingle();
+  storeId = defaultStore?.id ?? null;
+  if (!storeId) {
+    const { data: createdStore, error } = await supabase
+      .from("stores")
+      .insert({ household_id: householdId, name: "Sin tienda", is_default: true })
+      .select("id")
+      .single();
+    if (error) throw error;
+    storeId = createdStore.id;
+  }
+
+  const { data: list } = await supabase
+    .from("shopping_lists")
+    .select("id")
+    .eq("household_id", householdId)
+    .eq("store_id", storeId)
+    .eq("is_archived", false)
+    .maybeSingle();
+  if (list?.id) return list.id;
+
+  const { data: createdList, error } = await supabase
+    .from("shopping_lists")
+    .insert({ household_id: householdId, store_id: storeId, name: "Sin tienda" })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return createdList.id;
 }
 
 export const toggleShoppingItem = createServerFn({ method: "POST" })

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList, Calendar, ShieldAlert, ShieldCheck, FlaskConical, Activity } from "lucide-react";
+import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList, Calendar, ShieldAlert, ShieldCheck, FlaskConical, Activity, MonitorSmartphone } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client-app";
@@ -80,6 +80,12 @@ function SettingsHubPage() {
       label: "Navegación lateral",
       description: "Reordena u oculta las secciones del menú",
       icon: LayoutList,
+    },
+    {
+      to: "/kiosk",
+      label: "Modo kiosko",
+      description: "Pantalla simplificada para cocina, tareas, compra y salud",
+      icon: MonitorSmartphone,
     },
     ...(canSeePrivateTools
       ? [
