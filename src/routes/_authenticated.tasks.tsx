@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Plus, Check, Trash2, Calendar, Repeat, ListChecks, Image as ImageIcon, X } from "lucide-react";
+import { Plus, Check, Trash2, Calendar, Repeat, ListChecks, Image as ImageIcon, X, Gift } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { WishlistPanel } from "@/components/wishlist/WishlistPanel";
 import { useServerFn } from "@tanstack/react-start";
 import { listTasks, createTask, updateTask, deleteTask, restoreTask, getTaskPhotoUrl } from "@/lib/tasks.functions";
 import { undoableToast } from "@/hooks/use-undoable";
@@ -67,6 +69,7 @@ function TasksPage() {
   const { data: household } = useSuspenseQuery(householdQueryOptions);
   const members = (household?.household_members ?? []) as Array<{ id: string; display_name: string; is_child: boolean }>;
 
+  const [tab, setTab] = useState<"tasks" | "wishlist">("tasks");
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("medium");

@@ -14,6 +14,7 @@ const TABLE_QUERY_KEYS: Record<string, string[][]> = {
   medicines: [["medicines"], ["inventory"], ["dashboard"]],
   household_members: [["household"], ["members"]],
   households: [["household"]],
+  wishlist_items: [["wishlist"]],
 };
 
 export type RealtimeStatus = "connecting" | "live" | "error";
