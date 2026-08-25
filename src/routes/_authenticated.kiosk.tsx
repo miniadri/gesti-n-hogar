@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import {
@@ -98,10 +98,15 @@ const actions: KioskAction[] = [
 ];
 
 function KioskPage() {
+  const navigate = useNavigate();
   const [fullscreen, setFullscreen] = useState(false);
   const [wakeLockStatus, setWakeLockStatus] = useState<"idle" | "active" | "unsupported" | "error">("idle");
   const wakeLockRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    window.localStorage.setItem("homesync:kiosk-active", "true");
+  }, []);
 
   useEffect(() => {
     const onChange = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -165,6 +170,11 @@ function KioskPage() {
     }
   };
 
+  const exitKiosk = () => {
+    window.localStorage.removeItem("homesync:kiosk-active");
+    navigate({ to: "/dashboard" as any });
+  };
+
   return (
     <div
       ref={containerRef}
@@ -173,11 +183,9 @@ function KioskPage() {
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-4 px-3 py-3 sm:px-5 sm:py-5">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <Button variant="ghost" size="icon" asChild className="shrink-0">
-              <Link to="/dashboard">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Volver</span>
-              </Link>
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={exitKiosk} title="Salir del modo kiosko">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Salir del modo kiosko</span>
             </Button>
             <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
               <Utensils className="h-6 w-6" />
@@ -267,7 +275,8 @@ function KioskActionCard({ action }: { action: KioskAction }) {
   const Icon = action.icon;
   return (
     <Link
-      to={action.to}
+      to={action.to as any}
+      search={{ kiosk: "1" } as any}
       className="group block min-h-[170px] rounded-lg border bg-card p-5 text-card-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-[190px]"
     >
       <div className="flex h-full flex-col justify-between gap-6">
