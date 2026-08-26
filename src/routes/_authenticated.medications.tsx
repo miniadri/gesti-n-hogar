@@ -273,9 +273,10 @@ function MedicationsPage() {
             </span>
             <span className="min-w-0">
               <span className="block font-semibold">Registro médico</span>
-              <span className="block text-sm font-normal text-muted-foreground">
-                Datos médicos familiares, alergias, condiciones y resumen SOS.
-              </span>
+            <span className="block text-sm font-normal text-muted-foreground">
+              Datos médicos familiares, alergias,
+              condiciones y resumen SOS.
+            </span>
             </span>
           </span>
           <ChevronDown className={`h-5 w-5 shrink-0 transition-transform ${medicalRegistryOpen ? "rotate-180" : ""}`} />
