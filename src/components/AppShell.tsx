@@ -117,11 +117,11 @@ export function AppShell({ children, title, userName, notificationCount = 0, rea
         onMenuOpen={() => setMobileMenuOpen(true)}
       />
 
-      <div className="flex flex-1">
+      <div className="flex min-w-0 flex-1">
         {!isMobile && <DesktopSidebar />}
 
-        <main className="flex-1 overflow-y-auto px-4 pb-28 pt-4 md:px-6 md:pb-6 md:pt-6 lg:px-8">
-          <div className="mx-auto max-w-7xl">
+        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-28 pt-4 md:px-6 md:pb-6 md:pt-6 lg:px-8">
+          <div className="mx-auto min-w-0 max-w-7xl">
             <SosAckBanner />
             <SectionNavControls />
             {children}

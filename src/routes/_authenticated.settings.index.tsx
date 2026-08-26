@@ -116,15 +116,15 @@ function SettingsHubPage() {
         {items.map((item) => {
           const Icon = item.icon;
           return (
-            <Link key={item.to} to={item.to}>
-              <Card className="transition-colors hover:bg-accent">
-                <CardContent className="flex items-center gap-4 p-4">
+            <Link key={item.to} to={item.to} className="block min-w-0">
+              <Card className="h-full transition-colors hover:bg-accent">
+                <CardContent className="flex min-w-0 items-center gap-3 p-4 sm:gap-4">
                   <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-secondary">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{item.label}</p>
-                    <p className="truncate text-xs text-muted-foreground">{item.description}</p>
+                    <p className="break-words font-semibold">{item.label}</p>
+                    <p className="break-words text-xs text-muted-foreground">{item.description}</p>
                   </div>
                   <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
                 </CardContent>

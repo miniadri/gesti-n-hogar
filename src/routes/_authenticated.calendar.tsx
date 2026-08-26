@@ -393,7 +393,7 @@ function CalendarPage() {
       </Card>
 
       <div className="space-y-3">
-        <div className="flex items-baseline justify-between">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
           <h3 className="font-semibold">Próximos eventos</h3>
           <span className="text-xs text-muted-foreground">
             Se muestran eventos pasados hasta {PAST_EVENTS_DAYS} días atrás
@@ -407,9 +407,9 @@ function CalendarPage() {
           const fromGoogle = event.source === "google_calendar";
           return (
             <Card key={event.id}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div>
-                  <p className="flex items-center gap-2 font-medium">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 break-words font-medium">
                     {event.title}
                     {event.is_public ? (
                       <Badge variant="outline" className="gap-1 text-xs">
@@ -431,7 +431,7 @@ function CalendarPage() {
                     {format(parseISO(event.start_at), "dd/MM/yyyy HH:mm", { locale: es })}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <Badge
                     variant="secondary"
                     className="border-transparent text-white"

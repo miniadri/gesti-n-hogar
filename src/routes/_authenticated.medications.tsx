@@ -263,7 +263,7 @@ function MedicationsPage() {
         <Button
           type="button"
           variant="outline"
-          className="h-auto w-full justify-between rounded-xl border bg-card p-4 text-left shadow-sm"
+          className="h-auto w-full items-start justify-between gap-3 whitespace-normal rounded-xl border bg-card p-4 text-left shadow-sm"
           onClick={() => setMedicalRegistryOpen((open) => !open)}
           aria-expanded={medicalRegistryOpen}
         >
@@ -272,10 +272,9 @@ function MedicationsPage() {
               <HeartPulse className="h-5 w-5 text-primary" />
             </span>
             <span className="min-w-0">
-              <span className="block font-semibold">Registro médico</span>
-            <span className="block text-sm font-normal text-muted-foreground">
-              Datos médicos familiares, alergias,
-              condiciones y resumen SOS.
+              <span className="block break-words font-semibold">Registro médico</span>
+            <span className="block break-words text-sm font-normal text-muted-foreground">
+              Datos médicos familiares, alergias, condiciones y resumen SOS.
             </span>
             </span>
           </span>
