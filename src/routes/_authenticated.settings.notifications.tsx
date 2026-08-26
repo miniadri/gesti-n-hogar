@@ -38,6 +38,14 @@ function NotificationsSettingsPage() {
   const queryClient = useQueryClient();
   const { data: telegramProfile } = useSuspenseQuery(telegramQueryOptions);
 
+  const doSubscribe = useServerFn(subscribePush);
+  const doUnsubscribe = useServerFn(unsubscribePush);
+  const getKey = useServerFn(getVapidPublicKey);
+  const doUnlinkTelegram = useServerFn(unlinkTelegram);
+  const doLinkTelegram = useServerFn(linkTelegram);
+  const doTelegramTest = useServerFn(sendTelegramTest);
+  const doPushTest = useServerFn(sendPushTest);
+
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     (async () => {
@@ -46,21 +54,17 @@ function NotificationsSettingsPage() {
         const reg = existing ?? (await navigator.serviceWorker.register("/sw.js"));
         await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
-        setSubscribed(!!sub);
-        void reg;
+        if (sub) {
+          await doSubscribe({ data: sub.toJSON() as any });
+          setSubscribed(true);
+        } else {
+          setSubscribed(false);
+        }
       } catch (err) {
         console.error("SW register failed", err);
       }
     })();
   }, []);
-
-  const doSubscribe = useServerFn(subscribePush);
-  const doUnsubscribe = useServerFn(unsubscribePush);
-  const getKey = useServerFn(getVapidPublicKey);
-  const doUnlinkTelegram = useServerFn(unlinkTelegram);
-  const doLinkTelegram = useServerFn(linkTelegram);
-  const doTelegramTest = useServerFn(sendTelegramTest);
-  const doPushTest = useServerFn(sendPushTest);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -98,6 +102,8 @@ function NotificationsSettingsPage() {
       const existing = await navigator.serviceWorker.getRegistration("/sw.js");
       const reg = existing ?? (await navigator.serviceWorker.register("/sw.js"));
       await navigator.serviceWorker.ready;
+      const previousSub = await reg.pushManager.getSubscription();
+      if (previousSub) await previousSub.unsubscribe();
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
@@ -164,7 +170,7 @@ function NotificationsSettingsPage() {
       if (result.ok) {
         toast.success("Prueba push enviada");
       } else {
-        toast.warning("No se encontró una suscripción push activa para este usuario");
+        toast.warning("No se encontró una suscripción push activa. Pulsa Desactivar y luego Activar notificaciones para regenerarla.");
       }
     } catch (err: any) {
       toast.error(err.message || "Error al probar push");
@@ -209,13 +215,19 @@ function NotificationsSettingsPage() {
             Recibe alertas en tu navegador cuando haya tareas próximas, stock bajo o eventos importantes.
           </p>
           {subscribed ? (
-            <Button variant="destructive" onClick={handleUnsubscribe} disabled={loading} className="w-full">
-              Desactivar notificaciones
-            </Button>
+              <Button variant="destructive" onClick={handleUnsubscribe} disabled={loading} className="w-full">
+                Desactivar notificaciones
+              </Button>
           ) : (
             <Button onClick={handleSubscribe} disabled={loading} className="w-full">
               <Bell className="mr-2 h-4 w-4" />
               Activar notificaciones
+            </Button>
+          )}
+          {subscribed && (
+            <Button variant="outline" onClick={handleSubscribe} disabled={loading} className="w-full">
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reparar suscripción push
             </Button>
           )}
         </CardContent>

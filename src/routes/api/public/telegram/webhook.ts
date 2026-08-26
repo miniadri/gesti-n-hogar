@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, timingSafeEqual, randomBytes } from "crypto";
 import { requireSupabaseAdminEnv } from "@/integrations/supabase/env.server";
+import { answerTelegramCallback, editTelegramMessage, sendTelegramMessage } from "@/lib/telegram-bot.server";
 
 function deriveTelegramWebhookSecret(telegramApiKey: string): string {
   return createHash("sha256").update(`telegram-webhook:${telegramApiKey}`).digest("base64url");
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           return new Response("Telegram not configured", { status: 500 });
         }
 
-        const expectedSecret = deriveTelegramWebhookSecret(TELEGRAM_API_KEY);
+        const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET || deriveTelegramWebhookSecret(TELEGRAM_API_KEY);
         const actualSecret = request.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
         if (!safeEqual(actualSecret, expectedSecret)) {
           return new Response("Unauthorized", { status: 401 });
@@ -65,7 +66,8 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             const token = generateToken();
             await supabase.from("telegram_pending_links").insert({ chat_id: chatId, token });
 
-            const baseUrl = process.env.PUBLIC_APP_URL || "https://project--8f67b433-144a-485c-9cd2-9ae50733f9b1-dev.lovable.app";
+            const requestOrigin = new URL(request.url).origin;
+            const baseUrl = process.env.PUBLIC_APP_URL || requestOrigin;
             const linkUrl = `${baseUrl}/settings/notifications?telegram_token=${token}`;
 
             await sendTelegram(TELEGRAM_API_KEY, {
@@ -88,27 +90,13 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 });
 
 async function sendTelegram(telegramApiKey: string, payload: Record<string, unknown>) {
-  await fetch("https://connector-gateway.lovable.dev/telegram/sendMessage", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.LOVABLE_API_KEY!}`,
-      "X-Connection-Api-Key": telegramApiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  void telegramApiKey;
+  await sendTelegramMessage(payload);
 }
 
 async function answerCallback(telegramApiKey: string, callbackId: string, text?: string) {
-  await fetch("https://connector-gateway.lovable.dev/telegram/answerCallbackQuery", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.LOVABLE_API_KEY!}`,
-      "X-Connection-Api-Key": telegramApiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ callback_query_id: callbackId, text: text ?? "" }),
-  });
+  void telegramApiKey;
+  await answerTelegramCallback({ callback_query_id: callbackId, text: text ?? "" });
 }
 
 async function editMessage(
@@ -117,15 +105,8 @@ async function editMessage(
   messageId: number,
   text: string,
 ) {
-  await fetch("https://connector-gateway.lovable.dev/telegram/editMessageText", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.LOVABLE_API_KEY!}`,
-      "X-Connection-Api-Key": telegramApiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ chat_id: chatId, message_id: messageId, text, parse_mode: "HTML" }),
-  });
+  void telegramApiKey;
+  await editTelegramMessage({ chat_id: chatId, message_id: messageId, text, parse_mode: "HTML" });
 }
 
 async function handleCallbackQuery(
