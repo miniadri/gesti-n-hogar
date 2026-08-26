@@ -2,7 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const EXPERIMENTAL_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com", "adriturcafamiliar@gmail.com"]);
+const EXPERIMENTAL_ADMIN_EMAILS = new Set([
+  "adri.miniadri@gmail.com",
+  "adriturcafamiliar@gmail.com",
+  "adrian.moya.manteca@gmail.com",
+]);
 
 const ProviderKey = z.enum(["firecrawl", "apify", "scrapingbee", "scraperapi", "scrapedo", "brightdata"]);
 const StoreKey = z.enum([
