@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const DIAGNOSTIC_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com"]);
+const DIAGNOSTIC_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com", "adriturcafamiliar@gmail.com", "adrian.moya.manteca@gmail.com"]);
 
 type DiagnosticStatus = "ok" | "warning" | "error";
 
@@ -182,9 +182,11 @@ export const getDiagnostics = createServerFn({ method: "GET" })
       ),
     ]);
 
-    const telegramEnvConfigured = hasEnv("LOVABLE_API_KEY") && hasEnv("TELEGRAM_API_KEY");
+    const telegramEnvConfigured = hasEnv("TELEGRAM_API_KEY");
     const pushEnvConfigured = hasEnv("VAPID_PUBLIC_KEY") && hasEnv("VAPID_PRIVATE_KEY");
-    const googleEnvConfigured = hasEnv("GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY");
+    const googleDirectConfigured = hasEnv("GOOGLE_CLIENT_ID") && hasEnv("GOOGLE_CLIENT_SECRET") && hasEnv("GOOGLE_REDIRECT_URI");
+    const googleLovableConfigured = hasEnv("GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY");
+    const googleEnvConfigured = googleDirectConfigured || googleLovableConfigured;
     const homeAssistantConfigured = Boolean(homeAssistantConnection);
 
     const supabaseUrlConfigured = hasEnv("SUPABASE_URL") || hasEnv("VITE_SUPABASE_URL");
@@ -217,9 +219,9 @@ export const getDiagnostics = createServerFn({ method: "GET" })
             "No visible para diagnóstico; limita comprobaciones admin",
           ),
       telegramEnvConfigured
-        ? check("telegram", "Telegram", true, "Gateway y bot configurados", "")
+        ? check("telegram", "Telegram", true, hasEnv("LOVABLE_API_KEY") ? "Gateway y bot configurados" : "Bot API directa configurada", "")
         : (telegramProfiles ?? 0) > 0
-          ? warningCheck("telegram", "Telegram", "Hay usuarios vinculados; gateway no verificable desde diagnóstico")
+          ? warningCheck("telegram", "Telegram", "Hay usuarios vinculados; token del bot no verificable desde diagnóstico")
           : check("telegram", "Telegram", false, "", "Falta configuración o no hay usuarios vinculados"),
       pushEnvConfigured
         ? check("push", "Push web", true, "VAPID configurado", "")
@@ -227,7 +229,7 @@ export const getDiagnostics = createServerFn({ method: "GET" })
           ? warningCheck("push", "Push web", "Hay suscripción push; VAPID no verificable desde diagnóstico")
           : check("push", "Push web", false, "", "Falta VAPID o no hay suscripción push activa"),
       googleEnvConfigured
-        ? check("google_calendar", "Google Calendar", true, "Conector configurado", "")
+        ? check("google_calendar", "Google Calendar", true, googleDirectConfigured ? "OAuth propio configurado" : "Conector Lovable configurado", "")
         : googleConnection === true
           ? check("google_calendar", "Google Calendar", true, "Conexión detectada", "")
           : warningCheck("google_calendar", "Google Calendar", "No verificable desde diagnóstico; prueba desde Calendario"),
@@ -347,12 +349,14 @@ export const runDiagnosticTest = createServerFn({ method: "POST" })
     }
 
     if (data.test === "google_calendar") {
-      if (!hasEnv("GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY")) {
+      const directConfigured = hasEnv("GOOGLE_CLIENT_ID") && hasEnv("GOOGLE_CLIENT_SECRET") && hasEnv("GOOGLE_REDIRECT_URI");
+      const lovableConfigured = hasEnv("GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY");
+      if (!directConfigured && !lovableConfigured) {
         return testResult(
           "google_calendar",
           "warning",
           "Google Calendar",
-          "El conector de Google Calendar no está visible en este runtime.",
+          "Google Calendar no está configurado en este runtime.",
         );
       }
 

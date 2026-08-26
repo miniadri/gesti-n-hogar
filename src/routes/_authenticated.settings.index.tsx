@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client-app";
 import { APP_VERSION } from "@/lib/app-version";
 
-const PRIVATE_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com"]);
+const PRIVATE_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com", "adriturcafamiliar@gmail.com"]);
 
 export const Route = createFileRoute("/_authenticated/settings/")({
   head: () => ({

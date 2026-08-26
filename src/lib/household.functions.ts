@@ -128,7 +128,18 @@ export const listInvites = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
-    const { data, error } = await context.supabase
+
+    const { data: membership, error: membershipError } = await context.supabase
+      .from("household_members")
+      .select("id")
+      .eq("household_id", householdId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (membershipError) throw membershipError;
+    if (!membership) throw new Error("No autorizado para leer invitaciones de este hogar");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
       .from("household_invites")
       .select("id, code, role, expires_at, created_at, used_at, used_by")
       .eq("household_id", householdId)
