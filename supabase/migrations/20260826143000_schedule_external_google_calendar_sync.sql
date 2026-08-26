@@ -9,18 +9,27 @@ CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;
 
 DO $$
+DECLARE
+  existing_secret_id uuid;
 BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM vault.decrypted_secrets
-    WHERE name = 'cron_bearer'
-  ) THEN
+  SELECT id INTO existing_secret_id
+  FROM vault.decrypted_secrets
+  WHERE name = 'cron_bearer'
+  LIMIT 1;
+
+  IF existing_secret_id IS NOT NULL THEN
     PERFORM vault.update_secret(
-      id := (SELECT id FROM vault.decrypted_secrets WHERE name = 'cron_bearer' LIMIT 1),
-      secret := 'REPLACE_WITH_CRON_BEARER'
+      existing_secret_id,
+      'REPLACE_WITH_CRON_BEARER',
+      'cron_bearer',
+      'HomeSync cron bearer token'
     );
   ELSE
-    PERFORM vault.create_secret('REPLACE_WITH_CRON_BEARER', 'cron_bearer');
+    PERFORM vault.create_secret(
+      'REPLACE_WITH_CRON_BEARER',
+      'cron_bearer',
+      'HomeSync cron bearer token'
+    );
   END IF;
 END $$;
 
