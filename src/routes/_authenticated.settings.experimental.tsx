@@ -7,7 +7,11 @@ import { FirecrawlStoreExperiment } from "@/components/FirecrawlStoreExperiment"
 import { StoreCatalogSourceExperiment } from "@/components/StoreCatalogSourceExperiment";
 import { StoreCatalogProviderLab } from "@/components/StoreCatalogProviderLab";
 
-const EXPERIMENTAL_ADMIN_EMAILS = new Set(["adri.miniadri@gmail.com", "adriturcafamiliar@gmail.com"]);
+const EXPERIMENTAL_ADMIN_EMAILS = new Set([
+  "adri.miniadri@gmail.com",
+  "adriturcafamiliar@gmail.com",
+  "adrian.moya.manteca@gmail.com",
+]);
 
 export const Route = createFileRoute("/_authenticated/settings/experimental")({
   beforeLoad: ({ context }) => {
