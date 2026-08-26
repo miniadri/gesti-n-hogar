@@ -612,6 +612,8 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
     let worked = 0;
     let extra = 0;
     let vacations = 0;
+    let plannedWorked = 0;
+    let plannedExtra = 0;
     const totalDays = differenceInCalendarDays(end, start) + 1;
     for (let i = 0; i < totalDays; i++) {
       const d = addDays(start, i);
@@ -623,6 +625,16 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       );
       const dayEnded = endOfDay(d) <= now;
       const rawAdjustment = member.is_child ? 0 : Number(status?.overtime_hours ?? 0);
+
+      // Full-month projection (whole month, matches the exported report)
+      const plannedDayHours = slots.reduce((a, s) => a + slotHours(s), 0);
+      if (slots.length === 0) {
+        if (!member.is_child) plannedExtra += rawAdjustment;
+      } else {
+        plannedWorked += adjustedHours(plannedDayHours, rawAdjustment);
+        if (!member.is_child) plannedExtra += dayOvertime(plannedDayHours, rawAdjustment, settings.target_hours_per_day);
+      }
+
       if (slots.length === 0) {
         // Days without shifts (free/compensation days) still count their manual adjustment.
         if (dayEnded && rawAdjustment !== 0) extra += rawAdjustment;
@@ -637,7 +649,8 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       worked += actualHours;
       if (dayComplete && !member.is_child) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
-    return { worked, extra, vacations };
+    return { worked, extra, vacations, plannedWorked, plannedExtra };
+
 
   }, [weekStart, template, daySlots, statuses, settings]);
 
