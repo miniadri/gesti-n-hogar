@@ -8,6 +8,7 @@ import {
   addWeeks,
   differenceInCalendarDays,
   differenceInCalendarMonths,
+  endOfDay,
   endOfMonth,
   endOfYear,
   endOfWeek,
