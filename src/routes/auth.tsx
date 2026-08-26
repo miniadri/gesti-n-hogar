@@ -20,21 +20,48 @@ export const Route = createFileRoute("/auth")({
 });
 
 const PENDING_INVITE_KEY = "homesync_pending_invite_code";
+type AuthView = "login" | "register" | "forgot-password" | "update-password";
 
 function AuthPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [view, setView] = useState<AuthView>("login");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const isPasswordRecovery =
+      params.get("view") === "update-password" ||
+      params.get("type") === "recovery" ||
+      hashParams.get("type") === "recovery";
+
+    if (isPasswordRecovery) {
+      setView("update-password");
+      return;
+    }
+
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) router.navigate({ to: "/dashboard" });
     });
   }, [router]);
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setView("update-password");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +94,47 @@ function AuthPage() {
     }
   };
 
+  const handlePasswordResetRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      toast.error(t("auth.emailRequired"));
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
+      redirectTo: `${window.location.origin}/auth?view=update-password`,
+    });
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(t("auth.resetEmailSent"));
+      setView("login");
+    }
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast.error(t("auth.passwordMinLength"));
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(t("auth.passwordUpdated"));
+      router.navigate({ to: "/dashboard" });
+    }
+  };
+
   const handleGoogle = async () => {
     if (inviteCode.trim()) {
       sessionStorage.setItem(PENDING_INVITE_KEY, inviteCode.trim().toUpperCase());
@@ -94,7 +162,63 @@ function AuthPage() {
           <CardDescription>{t("auth.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login" className="w-full">
+          {view === "forgot-password" ? (
+            <form onSubmit={handlePasswordResetRequest} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-email">{t("auth.email")}</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder={t("auth.emailPlaceholder")}
+                    className="pl-9"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">{t("auth.resetPasswordHint")}</p>
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? t("auth.sendingReset") : t("auth.sendResetLink")}
+              </Button>
+              <Button type="button" variant="ghost" className="w-full" onClick={() => setView("login")}>
+                {t("auth.backToSignIn")}
+              </Button>
+            </form>
+          ) : view === "update-password" ? (
+            <form onSubmit={handlePasswordUpdate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">{t("auth.newPassword")}</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="new-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="pl-9 pr-10"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-sm text-muted-foreground">{t("auth.updatePasswordHint")}</p>
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? t("common.saving") : t("auth.updatePassword")}
+              </Button>
+            </form>
+          ) : (
+          <Tabs value={view} onValueChange={(value) => setView(value as AuthView)} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">{t("auth.signIn")}</TabsTrigger>
               <TabsTrigger value="register">{t("auth.signUp")}</TabsTrigger>
@@ -141,6 +265,14 @@ function AuthPage() {
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? t("auth.signingIn") : t("auth.signIn")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto w-full p-0 text-sm"
+                  onClick={() => setView("forgot-password")}
+                >
+                  {t("auth.forgotPassword")}
                 </Button>
               </form>
             </TabsContent>
@@ -206,7 +338,9 @@ function AuthPage() {
               </form>
             </TabsContent>
           </Tabs>
+          )}
 
+          {view !== "update-password" && (
           <div className="mt-6">
             <Button variant="outline" className="w-full" onClick={handleGoogle}>
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -230,6 +364,7 @@ function AuthPage() {
               {t("auth.continueWithGoogle")}
             </Button>
           </div>
+          )}
         </CardContent>
       </Card>
 
