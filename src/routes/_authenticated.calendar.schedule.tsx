@@ -845,7 +845,11 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
               <CardContent>
                 <div className="text-2xl font-bold">{monthTotals.worked.toFixed(1)}h</div>
                 <div className="text-xs text-muted-foreground">
-                  {monthTotals.extra > 0 && <span className="text-amber-600">+{monthTotals.extra.toFixed(1)}h extras · </span>}
+                  {monthTotals.extra !== 0 && (
+                    <span className={monthTotals.extra > 0 ? "text-amber-600" : "text-emerald-600"}>
+                      {monthTotals.extra > 0 ? "+" : ""}{monthTotals.extra.toFixed(1)}h extras (neto) ·{" "}
+                    </span>
+                  )}
                   {monthTotals.vacations} día{monthTotals.vacations === 1 ? "" : "s"} vacaciones
                 </div>
               </CardContent>
