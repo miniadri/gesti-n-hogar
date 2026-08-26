@@ -8,6 +8,7 @@ import {
   addWeeks,
   differenceInCalendarDays,
   differenceInCalendarMonths,
+  endOfDay,
   endOfMonth,
   endOfYear,
   endOfWeek,
@@ -620,17 +621,24 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
       const slots = resolveDaySlots(d).filter(
         (s) => s.slot_kind === "work" || s.slot_kind === "subject" || s.slot_kind === "extracurricular",
       );
-      if (slots.length === 0) continue;
+      const dayEnded = endOfDay(d) <= now;
+      const rawAdjustment = member.is_child ? 0 : Number(status?.overtime_hours ?? 0);
+      if (slots.length === 0) {
+        // Days without shifts (free/compensation days) still count their manual adjustment.
+        if (dayEnded && rawAdjustment !== 0) extra += rawAdjustment;
+        continue;
+      }
       const finished = slots.filter((s) => slotEndDate(d, s) <= now);
       if (finished.length === 0) continue;
       const dayHours = finished.reduce((a, s) => a + slotHours(s), 0);
       const dayComplete = finished.length === slots.length;
-      const adjustment = dayComplete && !member.is_child ? Number(status?.overtime_hours ?? 0) : 0;
+      const adjustment = dayComplete ? rawAdjustment : 0;
       const actualHours = adjustedHours(dayHours, adjustment);
       worked += actualHours;
       if (dayComplete && !member.is_child) extra += dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
     }
-    return { worked, extra: Math.max(0, extra), vacations };
+    return { worked, extra, vacations };
+
   }, [weekStart, template, daySlots, statuses, settings]);
 
 
@@ -837,7 +845,11 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
               <CardContent>
                 <div className="text-2xl font-bold">{monthTotals.worked.toFixed(1)}h</div>
                 <div className="text-xs text-muted-foreground">
-                  {monthTotals.extra > 0 && <span className="text-amber-600">+{monthTotals.extra.toFixed(1)}h extras · </span>}
+                  {monthTotals.extra !== 0 && (
+                    <span className={monthTotals.extra > 0 ? "text-amber-600" : "text-emerald-600"}>
+                      {monthTotals.extra > 0 ? "+" : ""}{monthTotals.extra.toFixed(1)}h extras (neto) ·{" "}
+                    </span>
+                  )}
                   {monthTotals.vacations} día{monthTotals.vacations === 1 ? "" : "s"} vacaciones
                 </div>
               </CardContent>
