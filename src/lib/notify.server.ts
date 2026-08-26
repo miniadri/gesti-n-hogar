@@ -1,6 +1,5 @@
 import webPush from "web-push";
-
-const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
+import { sendTelegramMessage } from "@/lib/telegram-bot.server";
 
 type SosNotificationStatus = {
   pushSent: boolean;
@@ -16,10 +15,8 @@ export async function sendTelegramToUsers(
   replyMarkup?: unknown,
   parseMode: "HTML" | null = "HTML",
 ): Promise<number> {
-  const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
-  const TELEGRAM_API_KEY = process.env.TELEGRAM_API_KEY;
   const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
-  if (!LOVABLE_API_KEY || !TELEGRAM_API_KEY || uniqueUserIds.length === 0) return 0;
+  if (!process.env.TELEGRAM_API_KEY || uniqueUserIds.length === 0) return 0;
   const { data: profiles } = await supabase
     .from("telegram_profiles")
     .select("chat_id")
@@ -31,19 +28,11 @@ export async function sendTelegramToUsers(
     if (parseMode) body.parse_mode = parseMode;
     if (replyMarkup) body.reply_markup = replyMarkup;
     try {
-      const res = await fetch(`${GATEWAY}/sendMessage`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "X-Connection-Api-Key": TELEGRAM_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
+      const res = await sendTelegramMessage(body);
       if (res.ok) {
         sent += 1;
       } else {
-        console.error("Telegram send failed", await res.text());
+        console.error("Telegram send failed", res.text);
       }
     } catch (err) {
       console.error("Telegram send error", err);
@@ -132,10 +121,8 @@ export async function sendTelegramToChatIds(
   replyMarkup?: unknown,
   parseMode: "HTML" | null = "HTML",
 ): Promise<number> {
-  const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
-  const TELEGRAM_API_KEY = process.env.TELEGRAM_API_KEY;
   const uniqueChatIds = Array.from(new Set(chatIds.filter(Boolean)));
-  if (!LOVABLE_API_KEY || !TELEGRAM_API_KEY || uniqueChatIds.length === 0) return 0;
+  if (!process.env.TELEGRAM_API_KEY || uniqueChatIds.length === 0) return 0;
   let sent = 0;
   for (const chat_id of uniqueChatIds) {
     if (!chat_id) continue;
@@ -143,19 +130,11 @@ export async function sendTelegramToChatIds(
     if (parseMode) body.parse_mode = parseMode;
     if (replyMarkup) body.reply_markup = replyMarkup;
     try {
-      const res = await fetch(`${GATEWAY}/sendMessage`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "X-Connection-Api-Key": TELEGRAM_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
+      const res = await sendTelegramMessage(body);
       if (res.ok) {
         sent += 1;
       } else {
-        console.error("Telegram send failed", await res.text());
+        console.error("Telegram send failed", res.text);
       }
     } catch (err) {
       console.error("Telegram send error", err);

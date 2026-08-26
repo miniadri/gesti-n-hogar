@@ -666,29 +666,20 @@ async function sendPushToUsers(supabase: any, userIds: string[], title: string, 
 }
 
 async function sendTelegramMessage(chatId: string, text: string) {
-  const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
-  const TELEGRAM_API_KEY = process.env.TELEGRAM_API_KEY;
-  if (!LOVABLE_API_KEY || !TELEGRAM_API_KEY) {
+  if (!process.env.TELEGRAM_API_KEY) {
     console.warn("Telegram not configured");
     return;
   }
 
   try {
-    const res = await fetch("https://connector-gateway.lovable.dev/telegram/sendMessage", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "X-Connection-Api-Key": TELEGRAM_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const { sendTelegramMessage: sendTelegram } = await import("@/lib/telegram-bot.server");
+    const res = await sendTelegram({
         chat_id: chatId,
         text,
         parse_mode: "HTML",
-      }),
     });
     if (!res.ok) {
-      console.error("Telegram send failed", await res.text());
+      console.error("Telegram send failed", res.text);
     }
   } catch (err) {
     console.error("Telegram send error", err);
