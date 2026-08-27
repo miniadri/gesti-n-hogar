@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  Camera,
   Home,
   ListTodo,
   Calendar,
@@ -32,6 +33,7 @@ import { supabase } from "@/integrations/supabase/client-app";
 import { cn } from "@/lib/utils";
 import { useNavPreferences, type NavKey } from "@/lib/nav-preferences";
 import { SosAckBanner } from "@/components/SosAckBanner";
+import { KIOSK_ACTIVE_KEY, kioskSearch } from "@/lib/kiosk";
 
 
 type NavEntry = { key: NavKey; to: string; label: string; icon: React.ComponentType<{ className?: string }> };
@@ -86,13 +88,13 @@ export function AppShell({ children, title, userName, notificationCount = 0, rea
   const isKioskPath = pathname === "/kiosk" || pathname.startsWith("/kiosk/");
   const [kioskSession, setKioskSession] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("homesync:kiosk-active") === "true";
+    return window.localStorage.getItem(KIOSK_ACTIVE_KEY) === "true";
   });
 
   useEffect(() => {
     if (!isKioskPath && !kioskQuery) return;
     setKioskSession(true);
-    window.localStorage.setItem("homesync:kiosk-active", "true");
+    window.localStorage.setItem(KIOSK_ACTIVE_KEY, "true");
   }, [isKioskPath, kioskQuery]);
 
   if (isKioskPath) {
@@ -153,18 +155,21 @@ function KioskSectionShell({
   const navigate = useNavigate();
 
   const exitKiosk = () => {
-    window.localStorage.removeItem("homesync:kiosk-active");
+    window.localStorage.removeItem(KIOSK_ACTIVE_KEY);
     onExit();
     navigate({ to: "/dashboard" as any });
   };
 
   const goBack = () => {
-    if (window.history.length > 1) window.history.back();
-    else navigate({ to: "/kiosk" as any });
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    navigate({ to: "/kiosk" as any });
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="homesync-kiosk-section min-h-screen bg-background text-[17px]">
       <header className="sticky top-0 z-30 border-b border-border bg-card/90 px-3 py-3 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -176,6 +181,12 @@ function KioskSectionShell({
               <Link to="/kiosk">
                 <Home className="h-5 w-5" />
                 <span className="sr-only">Inicio kiosko</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="icon" title="Escáner">
+              <Link to="/inventory/kitchen" search={kioskSearch()}>
+                <Camera className="h-5 w-5" />
+                <span className="sr-only">Escáner</span>
               </Link>
             </Button>
             <div className="min-w-0 pl-1">

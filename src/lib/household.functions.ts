@@ -25,6 +25,8 @@ const UpdateHouseholdInput = z.object({
   name: z.string().trim().min(1).max(80),
 });
 
+const KIOSK_MEMBER_NAME = "Kiosko cocina";
+
 export const updateHousehold = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => UpdateHouseholdInput.parse(input))
@@ -65,6 +67,36 @@ export const createChildMember = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
     return member;
+  });
+
+export const ensureKioskMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data: visibleMember, error: visibleError } = await context.supabase
+      .from("household_members")
+      .select("id, display_name, is_child, user_id")
+      .eq("household_id", householdId)
+      .eq("display_name", KIOSK_MEMBER_NAME)
+      .maybeSingle();
+    if (visibleError) throw visibleError;
+    if (visibleMember) return visibleMember;
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: created, error } = await supabaseAdmin
+      .from("household_members")
+      .insert({
+        household_id: householdId,
+        display_name: KIOSK_MEMBER_NAME,
+        is_child: false,
+        user_id: null,
+      })
+      .select("id, display_name, is_child, user_id")
+      .single();
+    if (error) throw error;
+    return created;
   });
 
 const RenameMemberInput = z.object({

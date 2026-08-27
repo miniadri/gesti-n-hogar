@@ -5,108 +5,82 @@ import {
   AlertTriangle,
   ArrowLeft,
   Bell,
-  CalendarDays,
   Camera,
-  ChefHat,
   Clock3,
-  Keyboard,
-  ListTodo,
   Maximize,
   Minimize,
   Package,
-  Pill,
-  Refrigerator,
   Settings,
-  ShoppingCart,
   Utensils,
 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions } from "@tanstack/react-query";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { SosAckBanner } from "@/components/SosAckBanner";
 import { SosButton } from "@/components/SosButton";
 import { KioskVoiceAssistant } from "@/components/KioskVoiceAssistant";
 import { cn } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/app-version";
+import { ensureKioskMember, getHousehold } from "@/lib/household.functions";
+import {
+  KIOSK_ACTIVE_KEY,
+  KIOSK_MEMBER_NAME,
+  KIOSK_MODULES,
+  type KioskModule,
+  type KioskModuleKey,
+  kioskSearch,
+  readKioskVisibleModules,
+  writeKioskVisibleModules,
+} from "@/lib/kiosk";
+
+const householdQueryOptions = queryOptions({
+  queryKey: ["household"],
+  queryFn: () => getHousehold(),
+});
 
 export const Route = createFileRoute("/_authenticated/kiosk")({
+  loader: ({ context }) => context.queryClient.ensureQueryData(householdQueryOptions),
   head: () => ({
     meta: [{ title: "Modo kiosko - HomeSync" }],
   }),
   component: KioskPage,
 });
 
-type KioskAction = {
-  title: string;
-  description: string;
-  to: string;
-  icon: ComponentType<{ className?: string }>;
-  tone: "primary" | "green" | "blue" | "amber" | "rose" | "slate";
-};
-
-const actions: KioskAction[] = [
-  {
-    title: "Escanear y descontar",
-    description: "Cámara o lector USB para consumir inventario",
-    to: "/inventory/kitchen",
-    icon: Camera,
-    tone: "primary",
-  },
-  {
-    title: "Lista de la compra",
-    description: "Añadir, quitar y marcar productos",
-    to: "/shopping",
-    icon: ShoppingCart,
-    tone: "green",
-  },
-  {
-    title: "Tareas",
-    description: "Lavadora, limpieza y encargos del hogar",
-    to: "/tasks",
-    icon: ListTodo,
-    tone: "slate",
-  },
-  {
-    title: "Inventario",
-    description: "Mover productos y revisar stock",
-    to: "/inventory",
-    icon: Refrigerator,
-    tone: "blue",
-  },
-  {
-    title: "Recetas",
-    description: "Modo cocina y recetas guardadas",
-    to: "/recipes",
-    icon: ChefHat,
-    tone: "amber",
-  },
-  {
-    title: "Salud",
-    description: "Medicación, tomas y registro médico",
-    to: "/medications",
-    icon: Pill,
-    tone: "rose",
-  },
-  {
-    title: "Calendario",
-    description: "Eventos y cuadrante del hogar",
-    to: "/calendar",
-    icon: CalendarDays,
-    tone: "slate",
-  },
-];
-
 function KioskPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data: household } = useSuspenseQuery(householdQueryOptions);
+  const doEnsureKioskMember = useServerFn(ensureKioskMember);
   const [fullscreen, setFullscreen] = useState(false);
   const [wakeLockStatus, setWakeLockStatus] = useState<"idle" | "active" | "unsupported" | "error">("idle");
+  const [visibleKeys, setVisibleKeys] = useState<KioskModuleKey[]>(() => readKioskVisibleModules());
+  const [kioskMember, setKioskMember] = useState<any>(() =>
+    (household?.household_members ?? []).find((member: any) => member.display_name === KIOSK_MEMBER_NAME) ?? null,
+  );
   const wakeLockRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    window.localStorage.setItem("homesync:kiosk-active", "true");
+    window.localStorage.setItem(KIOSK_ACTIVE_KEY, "true");
   }, []);
+
+  useEffect(() => {
+    if (kioskMember) return;
+    doEnsureKioskMember()
+      .then((member: any) => {
+        setKioskMember(member);
+        queryClient.invalidateQueries({ queryKey: ["household"] });
+      })
+      .catch(() => {
+        // Kiosko sigue siendo usable aunque no se pueda crear el miembro virtual.
+      });
+  }, [doEnsureKioskMember, kioskMember, queryClient]);
 
   useEffect(() => {
     const onChange = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -171,9 +145,22 @@ function KioskPage() {
   };
 
   const exitKiosk = () => {
-    window.localStorage.removeItem("homesync:kiosk-active");
+    window.localStorage.removeItem(KIOSK_ACTIVE_KEY);
     navigate({ to: "/dashboard" as any });
   };
+
+  const toggleModule = (key: KioskModuleKey) => {
+    setVisibleKeys((current) => {
+      const next = current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key];
+      const safeNext: KioskModuleKey[] = next.length ? next : ["shopping"];
+      writeKioskVisibleModules(safeNext);
+      return safeNext;
+    });
+  };
+
+  const visibleModules = KIOSK_MODULES.filter((module) => visibleKeys.includes(module.key));
 
   return (
     <div
@@ -199,12 +186,7 @@ function KioskPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild title="Ajustes">
-              <Link to="/settings">
-                <Settings className="h-5 w-5" />
-                <span className="sr-only">Ajustes</span>
-              </Link>
-            </Button>
+            <KioskModuleSettings visibleKeys={visibleKeys} onToggle={toggleModule} />
             <Button variant="outline" size="icon" onClick={toggleFullscreen} title="Pantalla completa">
               {fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
               <span className="sr-only">Pantalla completa</span>
@@ -234,7 +216,7 @@ function KioskPage() {
 
           <Card>
             <CardContent className="grid h-full grid-cols-2 gap-2 p-3 text-sm">
-              <StatusPill icon={Keyboard} label="USB" value="Activo en modo cocina" />
+              <StatusPill icon={Settings} label="Usuario" value={kioskMember?.display_name ?? "Preparando Kiosko"} />
               <StatusPill icon={Camera} label="Cámara" value="Según permisos" />
               <StatusPill icon={Clock3} label="Pantalla" value={wakeLockLabel(wakeLockStatus)} />
               <StatusPill icon={Bell} label="Avisos" value="Push/Telegram" />
@@ -242,11 +224,11 @@ function KioskPage() {
           </Card>
         </section>
 
-        <KioskVoiceAssistant />
+        <KioskVoiceAssistant kioskMemberId={kioskMember?.id} />
 
         <main className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {actions.map((action) => (
-            <KioskActionCard key={action.to} action={action} />
+          {visibleModules.map((action) => (
+            <KioskActionCard key={action.key} action={action} />
           ))}
         </main>
 
@@ -259,7 +241,7 @@ function KioskPage() {
                 <p key={hint}>{hint}</p>
               ))}
               <p>
-                Si falta alguna función concreta, abre la sección normal desde estos accesos y mantenemos este modo como capa simple.
+                Las secciones se abren con navegación reducida y botones grandes. Pulsa Salir del kiosko para volver al modo completo.
               </p>
             </div>
           </AlertDescription>
@@ -271,13 +253,13 @@ function KioskPage() {
   );
 }
 
-function KioskActionCard({ action }: { action: KioskAction }) {
+function KioskActionCard({ action }: { action: KioskModule }) {
   const Icon = action.icon;
   return (
     <Link
       to={action.to as any}
-      search={{ kiosk: "1" } as any}
-      className="group block min-h-[170px] rounded-lg border bg-card p-5 text-card-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-[190px]"
+      search={kioskSearch()}
+      className="group block min-h-[172px] rounded-lg border bg-card p-5 text-card-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-[196px]"
     >
       <div className="flex h-full flex-col justify-between gap-6">
         <div className="flex items-start justify-between gap-3">
@@ -286,11 +268,58 @@ function KioskActionCard({ action }: { action: KioskAction }) {
           </div>
         </div>
         <div>
-          <p className="text-2xl font-bold leading-tight">{action.title}</p>
+          <p className="text-2xl font-bold leading-tight sm:text-3xl">{action.title}</p>
           <p className="mt-1 text-base text-muted-foreground">{action.description}</p>
         </div>
       </div>
     </Link>
+  );
+}
+
+function KioskModuleSettings({
+  visibleKeys,
+  onToggle,
+}: {
+  visibleKeys: KioskModuleKey[];
+  onToggle: (key: KioskModuleKey) => void;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="icon" title="Configurar Kiosko">
+          <Settings className="h-5 w-5" />
+          <span className="sr-only">Configurar Kiosko</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Módulos del Kiosko</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Esta configuración se guarda solo en este dispositivo.
+          </p>
+          {KIOSK_MODULES.map((module) => {
+            const Icon = module.icon;
+            const checked = visibleKeys.includes(module.key);
+            return (
+              <div key={module.key} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-lg", toneClass(module.tone))}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium">{module.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{module.description}</p>
+                  </div>
+                </div>
+                <Switch checked={checked} onCheckedChange={() => onToggle(module.key)} />
+              </div>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -314,7 +343,7 @@ function StatusPill({
   );
 }
 
-function toneClass(tone: KioskAction["tone"]) {
+function toneClass(tone: KioskModule["tone"]) {
   switch (tone) {
     case "primary":
       return "bg-primary text-primary-foreground";
@@ -328,6 +357,8 @@ function toneClass(tone: KioskAction["tone"]) {
       return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200";
     case "slate":
       return "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200";
+    case "red":
+      return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200";
   }
 }
 

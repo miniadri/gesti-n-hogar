@@ -10,11 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { addShoppingItemByName, removeShoppingItemByName } from "@/lib/shopping.functions";
 import { listRecipes } from "@/lib/recipes.functions";
+import { createKioskTaskByTitle } from "@/lib/tasks.functions";
 
 type VoiceIntent =
   | { type: "add_shopping"; item: string; quantity: number }
   | { type: "remove_shopping"; item: string }
   | { type: "open"; target: keyof typeof NAV_TARGETS }
+  | { type: "create_task"; title: string }
   | { type: "find_recipe"; query: string }
   | { type: "medication_status" }
   | { type: "alerts_status" }
@@ -46,11 +48,12 @@ const COMMAND_EXAMPLES = [
   "Tengo una emergencia",
 ];
 
-export function KioskVoiceAssistant() {
+export function KioskVoiceAssistant({ kioskMemberId }: { kioskMemberId?: string }) {
   const navigate = useNavigate();
   const doAddShopping = useServerFn(addShoppingItemByName);
   const doRemoveShopping = useServerFn(removeShoppingItemByName);
   const doListRecipes = useServerFn(listRecipes);
+  const doCreateTask = useServerFn(createKioskTaskByTitle);
 
   const recognitionRef = useRef<any>(null);
   const [state, setState] = useState<AssistantState>("idle");
@@ -140,7 +143,9 @@ export function KioskVoiceAssistant() {
     setState("running");
     try {
       if (pendingIntent.type === "add_shopping") {
-        const result: any = await doAddShopping({ data: { name: pendingIntent.item, quantity: pendingIntent.quantity } });
+        const result: any = await doAddShopping({
+          data: { name: pendingIntent.item, quantity: pendingIntent.quantity, kiosk_member_id: kioskMemberId },
+        });
         speak(result?.mode === "updated"
           ? `${pendingIntent.item} ya estaba en la compra. He aumentado la cantidad.`
           : `${pendingIntent.item} añadido a la compra.`);
@@ -152,6 +157,10 @@ export function KioskVoiceAssistant() {
       } else if (pendingIntent.type === "open") {
         await navigate({ to: NAV_TARGETS[pendingIntent.target] as any, search: { kiosk: "1" } as any });
         speak(`Abriendo ${targetLabel(pendingIntent.target)}.`);
+      } else if (pendingIntent.type === "create_task") {
+        await doCreateTask({ data: { title: pendingIntent.title, kiosk_member_id: kioskMemberId } });
+        speak(`Tarea creada: ${pendingIntent.title}.`);
+        toast.success("Tarea creada desde Kiosko");
       } else if (pendingIntent.type === "find_recipe") {
         const recipes: any[] = await doListRecipes();
         const match = findBestRecipe(recipes, pendingIntent.query);
@@ -199,7 +208,9 @@ export function KioskVoiceAssistant() {
             </div>
             <div className="min-w-0">
               <p className="text-lg font-bold leading-tight">Asistente de voz</p>
-              <p className="text-sm text-muted-foreground">Comandos cerrados para HomeSync</p>
+              <p className="text-sm text-muted-foreground">
+                Comandos cerrados para HomeSync{kioskMemberId ? " · usuario Kiosko activo" : ""}
+              </p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -270,7 +281,7 @@ export function KioskVoiceAssistant() {
               <p className="truncate text-xs text-muted-foreground">{matchedRecipe.description || "Receta guardada"}</p>
             </div>
             <Button asChild size="sm">
-              <Link to="/recipes/$recipeId" params={{ recipeId: matchedRecipe.id }}>
+              <Link to="/recipes/$recipeId" params={{ recipeId: matchedRecipe.id }} search={{ kiosk: "1" } as any}>
                 <Navigation className="mr-2 h-4 w-4" />
                 Abrir
               </Link>
@@ -304,6 +315,9 @@ function parseVoiceIntent(rawText: string): VoiceIntent {
     return { type: "remove_shopping", item: cleanItem(removeShopping) };
   }
 
+  const taskTitle = matchAfter(text, ["crea tarea", "crear tarea", "anade tarea", "anadir tarea", "apunta tarea"], [""]);
+  if (taskTitle) return { type: "create_task", title: cleanItem(taskTitle) };
+
   const recipeQuery = matchAfter(text, ["busca receta de", "buscar receta de", "abre receta de", "abrir receta de"], [""]);
   if (recipeQuery) return { type: "find_recipe", query: cleanItem(recipeQuery) };
   if (/recetas?/.test(text) && /(abre|abrir|ve|ir)/.test(text)) return { type: "open", target: "recetas" };
@@ -324,6 +338,7 @@ function intentSummary(intent: VoiceIntent) {
   if (intent.type === "add_shopping") return `Voy a añadir ${intent.item} a la lista de la compra.`;
   if (intent.type === "remove_shopping") return `Voy a quitar ${intent.item} de la lista de la compra.`;
   if (intent.type === "open") return `Voy a abrir ${targetLabel(intent.target)}.`;
+  if (intent.type === "create_task") return `Voy a crear la tarea ${intent.title}.`;
   if (intent.type === "find_recipe") return `Voy a buscar ${intent.query} entre tus recetas guardadas.`;
   if (intent.type === "medication_status") return "Voy a abrir Salud para revisar medicación pendiente.";
   if (intent.type === "alerts_status") return "Voy a abrir los avisos y notificaciones.";

@@ -178,3 +178,29 @@
     color: var(--color-foreground);
   }
 }
+
+@layer components {
+  .homesync-kiosk-section {
+    --radius: 0.75rem;
+  }
+
+  .homesync-kiosk-section h2 {
+    font-size: clamp(1.5rem, 1.2rem + 1vw, 2.25rem);
+    line-height: 1.1;
+  }
+
+  .homesync-kiosk-section button,
+  .homesync-kiosk-section a[role="button"] {
+    min-height: 2.75rem;
+  }
+
+  .homesync-kiosk-section input,
+  .homesync-kiosk-section select,
+  .homesync-kiosk-section textarea {
+    font-size: 1rem;
+  }
+
+  .homesync-kiosk-section [data-slot="card"] {
+    border-radius: 0.75rem;
+  }
+}

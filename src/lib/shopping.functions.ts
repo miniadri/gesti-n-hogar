@@ -45,6 +45,7 @@ const AddInventorySuggestionInput = z.object({
 const VoiceShoppingItemInput = z.object({
   name: z.string().min(1).max(200),
   quantity: z.number().positive().default(1),
+  kiosk_member_id: z.string().uuid().optional(),
 });
 
 export const listStores = createServerFn({ method: "GET" })
@@ -359,7 +360,7 @@ export const addShoppingItemByName = createServerFn({ method: "POST" })
         details: `${item.quantity ?? 0} ${item.unit || "ud."}`,
         entityType: "shopping_list_item",
         entityId: item.id,
-        metadata: { voice_command: true, quantity: item.quantity },
+        metadata: { voice_command: true, kiosk_member_id: data.kiosk_member_id, quantity: item.quantity },
       });
       return { mode: "updated", item };
     }
@@ -378,7 +379,7 @@ export const addShoppingItemByName = createServerFn({ method: "POST" })
       details: `${item.quantity ?? 0} ${item.unit || "ud."}`,
       entityType: "shopping_list_item",
       entityId: item.id,
-      metadata: { voice_command: true, quantity: item.quantity },
+      metadata: { voice_command: true, kiosk_member_id: data.kiosk_member_id, quantity: item.quantity },
     });
     return { mode: "created", item };
   });

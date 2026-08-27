@@ -170,3 +170,43 @@ export const restoreTask = createServerFn({ method: "POST" })
     if (error) throw error;
     return row;
   });
+
+const VoiceTaskInput = z.object({
+  title: z.string().min(1).max(200),
+  kiosk_member_id: z.string().uuid().optional(),
+});
+
+export const createKioskTaskByTitle = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => VoiceTaskInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    let assignedTo: string | null = null;
+    if (data.kiosk_member_id) {
+      const { data: member } = await context.supabase
+        .from("household_members")
+        .select("id")
+        .eq("id", data.kiosk_member_id)
+        .eq("household_id", householdId)
+        .maybeSingle();
+      assignedTo = member?.id ?? null;
+    }
+
+    const { data: task, error } = await context.supabase
+      .from("tasks")
+      .insert({
+        household_id: householdId,
+        title: data.title,
+        assigned_to: assignedTo,
+        priority: "medium",
+        status: "pending",
+        category: "Kiosko",
+        created_by: context.userId,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return task;
+  });
