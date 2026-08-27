@@ -224,6 +224,9 @@ function ShoppingPage() {
     .sort((a, b) => {
       if (isNoStore(a.store)) return -1;
       if (isNoStore(b.store)) return 1;
+      const orderA = a.store.sort_order ?? 100;
+      const orderB = b.store.sort_order ?? 100;
+      if (orderA !== orderB) return orderA - orderB;
       return a.store.name.localeCompare(b.store.name);
     });
 
