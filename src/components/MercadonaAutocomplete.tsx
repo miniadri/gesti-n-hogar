@@ -269,8 +269,10 @@ export function StoreProductAutocomplete({
     !open &&
     results.length === 0;
 
+  const showPlainOption = Boolean(plainOptionLabel && onPlainSelect && trimmed.length > 0);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <Input
         id={id}
         value={value}
