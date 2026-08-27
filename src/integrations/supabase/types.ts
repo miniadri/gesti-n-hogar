@@ -2931,6 +2931,7 @@ export type Database = {
           is_enabled: boolean
           name: string
           official_source: string | null
+          sort_order: number
         }
         Insert: {
           color?: string | null
@@ -2942,6 +2943,7 @@ export type Database = {
           is_enabled?: boolean
           name: string
           official_source?: string | null
+          sort_order?: number
         }
         Update: {
           color?: string | null
@@ -2953,6 +2955,7 @@ export type Database = {
           is_enabled?: boolean
           name?: string
           official_source?: string | null
+          sort_order?: number
         }
         Relationships: [
           {

@@ -161,6 +161,8 @@ export function StoreProductAutocomplete({
   placeholder,
   autoFocus,
   id,
+  plainOptionLabel,
+  onPlainSelect,
 }: {
   value: string;
   onValueChange: (value: string) => void;
@@ -171,13 +173,35 @@ export function StoreProductAutocomplete({
   placeholder?: string;
   autoFocus?: boolean;
   id?: string;
+  /** Label for the "no store" quick option shown at the top of the list. */
+  plainOptionLabel?: string;
+  onPlainSelect?: () => void;
 }) {
   const doSearch = useServerFn(searchStoreProducts);
   const [results, setResults] = useState<StoreProductSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const skipNext = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const sourceKey = sources.join(",");
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (skipNext.current) {
@@ -223,12 +247,19 @@ export function StoreProductAutocomplete({
     setOpen(false);
   };
 
-  const grouped = results.reduce<Record<string, StoreProductSuggestion[]>>((acc, item) => {
-    const key = item.source_label;
-    acc[key] = acc[key] ?? [];
-    acc[key].push(item);
+  // Group by store and keep the order configured by the household ("Gestionar tiendas").
+  const groupedBySource = results.reduce<Record<string, StoreProductSuggestion[]>>((acc, item) => {
+    acc[item.source] = acc[item.source] ?? [];
+    acc[item.source].push(item);
     return acc;
   }, {});
+  const orderedGroups = sources
+    .filter((source, index) => sources.indexOf(source) === index && groupedBySource[source]?.length)
+    .map((source) => ({
+      key: source,
+      label: groupedBySource[source][0].source_label,
+      products: groupedBySource[source],
+    }));
   const trimmed = value.trim();
   const onlyCachedUnavailable = sources.length === 1 && sources[0] === "carrefour";
   const noResults =
@@ -238,8 +269,10 @@ export function StoreProductAutocomplete({
     !open &&
     results.length === 0;
 
+  const showPlainOption = Boolean(plainOptionLabel && onPlainSelect && trimmed.length > 0);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <Input
         id={id}
         value={value}
@@ -264,8 +297,24 @@ export function StoreProductAutocomplete({
       )}
       {open && results.length > 0 && (
         <div className="absolute z-50 mt-1 max-h-80 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
-          {Object.entries(grouped).map(([label, products]) => (
-            <div key={label}>
+          {showPlainOption && (
+            <button
+              type="button"
+              onClick={() => {
+                skipNext.current = true;
+                onPlainSelect?.();
+                setOpen(false);
+              }}
+              className="mb-1 flex w-full items-center gap-2 rounded-sm border-b px-2 py-2 text-left hover:bg-accent"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{trimmed}</span>
+                <span className="block truncate text-xs text-muted-foreground">{plainOptionLabel}</span>
+              </span>
+            </button>
+          )}
+          {orderedGroups.map(({ key, label, products }) => (
+            <div key={key}>
               <p className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
                 {label}
               </p>

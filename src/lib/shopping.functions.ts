@@ -14,6 +14,10 @@ const StorePreferencesInput = z.object({
   is_enabled: z.boolean(),
 });
 
+const ReorderStoresInput = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(60),
+});
+
 const ShoppingItemInput = z.object({
   shopping_list_id: z.string().uuid(),
   name: z.string().min(1).max(200),
@@ -58,6 +62,7 @@ export const listStores = createServerFn({ method: "GET" })
       .from("stores")
       .select("*")
       .eq("household_id", householdId)
+      .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
     if (error) throw error;
     return data ?? [];
@@ -77,6 +82,24 @@ export const createStore = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
     return store;
+  });
+
+export const reorderStores = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ReorderStoresInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    for (const [index, id] of data.ids.entries()) {
+      const { error } = await context.supabase
+        .from("stores")
+        .update({ sort_order: index })
+        .eq("id", id)
+        .eq("household_id", householdId);
+      if (error) throw error;
+    }
+    return { ok: true };
   });
 
 export const updateStorePreferences = createServerFn({ method: "POST" })
