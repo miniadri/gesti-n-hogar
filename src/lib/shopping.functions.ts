@@ -84,6 +84,24 @@ export const createStore = createServerFn({ method: "POST" })
     return store;
   });
 
+export const reorderStores = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ReorderStoresInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    for (const [index, id] of data.ids.entries()) {
+      const { error } = await context.supabase
+        .from("stores")
+        .update({ sort_order: index })
+        .eq("id", id)
+        .eq("household_id", householdId);
+      if (error) throw error;
+    }
+    return { ok: true };
+  });
+
 export const updateStorePreferences = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => StorePreferencesInput.parse(input))
