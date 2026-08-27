@@ -160,6 +160,7 @@ export const restoreTask = createServerFn({ method: "POST" })
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
     const payload: Record<string, any> = { ...data.row, household_id: householdId };
+    delete payload.assignee;
     delete payload.updated_at;
     const { data: row, error } = await context.supabase
       .from("tasks")

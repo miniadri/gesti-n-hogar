@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Bell, BellRing, Mail, Send, Loader2, Activity } from "lucide-react";
+import { Bell, BellRing, Mail, Send, Loader2, Activity, Smartphone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +35,14 @@ function NotificationsSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [testLoading, setTestLoading] = useState<"telegram" | "push" | null>(null);
+  const [pushStatus, setPushStatus] = useState<{
+    supported: boolean;
+    permission: NotificationPermission | "unsupported";
+    serviceWorker: string;
+    browserSubscription: boolean;
+    displayMode: string;
+    endpointHost: string | null;
+  } | null>(null);
   const queryClient = useQueryClient();
   const { data: telegramProfile } = useSuspenseQuery(telegramQueryOptions);
 
@@ -46,24 +54,58 @@ function NotificationsSettingsPage() {
   const doTelegramTest = useServerFn(sendTelegramTest);
   const doPushTest = useServerFn(sendPushTest);
 
-  useEffect(() => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    (async () => {
-      try {
-        const existing = await navigator.serviceWorker.getRegistration("/sw.js");
-        const reg = existing ?? (await navigator.serviceWorker.register("/sw.js"));
-        await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        if (sub) {
-          await doSubscribe({ data: sub.toJSON() as any });
-          setSubscribed(true);
-        } else {
-          setSubscribed(false);
-        }
-      } catch (err) {
-        console.error("SW register failed", err);
+  const inspectPushState = async () => {
+    if (typeof window === "undefined") return;
+    const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    const displayMode = window.matchMedia("(display-mode: standalone)").matches
+      ? "app instalada"
+      : "navegador";
+    if (!supported) {
+      setSubscribed(false);
+      setPushStatus({
+        supported: false,
+        permission: "unsupported",
+        serviceWorker: "No soportado",
+        browserSubscription: false,
+        displayMode,
+        endpointHost: null,
+      });
+      return;
+    }
+
+    try {
+      const existing = await navigator.serviceWorker.getRegistration("/");
+      const reg = existing ?? (await navigator.serviceWorker.register("/sw.js", { scope: "/" }));
+      await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await doSubscribe({ data: sub.toJSON() as any });
       }
-    })();
+      setSubscribed(Boolean(sub));
+      setPushStatus({
+        supported: true,
+        permission: Notification.permission,
+        serviceWorker: reg.active ? "Activo" : reg.installing ? "Instalando" : reg.waiting ? "Esperando" : "Registrado",
+        browserSubscription: Boolean(sub),
+        displayMode,
+        endpointHost: sub ? safeEndpointHost(sub.endpoint) : null,
+      });
+    } catch (err) {
+      console.error("SW register failed", err);
+      setSubscribed(false);
+      setPushStatus({
+        supported: true,
+        permission: "Notification" in window ? Notification.permission : "unsupported",
+        serviceWorker: err instanceof Error ? err.message : "Error",
+        browserSubscription: false,
+        displayMode,
+        endpointHost: null,
+      });
+    }
+  };
+
+  useEffect(() => {
+    void inspectPushState();
   }, []);
 
   useEffect(() => {
@@ -99,8 +141,8 @@ function NotificationsSettingsPage() {
       }
       const { publicKey } = await getKey();
       if (!publicKey) throw new Error("VAPID key no configurada");
-      const existing = await navigator.serviceWorker.getRegistration("/sw.js");
-      const reg = existing ?? (await navigator.serviceWorker.register("/sw.js"));
+      const existing = await navigator.serviceWorker.getRegistration("/");
+      const reg = existing ?? (await navigator.serviceWorker.register("/sw.js", { scope: "/" }));
       await navigator.serviceWorker.ready;
       const previousSub = await reg.pushManager.getSubscription();
       if (previousSub) await previousSub.unsubscribe();
@@ -110,6 +152,7 @@ function NotificationsSettingsPage() {
       });
       await doSubscribe({ data: sub.toJSON() as any });
       setSubscribed(true);
+      await inspectPushState();
       toast.success("Notificaciones activadas");
     } catch (err: any) {
       toast.error(err.message || "Error al activar notificaciones");
@@ -126,6 +169,7 @@ function NotificationsSettingsPage() {
       if (sub) await sub.unsubscribe();
       await doUnsubscribe();
       setSubscribed(false);
+      await inspectPushState();
       toast.success("Notificaciones desactivadas");
     } catch (err: any) {
       toast.error(err.message || "Error al desactivar notificaciones");
@@ -171,6 +215,7 @@ function NotificationsSettingsPage() {
         toast.success("Prueba push enviada");
       } else {
         toast.warning("No se encontró una suscripción push activa. Pulsa Desactivar y luego Activar notificaciones para regenerarla.");
+        await inspectPushState();
       }
     } catch (err: any) {
       toast.error(err.message || "Error al probar push");
@@ -224,11 +269,28 @@ function NotificationsSettingsPage() {
               Activar notificaciones
             </Button>
           )}
-          {subscribed && (
+          <div className="grid gap-2 sm:grid-cols-2">
             <Button variant="outline" onClick={handleSubscribe} disabled={loading} className="w-full">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Reparar suscripción push
             </Button>
+            <Button variant="outline" onClick={inspectPushState} disabled={loading} className="w-full">
+              <Smartphone className="mr-2 h-4 w-4" />
+              Diagnosticar este dispositivo
+            </Button>
+          </div>
+          {pushStatus && (
+            <div className="grid gap-2 rounded-lg border bg-muted/30 p-3 text-sm sm:grid-cols-2">
+              <InfoPill label="Soporte" value={pushStatus.supported ? "Compatible" : "No compatible"} />
+              <InfoPill label="Permiso" value={permissionLabel(pushStatus.permission)} />
+              <InfoPill label="Service worker" value={pushStatus.serviceWorker} />
+              <InfoPill label="Suscripción local" value={pushStatus.browserSubscription ? "Existe" : "No existe"} />
+              <InfoPill label="Modo" value={pushStatus.displayMode} />
+              <InfoPill label="Proveedor push" value={pushStatus.endpointHost ?? "Sin endpoint"} />
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Chrome y la app instalada pueden guardar suscripciones distintas. Activa o repara las notificaciones en cada modo que vayas a usar.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -337,6 +399,30 @@ function NotificationsSettingsPage() {
       </Card>
     </div>
   );
+}
+
+function InfoPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-background/60 p-2">
+      <p className="text-xs font-semibold uppercase text-muted-foreground">{label}</p>
+      <p className="mt-0.5 break-words">{value}</p>
+    </div>
+  );
+}
+
+function permissionLabel(permission: NotificationPermission | "unsupported") {
+  if (permission === "granted") return "Concedido";
+  if (permission === "denied") return "Denegado";
+  if (permission === "default") return "Sin decidir";
+  return "No soportado";
+}
+
+function safeEndpointHost(endpoint: string) {
+  try {
+    return new URL(endpoint).host;
+  } catch {
+    return "endpoint no legible";
+  }
 }
 
 function urlBase64ToUint8Array(base64String: string) {
