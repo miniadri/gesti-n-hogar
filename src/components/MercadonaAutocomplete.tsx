@@ -247,12 +247,19 @@ export function StoreProductAutocomplete({
     setOpen(false);
   };
 
-  const grouped = results.reduce<Record<string, StoreProductSuggestion[]>>((acc, item) => {
-    const key = item.source_label;
-    acc[key] = acc[key] ?? [];
-    acc[key].push(item);
+  // Group by store and keep the order configured by the household ("Gestionar tiendas").
+  const groupedBySource = results.reduce<Record<string, StoreProductSuggestion[]>>((acc, item) => {
+    acc[item.source] = acc[item.source] ?? [];
+    acc[item.source].push(item);
     return acc;
   }, {});
+  const orderedGroups = sources
+    .filter((source, index) => sources.indexOf(source) === index && groupedBySource[source]?.length)
+    .map((source) => ({
+      key: source,
+      label: groupedBySource[source][0].source_label,
+      products: groupedBySource[source],
+    }));
   const trimmed = value.trim();
   const onlyCachedUnavailable = sources.length === 1 && sources[0] === "carrefour";
   const noResults =
