@@ -14,6 +14,10 @@ const StorePreferencesInput = z.object({
   is_enabled: z.boolean(),
 });
 
+const ReorderStoresInput = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(60),
+});
+
 const ShoppingItemInput = z.object({
   shopping_list_id: z.string().uuid(),
   name: z.string().min(1).max(200),
