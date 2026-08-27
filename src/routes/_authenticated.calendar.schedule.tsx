@@ -148,7 +148,12 @@ function kindColor(k: Slot["slot_kind"]): string {
   }
 }
 function stateLabel(s: DayStatus["state"]): string {
-  return { normal: "", vacation: "Vacaciones", holiday: "Festivo", sick: "Baja", off: "Libre" }[s];
+  return { normal: "", vacation: "Vacaciones", holiday: "Festivo", sick: "Baja/Enfermedad común", off: "Libre" }[s];
+}
+/** Muestra una fecha ISO (yyyy-MM-dd) como dd-MM-yyyy. */
+function fmtDateDisplay(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : iso;
 }
 
 function SchedulePage() {
@@ -1359,7 +1364,7 @@ function SlotDialog({
   const [notes, setNotes] = useState(s?.notes ?? "");
 
   const isDay = data.kind === "day";
-  const title = isDay ? `Franja del ${data.date}` : `Franja plantilla · ${DAY_LABELS[data.day_of_week ?? 0]}`;
+  const title = isDay ? `Franja del ${fmtDateDisplay(data.date!)}` : `Franja plantilla · ${DAY_LABELS[data.day_of_week ?? 0]}`;
 
   const kindOptions: { v: Slot["slot_kind"]; l: string }[] =
     kind === "school"
@@ -1484,7 +1489,7 @@ function StatusDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Estado del día · {date}</DialogTitle>
+          <DialogTitle>Estado del día · {fmtDateDisplay(date)}</DialogTitle>
           <DialogDescription>Marca vacaciones, festivos o ajusta las horas reales del día.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
@@ -1496,7 +1501,7 @@ function StatusDialog({
                 <SelectItem value="normal">Normal</SelectItem>
                 <SelectItem value="vacation">Vacaciones</SelectItem>
                 <SelectItem value="holiday">Festivo</SelectItem>
-                <SelectItem value="sick">Baja</SelectItem>
+                <SelectItem value="sick">Baja/Enfermedad común</SelectItem>
                 <SelectItem value="off">Libre</SelectItem>
               </SelectContent>
             </Select>
