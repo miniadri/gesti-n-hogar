@@ -865,6 +865,13 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                   )}
                   {monthTotals.vacations} día{monthTotals.vacations === 1 ? "" : "s"} vacaciones
                 </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Mes completo (previsto): {monthTotals.plannedWorked.toFixed(1)}h
+                  {monthTotals.plannedExtra !== 0 && (
+                    <> · {monthTotals.plannedExtra > 0 ? "+" : ""}{monthTotals.plannedExtra.toFixed(1)}h extras (neto)</>
+                  )}
+                </div>
+
               </CardContent>
             </Card>
             {settings.kind === "work" && typeof accruedVacation === "object" && (
