@@ -58,6 +58,7 @@ export const listStores = createServerFn({ method: "GET" })
       .from("stores")
       .select("*")
       .eq("household_id", householdId)
+      .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
     if (error) throw error;
     return data ?? [];
