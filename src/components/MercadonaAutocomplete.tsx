@@ -161,6 +161,8 @@ export function StoreProductAutocomplete({
   placeholder,
   autoFocus,
   id,
+  plainOptionLabel,
+  onPlainSelect,
 }: {
   value: string;
   onValueChange: (value: string) => void;
@@ -171,13 +173,35 @@ export function StoreProductAutocomplete({
   placeholder?: string;
   autoFocus?: boolean;
   id?: string;
+  /** Label for the "no store" quick option shown at the top of the list. */
+  plainOptionLabel?: string;
+  onPlainSelect?: () => void;
 }) {
   const doSearch = useServerFn(searchStoreProducts);
   const [results, setResults] = useState<StoreProductSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const skipNext = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const sourceKey = sources.join(",");
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (skipNext.current) {
