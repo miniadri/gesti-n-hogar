@@ -297,8 +297,24 @@ export function StoreProductAutocomplete({
       )}
       {open && results.length > 0 && (
         <div className="absolute z-50 mt-1 max-h-80 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
-          {Object.entries(grouped).map(([label, products]) => (
-            <div key={label}>
+          {showPlainOption && (
+            <button
+              type="button"
+              onClick={() => {
+                skipNext.current = true;
+                onPlainSelect?.();
+                setOpen(false);
+              }}
+              className="mb-1 flex w-full items-center gap-2 rounded-sm border-b px-2 py-2 text-left hover:bg-accent"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{trimmed}</span>
+                <span className="block truncate text-xs text-muted-foreground">{plainOptionLabel}</span>
+              </span>
+            </button>
+          )}
+          {orderedGroups.map(({ key, label, products }) => (
+            <div key={key}>
               <p className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
                 {label}
               </p>
