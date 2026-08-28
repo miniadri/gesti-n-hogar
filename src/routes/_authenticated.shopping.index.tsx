@@ -26,6 +26,8 @@ import {
   Baby,
   Dog,
   Shirt,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client-app";
@@ -58,6 +60,7 @@ import {
   listRecentItems,
   createStore,
   updateStorePreferences,
+  reorderStores,
   createShoppingItem,
   toggleShoppingItem,
   deleteShoppingItem,
@@ -843,6 +846,9 @@ function AddItemDialog({
                   .sort((a, b) => {
                     if (isNoStore(a)) return -1;
                     if (isNoStore(b)) return 1;
+                    const orderA = a.sort_order ?? 100;
+                    const orderB = b.sort_order ?? 100;
+                    if (orderA !== orderB) return orderA - orderB;
                     return a.name.localeCompare(b.name);
                   })
                   .map((s) => (
@@ -871,6 +877,12 @@ function AddItemDialog({
               sources={catalogSources}
               enabled={catalogSearchEnabled}
               disabledHint={disabledCatalogHint}
+              plainOptionLabel="Añadir sin tienda"
+              onPlainSelect={() => {
+                setSelectedCatalogProduct(null);
+                const noStore = stores.find((s) => isNoStore(s));
+                if (noStore) setStoreId(noStore.id);
+              }}
               autoFocus
             />
             {selectedCatalogProduct && (
