@@ -26,6 +26,8 @@ import {
   Baby,
   Dog,
   Shirt,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client-app";
@@ -58,6 +60,7 @@ import {
   listRecentItems,
   createStore,
   updateStorePreferences,
+  reorderStores,
   createShoppingItem,
   toggleShoppingItem,
   deleteShoppingItem,
@@ -843,6 +846,9 @@ function AddItemDialog({
                   .sort((a, b) => {
                     if (isNoStore(a)) return -1;
                     if (isNoStore(b)) return 1;
+                    const orderA = a.sort_order ?? 100;
+                    const orderB = b.sort_order ?? 100;
+                    if (orderA !== orderB) return orderA - orderB;
                     return a.name.localeCompare(b.name);
                   })
                   .map((s) => (
@@ -871,6 +877,12 @@ function AddItemDialog({
               sources={catalogSources}
               enabled={catalogSearchEnabled}
               disabledHint={disabledCatalogHint}
+              plainOptionLabel="Añadir sin tienda"
+              onPlainSelect={() => {
+                setSelectedCatalogProduct(null);
+                const noStore = stores.find((s) => isNoStore(s));
+                if (noStore) setStoreId(noStore.id);
+              }}
               autoFocus
             />
             {selectedCatalogProduct && (
@@ -951,9 +963,38 @@ function ManageStoresDialog({
 }) {
   const doCreate = useServerFn(createStore);
   const doUpdatePreferences = useServerFn(updateStorePreferences);
+  const doReorder = useServerFn(reorderStores);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [updatingStoreId, setUpdatingStoreId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+
+  // "Sin tienda" stays pinned first; the rest follow the household order.
+  const ordered = stores.slice().sort((a, b) => {
+    if (isNoStore(a)) return -1;
+    if (isNoStore(b)) return 1;
+    const orderA = a.sort_order ?? 100;
+    const orderB = b.sort_order ?? 100;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.name.localeCompare(b.name);
+  });
+  const sortable = ordered.filter((s) => !isNoStore(s));
+
+  const move = async (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= sortable.length) return;
+    const next = sortable.slice();
+    [next[index], next[target]] = [next[target], next[index]];
+    setReordering(true);
+    try {
+      await doReorder({ data: { ids: next.map((s) => s.id) } });
+      onChange();
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo reordenar");
+    } finally {
+      setReordering(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -991,8 +1032,13 @@ function ManageStoresDialog({
           <DialogTitle>Gestionar tiendas</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            El orden de esta lista define el orden del buscador al añadir productos.
+          </p>
           <ul className="space-y-2">
-            {stores.map((s) => (
+            {ordered.map((s) => {
+              const sortIndex = sortable.findIndex((item) => item.id === s.id);
+              return (
               <li key={s.id} className="flex items-center justify-between rounded-lg border p-3">
                 <span>
                   <span className="font-medium">{s.name}</span>
@@ -1014,9 +1060,36 @@ function ManageStoresDialog({
                       />
                     </>
                   ) : null}
+                  {sortIndex >= 0 && (
+                    <span className="flex items-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={reordering || sortIndex === 0}
+                        onClick={() => move(sortIndex, -1)}
+                        aria-label={`Subir ${s.name}`}
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={reordering || sortIndex === sortable.length - 1}
+                        onClick={() => move(sortIndex, 1)}
+                        aria-label={`Bajar ${s.name}`}
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    </span>
+                  )}
                 </span>
               </li>
-            ))}
+              );
+            })}
           </ul>
           <form onSubmit={handleSubmit} className="flex gap-2">
             <Input
