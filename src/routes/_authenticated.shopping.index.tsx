@@ -28,6 +28,8 @@ import {
   Shirt,
   ArrowUp,
   ArrowDown,
+  AlarmClock,
+  Hourglass,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client-app";
