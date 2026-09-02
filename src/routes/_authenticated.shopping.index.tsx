@@ -526,6 +526,21 @@ function ShoppingItemCard({
   const [locationOpen, setLocationOpen] = useState(false);
   const [location, setLocation] = useState<string>(suggestLocation(item.category));
   const [savingInv, setSavingInv] = useState(false);
+  const doUpdatePriority = useServerFn(updateShoppingItemPriority);
+  const [priority, setPriority] = useState<ShoppingPriority>(normalizePriority(item.priority));
+
+  const changePriority = async (next: ShoppingPriority) => {
+    const previous = priority;
+    setPriority(next);
+    try {
+      await doUpdatePriority({ data: { id: item.id, priority: next } });
+      onChange();
+    } catch {
+      setPriority(previous);
+      toast.error("No se pudo cambiar la etiqueta");
+    }
+  };
+
 
   const confirmCheck = async (opts: { addToInventory: boolean }) => {
     setSavingInv(true);
