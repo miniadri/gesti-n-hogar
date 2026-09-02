@@ -804,7 +804,11 @@ function AddItemDialog({
         data: {
           shopping_list_id: listId,
           name: name.trim(),
-          category,
+          category:
+            category && category !== "auto"
+              ? category
+              : guessShoppingCategory(name.trim(), selectedCatalogProduct?.category ?? null),
+          priority,
           quantity: Number(quantity) || 1,
           manual_price: price ? Number(price) : undefined,
           mercadona_id: selectedCatalogProduct?.source === "mercadona" ? selectedCatalogProduct.id : undefined,
