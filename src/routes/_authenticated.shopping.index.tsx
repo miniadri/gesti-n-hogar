@@ -176,19 +176,7 @@ function SnowflakeIcon({ className }: { className?: string }) {
   );
 }
 
-const categories = [
-  "Frutas",
-  "Verduras",
-  "Lácteos",
-  "Carne",
-  "Pescado",
-  "Panadería",
-  "Bebidas",
-  "Congelados",
-  "Limpieza",
-  "Farmacia",
-  "Otros",
-];
+const categories = [...SHOPPING_CATEGORIES];
 
 const shoppingQueryOptions = queryOptions({
   queryKey: ["shopping"],
