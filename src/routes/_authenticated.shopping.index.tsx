@@ -631,6 +631,19 @@ function ShoppingItemCard({
               {checked && <Check className="h-3.5 w-3.5" />}
             </button>
             <div className="flex items-center gap-1">
+              {priority !== "normal" && (
+                <Badge
+                  variant={priority === "urgente" ? "destructive" : "secondary"}
+                  className="gap-1 px-1.5 py-0 text-[10px]"
+                >
+                  {priority === "urgente" ? (
+                    <AlarmClock className="h-3 w-3" />
+                  ) : (
+                    <Hourglass className="h-3 w-3" />
+                  )}
+                  {PRIORITY_LABELS[priority]}
+                </Badge>
+              )}
               {quotes.length > 0 && <PriceComparePopover name={item.name} quotes={quotes} />}
               <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
