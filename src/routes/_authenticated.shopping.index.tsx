@@ -756,7 +756,9 @@ function AddItemDialog({
   const handleSelectCatalogProduct = (product: StoreProductSuggestion) => {
     setSelectedCatalogProduct(product);
     if (product.unit_price != null) setPrice(String(product.unit_price));
-    if (product.category) setCategory(product.category);
+    if (category === "auto" || !category) {
+      setCategory(guessShoppingCategory(product.display_name, product.category));
+    }
     const sourceStore = officialStoresBySource[product.source];
     if (sourceStore) setStoreId(sourceStore.id);
   };
