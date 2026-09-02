@@ -258,6 +258,21 @@ export const createShoppingItem = createServerFn({ method: "POST" })
     return item;
   });
 
+/** Changes the urgency label of a pending shopping item. */
+export const updateShoppingItemPriority = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => UpdateItemPriorityInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: item, error } = await context.supabase
+      .from("shopping_list_items")
+      .update({ priority: data.priority })
+      .eq("id", data.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return item;
+  });
+
 export const addInventorySuggestionToShopping = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => AddInventorySuggestionInput.parse(input))
