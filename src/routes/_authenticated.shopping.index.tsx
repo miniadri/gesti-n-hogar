@@ -721,7 +721,9 @@ function AddItemDialog({
   const doCreate = useServerFn(createShoppingItem);
   const doCreateStore = useServerFn(createStore);
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("Otros");
+  // "auto" keeps the category empty until we infer it from the catalog or the name.
+  const [category, setCategory] = useState("auto");
+  const [priority, setPriority] = useState<ShoppingPriority>("normal");
   const [storeId, setStoreId] = useState<string>("");
   const [quantity, setQuantity] = useState("1");
   const [price, setPrice] = useState("");
