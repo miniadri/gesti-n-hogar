@@ -686,9 +686,24 @@ function ShoppingItemCard({
                 label={`Ver en ${storeSourceLabel(item.store_product_source ?? (item.mercadona_id ? "mercadona" : null))}`}
               />
             )}
+            {!checked && (
+              <Select value={priority} onValueChange={(v) => changePriority(v as ShoppingPriority)}>
+                <SelectTrigger className="mt-2 h-7 w-full text-[11px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SHOPPING_PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={p} className="text-xs">
+                      {PRIORITY_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardContent>
       </Card>
+
 
       <Dialog open={locationOpen} onOpenChange={setLocationOpen}>
         <DialogContent className="sm:max-w-sm">
