@@ -2337,6 +2337,7 @@ export type Database = {
           mercadona_id: string | null
           name: string
           ocr_price: number | null
+          priority: string
           quantity: number
           shopping_list_id: string
           store_product_brand: string | null
@@ -2357,6 +2358,7 @@ export type Database = {
           mercadona_id?: string | null
           name: string
           ocr_price?: number | null
+          priority?: string
           quantity?: number
           shopping_list_id: string
           store_product_brand?: string | null
@@ -2377,6 +2379,7 @@ export type Database = {
           mercadona_id?: string | null
           name?: string
           ocr_price?: number | null
+          priority?: string
           quantity?: number
           shopping_list_id?: string
           store_product_brand?: string | null
