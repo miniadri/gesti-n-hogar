@@ -68,7 +68,18 @@ import {
   deleteShoppingItem,
   restoreShoppingItem,
   addInventorySuggestionToShopping,
+  updateShoppingItemPriority,
 } from "@/lib/shopping.functions";
+import {
+  SHOPPING_CATEGORIES,
+  SHOPPING_PRIORITIES,
+  PRIORITY_LABELS,
+  PRIORITY_RANK,
+  categorySortIndex,
+  guessShoppingCategory,
+  normalizePriority,
+  type ShoppingPriority,
+} from "@/lib/shopping-categories";
 import { listHouseholdActivity } from "@/lib/activity.functions";
 import { ActivityList } from "@/components/ActivityList";
 import { undoableToast } from "@/hooks/use-undoable";
