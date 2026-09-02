@@ -32,6 +32,12 @@ const ShoppingItemInput = z.object({
   store_product_url: z.string().url().optional(),
   store_product_brand: z.string().max(120).optional(),
   linked_inventory_item_id: z.string().uuid().optional(),
+  priority: z.enum(["urgente", "normal", "sin_prisa"]).optional(),
+});
+
+const UpdateItemPriorityInput = z.object({
+  id: z.string().uuid(),
+  priority: z.enum(["urgente", "normal", "sin_prisa"]),
 });
 
 const ToggleItemInput = z.object({
@@ -249,6 +255,21 @@ export const createShoppingItem = createServerFn({ method: "POST" })
         metadata: { quantity: item.quantity, unit: item.unit, category: item.category },
       });
     }
+    return item;
+  });
+
+/** Changes the urgency label of a pending shopping item. */
+export const updateShoppingItemPriority = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => UpdateItemPriorityInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: item, error } = await context.supabase
+      .from("shopping_list_items")
+      .update({ priority: data.priority })
+      .eq("id", data.id)
+      .select()
+      .single();
+    if (error) throw error;
     return item;
   });
 

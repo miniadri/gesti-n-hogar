@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Plus,
   Trash2,
@@ -28,6 +28,8 @@ import {
   Shirt,
   ArrowUp,
   ArrowDown,
+  AlarmClock,
+  Hourglass,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client-app";
@@ -66,7 +68,18 @@ import {
   deleteShoppingItem,
   restoreShoppingItem,
   addInventorySuggestionToShopping,
+  updateShoppingItemPriority,
 } from "@/lib/shopping.functions";
+import {
+  SHOPPING_CATEGORIES,
+  SHOPPING_PRIORITIES,
+  PRIORITY_LABELS,
+  PRIORITY_RANK,
+  categorySortIndex,
+  guessShoppingCategory,
+  normalizePriority,
+  type ShoppingPriority,
+} from "@/lib/shopping-categories";
 import { listHouseholdActivity } from "@/lib/activity.functions";
 import { ActivityList } from "@/components/ActivityList";
 import { undoableToast } from "@/hooks/use-undoable";
@@ -163,19 +176,7 @@ function SnowflakeIcon({ className }: { className?: string }) {
   );
 }
 
-const categories = [
-  "Frutas",
-  "Verduras",
-  "Lácteos",
-  "Carne",
-  "Pescado",
-  "Panadería",
-  "Bebidas",
-  "Congelados",
-  "Limpieza",
-  "Farmacia",
-  "Otros",
-];
+const categories = [...SHOPPING_CATEGORIES];
 
 const shoppingQueryOptions = queryOptions({
   queryKey: ["shopping"],
@@ -525,6 +526,21 @@ function ShoppingItemCard({
   const [locationOpen, setLocationOpen] = useState(false);
   const [location, setLocation] = useState<string>(suggestLocation(item.category));
   const [savingInv, setSavingInv] = useState(false);
+  const doUpdatePriority = useServerFn(updateShoppingItemPriority);
+  const [priority, setPriority] = useState<ShoppingPriority>(normalizePriority(item.priority));
+
+  const changePriority = async (next: ShoppingPriority) => {
+    const previous = priority;
+    setPriority(next);
+    try {
+      await doUpdatePriority({ data: { id: item.id, priority: next } });
+      onChange();
+    } catch {
+      setPriority(previous);
+      toast.error("No se pudo cambiar la etiqueta");
+    }
+  };
+
 
   const confirmCheck = async (opts: { addToInventory: boolean }) => {
     setSavingInv(true);
@@ -615,6 +631,19 @@ function ShoppingItemCard({
               {checked && <Check className="h-3.5 w-3.5" />}
             </button>
             <div className="flex items-center gap-1">
+              {priority !== "normal" && (
+                <Badge
+                  variant={priority === "urgente" ? "destructive" : "secondary"}
+                  className="gap-1 px-1.5 py-0 text-[10px]"
+                >
+                  {priority === "urgente" ? (
+                    <AlarmClock className="h-3 w-3" />
+                  ) : (
+                    <Hourglass className="h-3 w-3" />
+                  )}
+                  {PRIORITY_LABELS[priority]}
+                </Badge>
+              )}
               {quotes.length > 0 && <PriceComparePopover name={item.name} quotes={quotes} />}
               <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
@@ -657,9 +686,24 @@ function ShoppingItemCard({
                 label={`Ver en ${storeSourceLabel(item.store_product_source ?? (item.mercadona_id ? "mercadona" : null))}`}
               />
             )}
+            {!checked && (
+              <Select value={priority} onValueChange={(v) => changePriority(v as ShoppingPriority)}>
+                <SelectTrigger className="mt-2 h-7 w-full text-[11px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SHOPPING_PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={p} className="text-xs">
+                      {PRIORITY_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardContent>
       </Card>
+
 
       <Dialog open={locationOpen} onOpenChange={setLocationOpen}>
         <DialogContent className="sm:max-w-sm">
@@ -720,7 +764,9 @@ function AddItemDialog({
   const doCreate = useServerFn(createShoppingItem);
   const doCreateStore = useServerFn(createStore);
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("Otros");
+  // "auto" keeps the category empty until we infer it from the catalog or the name.
+  const [category, setCategory] = useState("auto");
+  const [priority, setPriority] = useState<ShoppingPriority>("normal");
   const [storeId, setStoreId] = useState<string>("");
   const [quantity, setQuantity] = useState("1");
   const [price, setPrice] = useState("");
@@ -753,7 +799,9 @@ function AddItemDialog({
   const handleSelectCatalogProduct = (product: StoreProductSuggestion) => {
     setSelectedCatalogProduct(product);
     if (product.unit_price != null) setPrice(String(product.unit_price));
-    if (product.category) setCategory(product.category);
+    if (category === "auto" || !category) {
+      setCategory(guessShoppingCategory(product.display_name, product.category));
+    }
     const sourceStore = officialStoresBySource[product.source];
     if (sourceStore) setStoreId(sourceStore.id);
   };
@@ -799,7 +847,11 @@ function AddItemDialog({
         data: {
           shopping_list_id: listId,
           name: name.trim(),
-          category,
+          category:
+            category && category !== "auto"
+              ? category
+              : guessShoppingCategory(name.trim(), selectedCatalogProduct?.category ?? null),
+          priority,
           quantity: Number(quantity) || 1,
           manual_price: price ? Number(price) : undefined,
           mercadona_id: selectedCatalogProduct?.source === "mercadona" ? selectedCatalogProduct.id : undefined,
@@ -815,6 +867,8 @@ function AddItemDialog({
       setQuantity("1");
       setPrice("");
       setSelectedCatalogProduct(null);
+      setCategory("auto");
+      setPriority("normal");
       onAdded();
       onOpenChange(false);
     } catch (err: any) {
@@ -923,21 +977,45 @@ function AddItemDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Categoría</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Categoría</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Automática</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {category === "auto" && (
+                <p className="text-xs text-muted-foreground">
+                  Se detectará a partir del producto o de la tienda; si no, será "Otros".
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Etiqueta</Label>
+              <Select value={priority} onValueChange={(v) => setPriority(v as ShoppingPriority)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SHOPPING_PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {PRIORITY_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
 
           <DialogFooter>
             <Button type="submit" disabled={submitting || !name.trim()} className="w-full">
