@@ -32,6 +32,12 @@ const ShoppingItemInput = z.object({
   store_product_url: z.string().url().optional(),
   store_product_brand: z.string().max(120).optional(),
   linked_inventory_item_id: z.string().uuid().optional(),
+  priority: z.enum(["urgente", "normal", "sin_prisa"]).optional(),
+});
+
+const UpdateItemPriorityInput = z.object({
+  id: z.string().uuid(),
+  priority: z.enum(["urgente", "normal", "sin_prisa"]),
 });
 
 const ToggleItemInput = z.object({
