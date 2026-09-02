@@ -934,21 +934,45 @@ function AddItemDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Categoría</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Categoría</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Automática</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {category === "auto" && (
+                <p className="text-xs text-muted-foreground">
+                  Se detectará a partir del producto o de la tienda; si no, será "Otros".
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Etiqueta</Label>
+              <Select value={priority} onValueChange={(v) => setPriority(v as ShoppingPriority)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SHOPPING_PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {PRIORITY_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
 
           <DialogFooter>
             <Button type="submit" disabled={submitting || !name.trim()} className="w-full">
