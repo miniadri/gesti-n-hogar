@@ -824,6 +824,8 @@ function AddItemDialog({
       setQuantity("1");
       setPrice("");
       setSelectedCatalogProduct(null);
+      setCategory("auto");
+      setPriority("normal");
       onAdded();
       onOpenChange(false);
     } catch (err: any) {
