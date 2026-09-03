@@ -304,7 +304,7 @@ function ShoppingPage() {
           Tu lista de compra está vacía. Pulsa <strong>Añadir</strong> para empezar.
         </div>
       ) : (
-        grouped.map(({ store, items, groups }) => (
+        grouped.map(({ store, items }) => (
           <section key={store.id} className="space-y-4">
             <div className="flex items-center gap-2">
               <Store className="h-4 w-4 text-muted-foreground" />
@@ -313,26 +313,16 @@ function ShoppingPage() {
                 {items.length} pendientes
               </Badge>
             </div>
-            {groups.map(({ category, items: categoryItems }) => (
-              <div key={category} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {category}
-                  </p>
-                  <span className="text-xs text-muted-foreground">({categoryItems.length})</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                  {categoryItems.map((item) => (
-                    <ShoppingItemCard
-                      key={item.id}
-                      item={item}
-                      onChange={refresh}
-                      quotes={data.prices[normalizeKey(item.name)] ?? []}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {items.map((item) => (
+                <ShoppingItemCard
+                  key={item.id}
+                  item={item}
+                  onChange={refresh}
+                  quotes={data.prices[normalizeKey(item.name)] ?? []}
+                />
+              ))}
+            </div>
           </section>
         ))
       )}
