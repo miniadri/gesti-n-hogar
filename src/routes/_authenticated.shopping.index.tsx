@@ -218,6 +218,21 @@ function ShoppingPage() {
     queryClient.invalidateQueries({ queryKey: ["household-activity"] });
   };
 
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [showFloating, setShowFloating] = useState(false);
+
+  // The floating "Añadir / Tarjetas" block appears once the header actions scroll away.
+  useEffect(() => {
+    const node = headerRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowFloating(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   const grouped = data.stores
     .map((store) => ({
       store,
@@ -232,7 +247,29 @@ function ShoppingPage() {
       const orderB = b.store.sort_order ?? 100;
       if (orderA !== orderB) return orderA - orderB;
       return a.store.name.localeCompare(b.store.name);
+    })
+    // Inside each store, group by category and order by priority (urgente → normal → sin prisa).
+    .map(({ store, items }) => {
+      const byCategory = new Map<string, any[]>();
+      for (const item of items) {
+        const category = item.category?.trim() || "Otros";
+        byCategory.set(category, [...(byCategory.get(category) ?? []), item]);
+      }
+      const groups = [...byCategory.entries()]
+        .sort(([a], [b]) => categorySortIndex(a) - categorySortIndex(b) || a.localeCompare(b))
+        .map(([category, list]) => ({
+          category,
+          items: list.slice().sort((a, b) => {
+            const rank =
+              PRIORITY_RANK[normalizePriority(a.priority)] -
+              PRIORITY_RANK[normalizePriority(b.priority)];
+            if (rank !== 0) return rank;
+            return String(a.name).localeCompare(String(b.name));
+          }),
+        }));
+      return { store, items, groups };
     });
+
 
   return (
     <div className="space-y-6">
