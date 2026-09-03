@@ -716,6 +716,15 @@ function ShoppingItemCard({
               </div>
             )}
             <p className="mt-2 line-clamp-2 text-sm font-semibold leading-tight">{item.name}</p>
+            <span
+              className={cn(
+                "mt-1 inline-flex max-w-full items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                CATEGORY_COLORS[(item.category?.trim() as keyof typeof CATEGORY_COLORS) || "Otros"] ||
+                  CATEGORY_COLORS.Otros,
+              )}
+            >
+              <span className="truncate">{item.category?.trim() || "Otros"}</span>
+            </span>
             <p className="text-xs text-muted-foreground">
               {item.quantity} {item.unit || "ud."}
             </p>
