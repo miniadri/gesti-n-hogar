@@ -93,3 +93,18 @@ export function categorySortIndex(category: string): number {
   if (index === -1) return SHOPPING_CATEGORIES.length; // unknown labels before "Otros" fallback
   return index;
 }
+
+/** Soft color chips for each shopping category. */
+export const CATEGORY_COLORS: Record<ShoppingCategory, string> = {
+  Frutas: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+  Verduras: "bg-green-500/15 text-green-700 dark:text-green-300",
+  Lácteos: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  Carne: "bg-red-500/15 text-red-700 dark:text-red-300",
+  Pescado: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
+  Panadería: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  Bebidas: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  Congelados: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
+  Limpieza: "bg-teal-500/15 text-teal-700 dark:text-teal-300",
+  Farmacia: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  Otros: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
+};

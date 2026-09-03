@@ -75,6 +75,7 @@ import {
   SHOPPING_PRIORITIES,
   PRIORITY_LABELS,
   PRIORITY_RANK,
+  CATEGORY_COLORS,
   categorySortIndex,
   guessShoppingCategory,
   normalizePriority,
@@ -248,26 +249,22 @@ function ShoppingPage() {
       if (orderA !== orderB) return orderA - orderB;
       return a.store.name.localeCompare(b.store.name);
     })
-    // Inside each store, group by category and order by priority (urgente → normal → sin prisa).
+    // Inside each store, order by priority (urgente → normal → sin prisa),
+    // then keep similar categories together so the color chips form a gentle
+    // visual grouping without explicit section rows.
     .map(({ store, items }) => {
-      const byCategory = new Map<string, any[]>();
-      for (const item of items) {
-        const category = item.category?.trim() || "Otros";
-        byCategory.set(category, [...(byCategory.get(category) ?? []), item]);
-      }
-      const groups = [...byCategory.entries()]
-        .sort(([a], [b]) => categorySortIndex(a) - categorySortIndex(b) || a.localeCompare(b))
-        .map(([category, list]) => ({
-          category,
-          items: list.slice().sort((a, b) => {
-            const rank =
-              PRIORITY_RANK[normalizePriority(a.priority)] -
-              PRIORITY_RANK[normalizePriority(b.priority)];
-            if (rank !== 0) return rank;
-            return String(a.name).localeCompare(String(b.name));
-          }),
-        }));
-      return { store, items, groups };
+      const sorted = items.slice().sort((a, b) => {
+        const rank =
+          PRIORITY_RANK[normalizePriority(a.priority)] -
+          PRIORITY_RANK[normalizePriority(b.priority)];
+        if (rank !== 0) return rank;
+        const cat =
+          categorySortIndex(a.category?.trim() || "Otros") -
+          categorySortIndex(b.category?.trim() || "Otros");
+        if (cat !== 0) return cat;
+        return String(a.name).localeCompare(String(b.name));
+      });
+      return { store, items: sorted };
     });
 
 
@@ -307,7 +304,7 @@ function ShoppingPage() {
           Tu lista de compra está vacía. Pulsa <strong>Añadir</strong> para empezar.
         </div>
       ) : (
-        grouped.map(({ store, items, groups }) => (
+        grouped.map(({ store, items }) => (
           <section key={store.id} className="space-y-4">
             <div className="flex items-center gap-2">
               <Store className="h-4 w-4 text-muted-foreground" />
@@ -316,26 +313,16 @@ function ShoppingPage() {
                 {items.length} pendientes
               </Badge>
             </div>
-            {groups.map(({ category, items: categoryItems }) => (
-              <div key={category} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {category}
-                  </p>
-                  <span className="text-xs text-muted-foreground">({categoryItems.length})</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                  {categoryItems.map((item) => (
-                    <ShoppingItemCard
-                      key={item.id}
-                      item={item}
-                      onChange={refresh}
-                      quotes={data.prices[normalizeKey(item.name)] ?? []}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {items.map((item) => (
+                <ShoppingItemCard
+                  key={item.id}
+                  item={item}
+                  onChange={refresh}
+                  quotes={data.prices[normalizeKey(item.name)] ?? []}
+                />
+              ))}
+            </div>
           </section>
         ))
       )}
@@ -729,6 +716,15 @@ function ShoppingItemCard({
               </div>
             )}
             <p className="mt-2 line-clamp-2 text-sm font-semibold leading-tight">{item.name}</p>
+            <span
+              className={cn(
+                "mt-1 inline-flex max-w-full items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                CATEGORY_COLORS[(item.category?.trim() as keyof typeof CATEGORY_COLORS) || "Otros"] ||
+                  CATEGORY_COLORS.Otros,
+              )}
+            >
+              <span className="truncate">{item.category?.trim() || "Otros"}</span>
+            </span>
             <p className="text-xs text-muted-foreground">
               {item.quantity} {item.unit || "ud."}
             </p>
