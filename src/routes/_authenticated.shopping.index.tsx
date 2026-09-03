@@ -218,6 +218,21 @@ function ShoppingPage() {
     queryClient.invalidateQueries({ queryKey: ["household-activity"] });
   };
 
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [showFloating, setShowFloating] = useState(false);
+
+  // The floating "Añadir / Tarjetas" block appears once the header actions scroll away.
+  useEffect(() => {
+    const node = headerRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowFloating(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   const grouped = data.stores
     .map((store) => ({
       store,
@@ -232,11 +247,33 @@ function ShoppingPage() {
       const orderB = b.store.sort_order ?? 100;
       if (orderA !== orderB) return orderA - orderB;
       return a.store.name.localeCompare(b.store.name);
+    })
+    // Inside each store, group by category and order by priority (urgente → normal → sin prisa).
+    .map(({ store, items }) => {
+      const byCategory = new Map<string, any[]>();
+      for (const item of items) {
+        const category = item.category?.trim() || "Otros";
+        byCategory.set(category, [...(byCategory.get(category) ?? []), item]);
+      }
+      const groups = [...byCategory.entries()]
+        .sort(([a], [b]) => categorySortIndex(a) - categorySortIndex(b) || a.localeCompare(b))
+        .map(([category, list]) => ({
+          category,
+          items: list.slice().sort((a, b) => {
+            const rank =
+              PRIORITY_RANK[normalizePriority(a.priority)] -
+              PRIORITY_RANK[normalizePriority(b.priority)];
+            if (rank !== 0) return rank;
+            return String(a.name).localeCompare(String(b.name));
+          }),
+        }));
+      return { store, items, groups };
     });
+
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div ref={headerRef} className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Lista de compra</h2>
           <p className="text-muted-foreground">Organizada por tienda, estilo Bring!</p>
@@ -270,8 +307,8 @@ function ShoppingPage() {
           Tu lista de compra está vacía. Pulsa <strong>Añadir</strong> para empezar.
         </div>
       ) : (
-        grouped.map(({ store, items }) => (
-          <section key={store.id} className="space-y-3">
+        grouped.map(({ store, items, groups }) => (
+          <section key={store.id} className="space-y-4">
             <div className="flex items-center gap-2">
               <Store className="h-4 w-4 text-muted-foreground" />
               <h3 className="font-semibold">{store.name}</h3>
@@ -279,18 +316,45 @@ function ShoppingPage() {
                 {items.length} pendientes
               </Badge>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {items.map((item) => (
-                <ShoppingItemCard
-                  key={item.id}
-                  item={item}
-                  onChange={refresh}
-                  quotes={data.prices[normalizeKey(item.name)] ?? []}
-                />
-              ))}
-            </div>
+            {groups.map(({ category, items: categoryItems }) => (
+              <div key={category} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {category}
+                  </p>
+                  <span className="text-xs text-muted-foreground">({categoryItems.length})</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {categoryItems.map((item) => (
+                    <ShoppingItemCard
+                      key={item.id}
+                      item={item}
+                      onChange={refresh}
+                      quotes={data.prices[normalizeKey(item.name)] ?? []}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
           </section>
         ))
+      )}
+
+      {showFloating && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 md:bottom-6">
+          <div className="pointer-events-auto flex gap-2 rounded-full border bg-background/95 p-2 shadow-lg backdrop-blur">
+            <Button size="sm" className="rounded-full" onClick={() => setAddOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" />
+              Añadir
+            </Button>
+            <Button size="sm" variant="outline" className="rounded-full" asChild>
+              <Link to="/loyalty">
+                <CreditCard className="mr-1 h-4 w-4" />
+                Tarjetas
+              </Link>
+            </Button>
+          </div>
+        </div>
       )}
 
       <SmartShoppingSuggestions
