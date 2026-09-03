@@ -249,19 +249,18 @@ function ShoppingPage() {
       if (orderA !== orderB) return orderA - orderB;
       return a.store.name.localeCompare(b.store.name);
     })
-    // Inside each store, order by priority (urgente → normal → sin prisa),
-    // then keep similar categories together so the color chips form a gentle
-    // visual grouping without explicit section rows.
+    // Inside each store, order by category first, then by priority
+    // (urgente → normal → sin prisa) within each category, then by name.
     .map(({ store, items }) => {
       const sorted = items.slice().sort((a, b) => {
-        const rank =
-          PRIORITY_RANK[normalizePriority(a.priority)] -
-          PRIORITY_RANK[normalizePriority(b.priority)];
-        if (rank !== 0) return rank;
         const cat =
           categorySortIndex(a.category?.trim() || "Otros") -
           categorySortIndex(b.category?.trim() || "Otros");
         if (cat !== 0) return cat;
+        const rank =
+          PRIORITY_RANK[normalizePriority(a.priority)] -
+          PRIORITY_RANK[normalizePriority(b.priority)];
+        if (rank !== 0) return rank;
         return String(a.name).localeCompare(String(b.name));
       });
       return { store, items: sorted };
