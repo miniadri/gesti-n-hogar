@@ -75,6 +75,7 @@ import {
   SHOPPING_PRIORITIES,
   PRIORITY_LABELS,
   PRIORITY_RANK,
+  CATEGORY_COLORS,
   categorySortIndex,
   guessShoppingCategory,
   normalizePriority,
