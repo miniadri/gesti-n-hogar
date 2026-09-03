@@ -273,7 +273,7 @@ function ShoppingPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div ref={headerRef} className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Lista de compra</h2>
           <p className="text-muted-foreground">Organizada por tienda, estilo Bring!</p>
