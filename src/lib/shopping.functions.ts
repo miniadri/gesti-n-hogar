@@ -33,12 +33,25 @@ const ShoppingItemInput = z.object({
   store_product_brand: z.string().max(120).optional(),
   linked_inventory_item_id: z.string().uuid().optional(),
   priority: z.enum(["urgente", "normal", "sin_prisa"]).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+const UpdateItemInput = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(200).optional(),
+  category: z.string().max(80).nullable().optional(),
+  quantity: z.number().positive().optional(),
+  unit: z.string().max(20).nullable().optional(),
+  manual_price: z.number().nonnegative().nullable().optional(),
+  priority: z.enum(["urgente", "normal", "sin_prisa"]).optional(),
+  notes: z.string().max(500).nullable().optional(),
 });
 
 const UpdateItemPriorityInput = z.object({
   id: z.string().uuid(),
   priority: z.enum(["urgente", "normal", "sin_prisa"]),
 });
+
 
 const ToggleItemInput = z.object({
   id: z.string().uuid(),
@@ -272,6 +285,38 @@ export const updateShoppingItemPriority = createServerFn({ method: "POST" })
     if (error) throw error;
     return item;
   });
+
+/** Updates the editable fields of a shopping item (name, amount, price, category, tag, details). */
+export const updateShoppingItem = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => UpdateItemInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { id, ...patch } = data;
+    const payload = Object.fromEntries(
+      Object.entries(patch).filter(([, value]) => value !== undefined),
+    );
+    const { data: item, error } = await context.supabase
+      .from("shopping_list_items")
+      .update(payload)
+      .eq("id", id)
+      .select("*, shopping_list:shopping_list_id(household_id)")
+      .single();
+    if (error) throw error;
+    const householdId = (item as any)?.shopping_list?.household_id;
+    if (householdId) {
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "shopping",
+        action: "updated",
+        title: `${item.name} actualizado en la lista`,
+        details: `${item.quantity ?? 0} ${item.unit || "ud."}`,
+        entityType: "shopping_list_item",
+        entityId: item.id,
+        metadata: payload,
+      });
+    }
+    return item;
+  });
+
 
 export const addInventorySuggestionToShopping = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -31,12 +31,16 @@ import {
   ArrowDown,
   AlarmClock,
   Hourglass,
+  Pencil,
 } from "lucide-react";
+
 
 import { supabase } from "@/integrations/supabase/client-app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -70,6 +74,8 @@ import {
   restoreShoppingItem,
   addInventorySuggestionToShopping,
   updateShoppingItemPriority,
+  updateShoppingItem,
+
 } from "@/lib/shopping.functions";
 import {
   SHOPPING_CATEGORIES,
@@ -580,6 +586,8 @@ function ShoppingItemCard({
   const [savingInv, setSavingInv] = useState(false);
   const doUpdatePriority = useServerFn(updateShoppingItemPriority);
   const [priority, setPriority] = useState<ShoppingPriority>(normalizePriority(item.priority));
+  const [editOpen, setEditOpen] = useState(false);
+
 
   const changePriority = async (next: ShoppingPriority) => {
     const previous = priority;
@@ -697,9 +705,17 @@ function ShoppingItemCard({
                 </Badge>
               )}
               {quotes.length > 0 && <PriceComparePopover name={item.name} quotes={quotes} />}
+              <button
+                onClick={() => setEditOpen(true)}
+                aria-label="Editar producto"
+                className="text-muted-foreground hover:text-primary"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
               <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
               </button>
+
             </div>
           </div>
 
@@ -729,6 +745,12 @@ function ShoppingItemCard({
             <p className="text-xs text-muted-foreground">
               {item.quantity} {item.unit || "ud."}
             </p>
+            {item.notes?.trim() && (
+              <p className="mt-1 w-full whitespace-pre-line break-words text-[11px] italic leading-tight text-muted-foreground">
+                {item.notes.trim()}
+              </p>
+            )}
+
             {price !== null && price !== undefined && (
               <p className="mt-1 text-sm font-bold text-primary">€{Number(price).toFixed(2)}</p>
             )}
@@ -764,6 +786,10 @@ function ShoppingItemCard({
           </div>
         </CardContent>
       </Card>
+
+      <EditItemDialog open={editOpen} onOpenChange={setEditOpen} item={item} onSaved={onChange} />
+
+
 
 
       <Dialog open={locationOpen} onOpenChange={setLocationOpen}>
@@ -831,6 +857,8 @@ function AddItemDialog({
   const [storeId, setStoreId] = useState<string>("");
   const [quantity, setQuantity] = useState("1");
   const [price, setPrice] = useState("");
+  const [notes, setNotes] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [selectedCatalogProduct, setSelectedCatalogProduct] = useState<StoreProductSuggestion | null>(null);
 
@@ -915,6 +943,7 @@ function AddItemDialog({
           priority,
           quantity: Number(quantity) || 1,
           manual_price: price ? Number(price) : undefined,
+          notes: notes.trim() ? notes.trim() : undefined,
           mercadona_id: selectedCatalogProduct?.source === "mercadona" ? selectedCatalogProduct.id : undefined,
           store_product_source: selectedCatalogProduct?.source,
           store_product_id: selectedCatalogProduct?.id,
@@ -927,9 +956,11 @@ function AddItemDialog({
       setName("");
       setQuantity("1");
       setPrice("");
+      setNotes("");
       setSelectedCatalogProduct(null);
       setCategory("auto");
       setPriority("normal");
+
       onAdded();
       onOpenChange(false);
     } catch (err: any) {
@@ -1076,6 +1107,20 @@ function AddItemDialog({
               </Select>
             </div>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="item-notes">Detalles (opcional)</Label>
+            <Textarea
+              id="item-notes"
+              rows={2}
+              maxLength={500}
+              placeholder="Ej. marca concreta, tamaño, sin gluten..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+
 
 
           <DialogFooter>
@@ -1351,5 +1396,161 @@ function PriceComparePopover({ name, quotes }: { name: string; quotes: PriceQuot
         </p>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** Lets the user edit an item already on the shopping list, including optional details. */
+function EditItemDialog({
+  open,
+  onOpenChange,
+  item,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  item: any;
+  onSaved: () => void;
+}) {
+  const doUpdate = useServerFn(updateShoppingItem);
+  const [name, setName] = useState(item.name ?? "");
+  const [category, setCategory] = useState<string>(item.category?.trim() || "Otros");
+  const [priority, setPriority] = useState<ShoppingPriority>(normalizePriority(item.priority));
+  const [quantity, setQuantity] = useState(String(item.quantity ?? 1));
+  const [unit, setUnit] = useState(item.unit ?? "");
+  const [price, setPrice] = useState(item.manual_price != null ? String(item.manual_price) : "");
+  const [notes, setNotes] = useState(item.notes ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setName(item.name ?? "");
+    setCategory(item.category?.trim() || "Otros");
+    setPriority(normalizePriority(item.priority));
+    setQuantity(String(item.quantity ?? 1));
+    setUnit(item.unit ?? "");
+    setPrice(item.manual_price != null ? String(item.manual_price) : "");
+    setNotes(item.notes ?? "");
+  }, [open, item]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await doUpdate({
+        data: {
+          id: item.id,
+          name: name.trim(),
+          category,
+          priority,
+          quantity: Number(quantity) || 1,
+          unit: unit.trim() ? unit.trim() : null,
+          manual_price: price ? Number(price) : null,
+          notes: notes.trim() ? notes.trim() : null,
+        },
+      });
+      toast.success("Producto actualizado");
+      onSaved();
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err?.message || "No se pudo actualizar el producto");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar producto</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Producto</Label>
+            <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <Label>Cantidad</Label>
+              <Input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Unidad</Label>
+              <Input placeholder="ud." value={unit} onChange={(e) => setUnit(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Precio (€)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Categoría</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Etiqueta</Label>
+              <Select value={priority} onValueChange={(v) => setPriority(v as ShoppingPriority)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SHOPPING_PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {PRIORITY_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-notes">Detalles (opcional)</Label>
+            <Textarea
+              id="edit-notes"
+              rows={2}
+              maxLength={500}
+              placeholder="Ej. marca concreta, tamaño, sin gluten..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" disabled={saving || !name.trim()} className="w-full">
+              {saving ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
