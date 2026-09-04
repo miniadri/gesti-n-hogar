@@ -586,6 +586,8 @@ function ShoppingItemCard({
   const [savingInv, setSavingInv] = useState(false);
   const doUpdatePriority = useServerFn(updateShoppingItemPriority);
   const [priority, setPriority] = useState<ShoppingPriority>(normalizePriority(item.priority));
+  const [editOpen, setEditOpen] = useState(false);
+
 
   const changePriority = async (next: ShoppingPriority) => {
     const previous = priority;
