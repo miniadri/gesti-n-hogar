@@ -745,6 +745,12 @@ function ShoppingItemCard({
             <p className="text-xs text-muted-foreground">
               {item.quantity} {item.unit || "ud."}
             </p>
+            {item.notes?.trim() && (
+              <p className="mt-1 w-full whitespace-pre-line break-words text-[11px] italic leading-tight text-muted-foreground">
+                {item.notes.trim()}
+              </p>
+            )}
+
             {price !== null && price !== undefined && (
               <p className="mt-1 text-sm font-bold text-primary">€{Number(price).toFixed(2)}</p>
             )}
