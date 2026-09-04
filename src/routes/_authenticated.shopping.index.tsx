@@ -1108,6 +1108,20 @@ function AddItemDialog({
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="item-notes">Detalles (opcional)</Label>
+            <Textarea
+              id="item-notes"
+              rows={2}
+              maxLength={500}
+              placeholder="Ej. marca concreta, tamaño, sin gluten..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+
+
 
           <DialogFooter>
             <Button type="submit" disabled={submitting || !name.trim()} className="w-full">
