@@ -1269,7 +1269,7 @@ function PharmacySection({ medicines }: { medicines: any[] }) {
     <section className="space-y-3">
       <div className="flex items-center gap-2">
         <Pill className="h-4 w-4 text-muted-foreground" />
-        <h3 className="font-semibold uppercase tracking-wide">Farmacia</h3>
+        <h3 className="font-semibold uppercase tracking-wide">Farmacia/Parafarmacia</h3>
         <Badge variant="secondary" className="ml-auto">{toBuy.length} pendientes</Badge>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
