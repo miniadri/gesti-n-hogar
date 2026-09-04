@@ -16,6 +16,7 @@ export const listScheduleMembers = createServerFn({ method: "GET" })
       .from("household_members")
       .select("id, display_name, is_child, user_id, avatar_url")
       .eq("household_id", householdId)
+      .neq("display_name", "Kiosko cocina")
       .order("is_child", { ascending: true })
       .order("display_name", { ascending: true });
     if (error) throw error;
