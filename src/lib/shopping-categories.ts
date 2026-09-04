@@ -53,10 +53,11 @@ const CATEGORY_RULES: Array<[RegExp, ShoppingCategory]> = [
   [/verdura|hortaliza|ensalada|lechuga|tomate|zanahoria|cebolla|patata|pimiento|calabacin|brocoli|esparrago|champinon|pepino|ajo/, "Verduras"],
   [/carne|pollo|ternera|cerdo|pavo|cordero|jamon|chorizo|salchich|embutido|bacon|hamburgues|huevo/, "Carne"],
   [/pescado|marisco|atun|salmon|merluza|bacalao|gamba|langostino|mejillon|calamar|sardina|anchoa/, "Pescado"],
-  [/pan\b|panaderia|bolleria|croissant|magdalena|bizcocho|tostada|reposteria|pasteleria|galleta/, "Panadería"],
+  [/pan\b|panaderia|bolleria|croissant|magdalena|bizcocho|tostada|reposteria|pasteleria|galleta/, "Panadería/Bollería"],
   [/bebida|agua|zumo|refresco|cerveza|vino|cafe|infusion|te\b|licor|alcohol|sidra/, "Bebidas"],
   [/limpieza|detergente|lejia|suavizante|friegaplatos|lavavajillas|limpiacristales|bayeta|estropajo|papel higienico|servilleta|fregasuelos|droguer/, "Limpieza"],
-  [/farmacia|medicament|parafarmacia|ibuprofen|paracetamol|jarabe|vitamina|tirita|mascarilla quirurg/, "Farmacia"],
+  [/higiene|desodorante|jabon|gel|champu|acondicionador|dentifrico|pasta de dientes|cepillo de dientes|hilo dental|afeitadora|coton|bastoncillo|panales|compresa|salvaslip|proteccion femenina|afeit|bano|aseo/, "Higiene"],
+  [/farmacia|medicament|parafarmacia|ibuprofen|paracetamol|jarabe|vitamina|tirita|mascarilla quirurg/, "Farmacia/Parafarmacia"],
 ];
 
 function matchRules(text: string): ShoppingCategory | null {
