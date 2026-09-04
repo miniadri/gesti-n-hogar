@@ -74,6 +74,8 @@ import {
   restoreShoppingItem,
   addInventorySuggestionToShopping,
   updateShoppingItemPriority,
+  updateShoppingItem,
+
 } from "@/lib/shopping.functions";
 import {
   SHOPPING_CATEGORIES,
