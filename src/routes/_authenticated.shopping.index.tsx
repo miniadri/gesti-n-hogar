@@ -857,6 +857,8 @@ function AddItemDialog({
   const [storeId, setStoreId] = useState<string>("");
   const [quantity, setQuantity] = useState("1");
   const [price, setPrice] = useState("");
+  const [notes, setNotes] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [selectedCatalogProduct, setSelectedCatalogProduct] = useState<StoreProductSuggestion | null>(null);
 
