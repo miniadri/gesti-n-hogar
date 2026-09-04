@@ -33,12 +33,25 @@ const ShoppingItemInput = z.object({
   store_product_brand: z.string().max(120).optional(),
   linked_inventory_item_id: z.string().uuid().optional(),
   priority: z.enum(["urgente", "normal", "sin_prisa"]).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+const UpdateItemInput = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(200).optional(),
+  category: z.string().max(80).nullable().optional(),
+  quantity: z.number().positive().optional(),
+  unit: z.string().max(20).nullable().optional(),
+  manual_price: z.number().nonnegative().nullable().optional(),
+  priority: z.enum(["urgente", "normal", "sin_prisa"]).optional(),
+  notes: z.string().max(500).nullable().optional(),
 });
 
 const UpdateItemPriorityInput = z.object({
   id: z.string().uuid(),
   priority: z.enum(["urgente", "normal", "sin_prisa"]),
 });
+
 
 const ToggleItemInput = z.object({
   id: z.string().uuid(),
