@@ -286,6 +286,38 @@ export const updateShoppingItemPriority = createServerFn({ method: "POST" })
     return item;
   });
 
+/** Updates the editable fields of a shopping item (name, amount, price, category, tag, details). */
+export const updateShoppingItem = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => UpdateItemInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { id, ...patch } = data;
+    const payload = Object.fromEntries(
+      Object.entries(patch).filter(([, value]) => value !== undefined),
+    );
+    const { data: item, error } = await context.supabase
+      .from("shopping_list_items")
+      .update(payload)
+      .eq("id", id)
+      .select("*, shopping_list:shopping_list_id(household_id)")
+      .single();
+    if (error) throw error;
+    const householdId = (item as any)?.shopping_list?.household_id;
+    if (householdId) {
+      await logHouseholdActivity(context.supabase, householdId, context.userId, {
+        domain: "shopping",
+        action: "updated",
+        title: `${item.name} actualizado en la lista`,
+        details: `${item.quantity ?? 0} ${item.unit || "ud."}`,
+        entityType: "shopping_list_item",
+        entityId: item.id,
+        metadata: payload,
+      });
+    }
+    return item;
+  });
+
+
 export const addInventorySuggestionToShopping = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => AddInventorySuggestionInput.parse(input))
