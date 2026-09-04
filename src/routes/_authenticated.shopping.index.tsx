@@ -787,6 +787,10 @@ function ShoppingItemCard({
         </CardContent>
       </Card>
 
+      <EditItemDialog open={editOpen} onOpenChange={setEditOpen} item={item} onSaved={onChange} />
+
+
+
 
       <Dialog open={locationOpen} onOpenChange={setLocationOpen}>
         <DialogContent className="sm:max-w-sm">
