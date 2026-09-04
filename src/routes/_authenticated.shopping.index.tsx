@@ -705,9 +705,17 @@ function ShoppingItemCard({
                 </Badge>
               )}
               {quotes.length > 0 && <PriceComparePopover name={item.name} quotes={quotes} />}
+              <button
+                onClick={() => setEditOpen(true)}
+                aria-label="Editar producto"
+                className="text-muted-foreground hover:text-primary"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
               <button onClick={handleDelete} className="text-muted-foreground hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
               </button>
+
             </div>
           </div>
 
