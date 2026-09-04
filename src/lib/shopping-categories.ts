@@ -6,11 +6,12 @@ export const SHOPPING_CATEGORIES = [
   "Lácteos",
   "Carne",
   "Pescado",
-  "Panadería",
+  "Panadería/Bollería",
   "Bebidas",
   "Congelados",
   "Limpieza",
-  "Farmacia",
+  "Higiene",
+  "Farmacia/Parafarmacia",
   "Otros",
 ] as const;
 
@@ -52,10 +53,11 @@ const CATEGORY_RULES: Array<[RegExp, ShoppingCategory]> = [
   [/verdura|hortaliza|ensalada|lechuga|tomate|zanahoria|cebolla|patata|pimiento|calabacin|brocoli|esparrago|champinon|pepino|ajo/, "Verduras"],
   [/carne|pollo|ternera|cerdo|pavo|cordero|jamon|chorizo|salchich|embutido|bacon|hamburgues|huevo/, "Carne"],
   [/pescado|marisco|atun|salmon|merluza|bacalao|gamba|langostino|mejillon|calamar|sardina|anchoa/, "Pescado"],
-  [/pan\b|panaderia|bolleria|croissant|magdalena|bizcocho|tostada|reposteria|pasteleria|galleta/, "Panadería"],
+  [/pan\b|panaderia|bolleria|croissant|magdalena|bizcocho|tostada|reposteria|pasteleria|galleta/, "Panadería/Bollería"],
   [/bebida|agua|zumo|refresco|cerveza|vino|cafe|infusion|te\b|licor|alcohol|sidra/, "Bebidas"],
   [/limpieza|detergente|lejia|suavizante|friegaplatos|lavavajillas|limpiacristales|bayeta|estropajo|papel higienico|servilleta|fregasuelos|droguer/, "Limpieza"],
-  [/farmacia|medicament|parafarmacia|ibuprofen|paracetamol|jarabe|vitamina|tirita|mascarilla quirurg/, "Farmacia"],
+  [/higiene|desodorante|jabon|gel|champu|acondicionador|dentifrico|pasta de dientes|cepillo de dientes|hilo dental|afeitadora|coton|bastoncillo|panales|compresa|salvaslip|proteccion femenina|afeit|bano|aseo/, "Higiene"],
+  [/farmacia|medicament|parafarmacia|ibuprofen|paracetamol|jarabe|vitamina|tirita|mascarilla quirurg/, "Farmacia/Parafarmacia"],
 ];
 
 function matchRules(text: string): ShoppingCategory | null {
@@ -101,10 +103,11 @@ export const CATEGORY_COLORS: Record<ShoppingCategory, string> = {
   Lácteos: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
   Carne: "bg-red-500/15 text-red-700 dark:text-red-300",
   Pescado: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
-  Panadería: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  "Panadería/Bollería": "bg-amber-500/15 text-amber-700 dark:text-amber-300",
   Bebidas: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   Congelados: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
   Limpieza: "bg-teal-500/15 text-teal-700 dark:text-teal-300",
-  Farmacia: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  Higiene: "bg-pink-500/15 text-pink-700 dark:text-pink-300",
+  "Farmacia/Parafarmacia": "bg-violet-500/15 text-violet-700 dark:text-violet-300",
   Otros: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
 };
