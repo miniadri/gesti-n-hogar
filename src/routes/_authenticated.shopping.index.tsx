@@ -23,6 +23,7 @@ import {
   Croissant,
   Egg,
   SprayCan,
+  Sparkles,
   Baby,
   Dog,
   Shirt,
