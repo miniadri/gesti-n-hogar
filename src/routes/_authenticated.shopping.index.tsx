@@ -943,6 +943,7 @@ function AddItemDialog({
           priority,
           quantity: Number(quantity) || 1,
           manual_price: price ? Number(price) : undefined,
+          notes: notes.trim() ? notes.trim() : undefined,
           mercadona_id: selectedCatalogProduct?.source === "mercadona" ? selectedCatalogProduct.id : undefined,
           store_product_source: selectedCatalogProduct?.source,
           store_product_id: selectedCatalogProduct?.id,
@@ -955,9 +956,11 @@ function AddItemDialog({
       setName("");
       setQuantity("1");
       setPrice("");
+      setNotes("");
       setSelectedCatalogProduct(null);
       setCategory("auto");
       setPriority("normal");
+
       onAdded();
       onOpenChange(false);
     } catch (err: any) {
