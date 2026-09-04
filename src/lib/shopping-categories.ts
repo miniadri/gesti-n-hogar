@@ -6,11 +6,12 @@ export const SHOPPING_CATEGORIES = [
   "Lácteos",
   "Carne",
   "Pescado",
-  "Panadería",
+  "Panadería/Bollería",
   "Bebidas",
   "Congelados",
   "Limpieza",
-  "Farmacia",
+  "Higiene",
+  "Farmacia/Parafarmacia",
   "Otros",
 ] as const;
 
