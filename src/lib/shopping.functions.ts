@@ -3,6 +3,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logHouseholdActivity } from "./activity.functions";
 
+
+
 const StoreInput = z.object({
   name: z.string().min(1).max(100),
   color: z.string().optional(),
