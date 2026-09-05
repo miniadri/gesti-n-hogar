@@ -20,11 +20,14 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   X,
+  Bot,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +36,8 @@ import { supabase } from "@/integrations/supabase/client-app";
 import { cn } from "@/lib/utils";
 import { useNavPreferences, type NavKey } from "@/lib/nav-preferences";
 import { SosAckBanner } from "@/components/SosAckBanner";
+import { KioskVoiceAssistant } from "@/components/KioskVoiceAssistant";
+import { ensureKioskMember } from "@/lib/household.functions";
 import { KIOSK_ACTIVE_KEY, kioskSearch } from "@/lib/kiosk";
 
 
@@ -189,6 +194,7 @@ function KioskSectionShell({
                 <span className="sr-only">Escáner</span>
               </Link>
             </Button>
+            <KioskVoiceHeaderButton />
             <div className="min-w-0 pl-1">
               <p className="truncate text-sm font-semibold text-muted-foreground">Modo kiosko</p>
               {title && <h1 className="truncate text-lg font-bold leading-tight">{title}</h1>}
@@ -207,6 +213,36 @@ function KioskSectionShell({
         </div>
       </main>
     </div>
+  );
+}
+
+function KioskVoiceHeaderButton() {
+  const doEnsureKioskMember = useServerFn(ensureKioskMember);
+  const [open, setOpen] = useState(false);
+  const [kioskMemberId, setKioskMemberId] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!open || kioskMemberId) return;
+    doEnsureKioskMember()
+      .then((member: any) => setKioskMemberId(member?.id))
+      .catch(() => setKioskMemberId(undefined));
+  }, [doEnsureKioskMember, kioskMemberId, open]);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="icon" title="Asistente de voz">
+          <Bot className="h-5 w-5" />
+          <span className="sr-only">Asistente de voz</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Asistente de voz</DialogTitle>
+        </DialogHeader>
+        <KioskVoiceAssistant kioskMemberId={kioskMemberId} />
+      </DialogContent>
+    </Dialog>
   );
 }
 

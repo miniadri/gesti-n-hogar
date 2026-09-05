@@ -371,7 +371,7 @@ function matchAfter(text: string, prefixes: string[], suffixes: string[]) {
         value = value.slice(0, -suffix.trim().length).trim();
       }
     }
-    value = value.replace(/\b(a la|en la|de la|lista|compra)\b/g, " ").replace(/\s+/g, " ").trim();
+    value = stripShoppingDestination(value);
     if (value) return value;
   }
   return "";
@@ -379,7 +379,12 @@ function matchAfter(text: string, prefixes: string[], suffixes: string[]) {
 
 function matchShoppingItem(text: string, verbs: string[]) {
   for (const verb of verbs) {
+    if (text === verb || !text.startsWith(`${verb} `)) continue;
+    const value = stripShoppingDestination(text.slice(verb.length).trim());
+    if (value) return value;
+
     const patterns = [
+      new RegExp(`^${verb}\\s+(.+?)\\s+a\\s+la\\s+lista\\s+de\\s+la\\s+compra$`),
       new RegExp(`^${verb}\\s+(.+?)\\s+(?:a|en|de)\\s+la\\s+(?:lista\\s+de\\s+)?compra$`),
       new RegExp(`^${verb}\\s+(.+?)\\s+(?:a|en|de)\\s+compra$`),
       new RegExp(`^${verb}\\s+(.+?)\\s+(?:a|en|de)\\s+la\\s+lista$`),
@@ -393,7 +398,37 @@ function matchShoppingItem(text: string, verbs: string[]) {
 }
 
 function cleanItem(value: string) {
-  return value.replace(/\b(por favor|gracias)\b/g, "").replace(/\s+/g, " ").trim();
+  return stripShoppingDestination(value)
+    .replace(/\b(por favor|gracias)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stripShoppingDestination(value: string) {
+  let result = value.replace(/\s+/g, " ").trim();
+  const suffixes = [
+    /\s+a\s+la\s+lista\s+de\s+la\s+compra$/i,
+    /\s+a\s+la\s+lista\s+de\s+compra$/i,
+    /\s+en\s+la\s+lista\s+de\s+la\s+compra$/i,
+    /\s+en\s+la\s+lista\s+de\s+compra$/i,
+    /\s+(?:a|en|de)\s+la\s+compra$/i,
+    /\s+(?:a|en|de)\s+compra$/i,
+    /\s+(?:a|en|de)\s+la\s+lista$/i,
+    /\s+lista\s+de\s+la\s+compra$/i,
+    /\s+lista\s+de\s+compra$/i,
+  ];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const suffix of suffixes) {
+      const next = result.replace(suffix, "").trim();
+      if (next !== result) {
+        result = next;
+        changed = true;
+      }
+    }
+  }
+  return result;
 }
 
 function normalize(value: string) {

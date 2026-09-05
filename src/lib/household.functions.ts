@@ -126,7 +126,8 @@ export const renameMember = createServerFn({ method: "POST" })
       throw new Error("Solo un administrador puede renombrar a otros miembros");
     }
 
-    const { data: member, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: member, error } = await supabaseAdmin
       .from("household_members")
       .update({ display_name: data.display_name })
       .eq("id", data.member_id)
