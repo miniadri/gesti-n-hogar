@@ -1,7 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
 import { logHouseholdActivity } from "./activity.functions";
+
+type ShoppingItemRow = Database["public"]["Tables"]["shopping_list_items"]["Row"] & {
+  notes?: string | null;
+};
+type ShoppingItemInsert = Database["public"]["Tables"]["shopping_list_items"]["Insert"] & {
+  notes?: string | null;
+};
+type ShoppingItemUpdate = Database["public"]["Tables"]["shopping_list_items"]["Update"] & {
+  notes?: string | null;
+};
+type ShoppingItemWithHousehold = ShoppingItemRow & {
+  shopping_list: { household_id: string } | null;
+};
+
 
 const StoreInput = z.object({
   name: z.string().min(1).max(100),
