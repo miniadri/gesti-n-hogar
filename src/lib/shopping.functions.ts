@@ -255,7 +255,7 @@ export const createShoppingItem = createServerFn({ method: "POST" })
     const householdId = await getHouseholdIdForShoppingList(context.supabase, data.shopping_list_id);
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .insert(data as any)
+      .insert(data)
       .select()
       .single();
     if (error) throw error;
@@ -299,12 +299,12 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
     );
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update(payload as any)
+      .update(payload)
       .eq("id", id)
       .select("*, shopping_list:shopping_list_id(household_id)")
       .single();
     if (error) throw error;
-    const householdId = (item as any)?.shopping_list?.household_id;
+    const householdId = (item as { shopping_list?: { household_id?: string | null } | null })?.shopping_list?.household_id;
     if (householdId) {
       await logHouseholdActivity(context.supabase, householdId, context.userId, {
         domain: "shopping",
