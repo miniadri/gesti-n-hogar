@@ -47,6 +47,7 @@ const UpdateItemInput = z.object({
   manual_price: z.number().nonnegative().nullable().optional(),
   priority: z.enum(["urgente", "normal", "sin_prisa"]).optional(),
   notes: z.string().max(500).nullable().optional(),
+  shopping_list_id: z.string().uuid().optional(),
 });
 
 const UpdateItemPriorityInput = z.object({
@@ -85,6 +86,20 @@ export const listStores = createServerFn({ method: "GET" })
       .eq("household_id", householdId)
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  });
+
+export const listActiveShoppingLists = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const { data, error } = await context.supabase
+      .from("shopping_lists")
+      .select("id, store_id, name")
+      .eq("household_id", householdId)
+      .eq("is_archived", false);
     if (error) throw error;
     return data ?? [];
   });
@@ -294,6 +309,18 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
   .inputValidator((input) => UpdateItemInput.parse(input))
   .handler(async ({ data, context }) => {
     const { id, ...patch } = data;
+    if (patch.shopping_list_id) {
+      const householdId = (await context.supabase.rpc("current_household")).data;
+      const { data: targetList, error: targetError } = await context.supabase
+        .from("shopping_lists")
+        .select("id")
+        .eq("id", patch.shopping_list_id)
+        .eq("household_id", householdId)
+        .eq("is_archived", false)
+        .maybeSingle();
+      if (targetError) throw targetError;
+      if (!targetList) throw new Error("La tienda seleccionada no pertenece a este hogar");
+    }
     const payload = Object.fromEntries(
       Object.entries(patch).filter(([, value]) => value !== undefined),
     );

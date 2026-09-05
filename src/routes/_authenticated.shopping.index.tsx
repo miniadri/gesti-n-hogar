@@ -75,6 +75,7 @@ import {
   addInventorySuggestionToShopping,
   updateShoppingItemPriority,
   updateShoppingItem,
+  listActiveShoppingLists,
 
 } from "@/lib/shopping.functions";
 import {
@@ -191,8 +192,9 @@ const shoppingQueryOptions = queryOptions({
   queryKey: ["shopping"],
   queryFn: async () => {
     await ensureDefaultLists();
-    const [stores, items, recent, medicines, inventory] = await Promise.all([
+    const [stores, lists, items, recent, medicines, inventory] = await Promise.all([
       listStores(),
+      listActiveShoppingLists(),
       listShoppingItems(),
       listRecentItems(),
       listMedicines(),
@@ -203,7 +205,7 @@ const shoppingQueryOptions = queryOptions({
       names.length > 0 ? comparePrices({ data: { names } }) : Promise.resolve({} as Record<string, PriceQuote[]>),
       listHouseholdActivity({ data: { limit: 10 } }),
     ]);
-    return { stores, items, recent, medicines, inventory, prices, activity };
+    return { stores, lists, items, recent, medicines, inventory, prices, activity };
   },
 });
 
@@ -325,6 +327,8 @@ function ShoppingPage() {
                 <ShoppingItemCard
                   key={item.id}
                   item={item}
+                  stores={data.stores}
+                  lists={data.lists}
                   onChange={refresh}
                   quotes={data.prices[normalizeKey(item.name)] ?? []}
                 />
@@ -569,10 +573,14 @@ function RecentItemsSection({
 
 function ShoppingItemCard({
   item,
+  stores,
+  lists,
   onChange,
   quotes = [],
 }: {
   item: any;
+  stores: any[];
+  lists: any[];
   onChange: () => void;
   quotes?: PriceQuote[];
 }) {
@@ -787,7 +795,7 @@ function ShoppingItemCard({
         </CardContent>
       </Card>
 
-      <EditItemDialog open={editOpen} onOpenChange={setEditOpen} item={item} onSaved={onChange} />
+      <EditItemDialog open={editOpen} onOpenChange={setEditOpen} item={item} stores={stores} lists={lists} onSaved={onChange} />
 
 
 
@@ -1374,6 +1382,8 @@ function PharmacySection({ medicines }: { medicines: any[] }) {
 
 function PharmacyEditDialog({
   item,
+  stores,
+  lists,
   open,
   onOpenChange,
   onSaved,
@@ -1530,11 +1540,15 @@ function EditItemDialog({
   open,
   onOpenChange,
   item,
+  stores,
+  lists,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   item: any;
+  stores: any[];
+  lists: any[];
   onSaved: () => void;
 }) {
   const doUpdate = useServerFn(updateShoppingItem);
@@ -1545,6 +1559,7 @@ function EditItemDialog({
   const [unit, setUnit] = useState(item.unit ?? "");
   const [price, setPrice] = useState(item.manual_price != null ? String(item.manual_price) : "");
   const [notes, setNotes] = useState(item.notes ?? "");
+  const [shoppingListId, setShoppingListId] = useState(item.shopping_list_id ?? "");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -1556,6 +1571,7 @@ function EditItemDialog({
     setUnit(item.unit ?? "");
     setPrice(item.manual_price != null ? String(item.manual_price) : "");
     setNotes(item.notes ?? "");
+    setShoppingListId(item.shopping_list_id ?? item.shopping_list?.id ?? "");
   }, [open, item]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1573,6 +1589,7 @@ function EditItemDialog({
           unit: unit.trim() ? unit.trim() : null,
           manual_price: price ? Number(price) : null,
           notes: notes.trim() ? notes.trim() : null,
+          shopping_list_id: shoppingListId || undefined,
         },
       });
       toast.success("Producto actualizado");
@@ -1656,6 +1673,24 @@ function EditItemDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Tienda</Label>
+            <Select value={shoppingListId} onValueChange={setShoppingListId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona una tienda" />
+              </SelectTrigger>
+              <SelectContent>
+                {stores.map((store: any) => {
+                  const list = lists.find((candidate: any) => candidate.store_id === store.id);
+                  return list?.id ? (
+                    <SelectItem key={list.id} value={list.id}>{store.name}</SelectItem>
+                  ) : null;
+                })}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Al guardar, el producto pasará a la lista de la tienda elegida.</p>
           </div>
 
           <div className="space-y-2">
