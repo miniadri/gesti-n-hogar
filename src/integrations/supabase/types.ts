@@ -2346,6 +2346,7 @@ export type Database = {
           store_product_url: string | null
           unit: string | null
           updated_at: string
+          notes: string | null
         }
         Insert: {
           category?: string | null
@@ -2367,6 +2368,7 @@ export type Database = {
           store_product_url?: string | null
           unit?: string | null
           updated_at?: string
+          notes: string | null
         }
         Update: {
           category?: string | null
@@ -2388,6 +2390,7 @@ export type Database = {
           store_product_url?: string | null
           unit?: string | null
           updated_at?: string
+          notes: string | null
         }
         Relationships: [
           {
