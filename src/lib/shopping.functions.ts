@@ -50,6 +50,15 @@ const UpdateItemInput = z.object({
   shopping_list_id: z.string().uuid().optional(),
 });
 
+function normalizeProductName(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 const UpdateItemPriorityInput = z.object({
   id: z.string().uuid(),
   priority: z.enum(["urgente", "normal", "sin_prisa"]),
@@ -309,17 +318,56 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
   .inputValidator((input) => UpdateItemInput.parse(input))
   .handler(async ({ data, context }) => {
     const { id, ...patch } = data;
+    let movedStore = false;
+    let targetStoreId: string | null = null;
     if (patch.shopping_list_id) {
       const householdId = (await context.supabase.rpc("current_household")).data;
       const { data: targetList, error: targetError } = await context.supabase
         .from("shopping_lists")
-        .select("id")
+        .select("id, store_id")
         .eq("id", patch.shopping_list_id)
         .eq("household_id", householdId)
         .eq("is_archived", false)
         .maybeSingle();
       if (targetError) throw targetError;
       if (!targetList) throw new Error("La tienda seleccionada no pertenece a este hogar");
+
+      const { data: currentItem, error: currentError } = await context.supabase
+        .from("shopping_list_items")
+        .select("name, shopping_list:shopping_list_id(store_id)")
+        .eq("id", id)
+        .single();
+      if (currentError) throw currentError;
+      const currentStoreId = (currentItem as any)?.shopping_list?.store_id ?? null;
+      targetStoreId = targetList.store_id ?? null;
+      movedStore = currentStoreId !== targetStoreId;
+
+      // A store move must never leave a price/link belonging to the old store.
+      if (movedStore) {
+        (patch as any).manual_price = null;
+        (patch as any).store_product_source = null;
+        (patch as any).store_product_id = null;
+        (patch as any).store_product_url = null;
+        (patch as any).store_product_brand = null;
+
+        // Reuse the latest catalog price for the same household/store/product name.
+        const name = String(patch.name ?? (currentItem as any)?.name ?? "");
+        if (householdId && targetStoreId && name) {
+          const { data: candidates } = await context.supabase
+            .from("product_prices")
+            .select("last_price, last_seen_at, store_id, products:product_ean(name)")
+            .eq("household_id", householdId)
+            .eq("store_id", targetStoreId)
+            .order("last_seen_at", { ascending: false })
+            .limit(200);
+          const wanted = normalizeProductName(name);
+          const match = (candidates ?? []).find((candidate: any) =>
+            normalizeProductName(candidate.products?.name ?? "") === wanted &&
+            Number(candidate.last_price) > 0,
+          ) as any;
+          if (match) (patch as any).manual_price = Number(match.last_price);
+        }
+      }
     }
     const payload = Object.fromEntries(
       Object.entries(patch).filter(([, value]) => value !== undefined),
