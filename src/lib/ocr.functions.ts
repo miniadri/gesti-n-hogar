@@ -75,7 +75,13 @@ function coerceReceipt(obj: any): Receipt {
 }
 
 function getGeminiApiKey() {
-  return process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+  return (process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY)?.trim();
+}
+
+function getGeminiOcrModels() {
+  const configured = process.env.GEMINI_OCR_MODEL?.trim();
+  const models = [configured, "gemini-3.6-flash", "gemini-3-flash-preview"].filter(Boolean) as string[];
+  return [...new Set(models)];
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {
@@ -101,33 +107,44 @@ async function scanWithGemini(imageUrl: string): Promise<Receipt> {
 
   const contentType = mediaResponse.headers.get("content-type")?.split(";")[0]?.trim() || "image/jpeg";
   const data = arrayBufferToBase64(await mediaResponse.arrayBuffer());
-  const model = process.env.GEMINI_OCR_MODEL || "gemini-2.5-flash";
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: RECEIPT_PROMPT },
-              { inline_data: { mime_type: contentType, data } },
-            ],
-          },
+  const body = JSON.stringify({
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: RECEIPT_PROMPT },
+          { inline_data: { mime_type: contentType, data } },
         ],
-        generationConfig: {
-          temperature: 0,
-          responseMimeType: "application/json",
-        },
-      }),
+      },
+    ],
+    generationConfig: {
+      temperature: 0,
+      responseMimeType: "application/json",
     },
-  );
+  });
 
-  if (!response.ok) {
-    const message = await response.text().catch(() => "");
-    throw new Error(`Gemini OCR respondió ${response.status}${message ? `: ${message.slice(0, 220)}` : ""}`);
+  let response: Response | null = null;
+  let lastMessage = "";
+  for (const model of getGeminiOcrModels()) {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      },
+    );
+
+    if (response.ok) break;
+
+    lastMessage = await response.text().catch(() => "");
+    if (response.status !== 404) {
+      throw new Error(`Gemini OCR respondió ${response.status}${lastMessage ? `: ${lastMessage.slice(0, 220)}` : ""}`);
+    }
+  }
+
+  if (!response?.ok) {
+    throw new Error(`Gemini OCR respondió 404${lastMessage ? `: ${lastMessage.slice(0, 220)}` : ""}`);
   }
 
   const payload = await response.json();
