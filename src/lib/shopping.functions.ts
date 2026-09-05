@@ -268,7 +268,7 @@ export const createShoppingItem = createServerFn({ method: "POST" })
     const householdId = await getHouseholdIdForShoppingList(context.supabase, data.shopping_list_id);
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .insert(data as any)
+      .insert(data as ShoppingItemInsert)
       .select()
       .single();
     if (error) throw error;
