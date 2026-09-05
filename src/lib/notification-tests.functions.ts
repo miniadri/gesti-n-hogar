@@ -27,16 +27,19 @@ export const sendTelegramTest = createServerFn({ method: "POST" })
 export const sendPushTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { sendPushToUsers } = await import("@/lib/notify.server");
-    const sent = await sendPushToUsers(context.supabase, [context.userId], {
+    const { sendPushToUsersDetailed } = await import("@/lib/notify.server");
+    const result = await sendPushToUsersDetailed(context.supabase, [context.userId], {
       title: "Prueba de HomeSync",
       body: "Las notificaciones web están funcionando en este dispositivo.",
       url: "/settings/notifications",
     });
 
     return {
-      ok: sent,
-      sent: sent ? 1 : 0,
-      reason: sent ? null : "push_not_enabled_or_delivery_failed",
+      ok: result.ok,
+      sent: result.sent,
+      attempted: result.attempted,
+      subscriptions: result.subscriptions,
+      reason: result.reason,
+      details: result.details,
     };
   });

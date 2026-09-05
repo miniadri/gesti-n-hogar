@@ -46,36 +46,133 @@ export async function sendPushToUsers(
   userIds: string[],
   payload: { title: string; body: string; url: string },
 ): Promise<boolean> {
-  if (userIds.length === 0) return false;
+  const result = await sendPushToUsersDetailed(supabase, userIds, payload);
+  return result.sent > 0;
+}
+
+export type PushDeliveryDetail = {
+  ok: boolean;
+  subscriptionId?: string;
+  endpointHost?: string | null;
+  statusCode?: number | null;
+  error?: string | null;
+};
+
+export type PushDeliveryResult = {
+  ok: boolean;
+  sent: number;
+  attempted: number;
+  subscriptions: number;
+  reason: string | null;
+  details: PushDeliveryDetail[];
+};
+
+export async function sendPushToUsersDetailed(
+  supabase: any,
+  userIds: string[],
+  payload: { title: string; body: string; url: string },
+): Promise<PushDeliveryResult> {
+  if (userIds.length === 0) {
+    return {
+      ok: false,
+      sent: 0,
+      attempted: 0,
+      subscriptions: 0,
+      reason: "no_users",
+      details: [],
+    };
+  }
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
-  if (!pub || !priv) return false;
+  if (!pub || !priv) {
+    return {
+      ok: false,
+      sent: 0,
+      attempted: 0,
+      subscriptions: 0,
+      reason: "vapid_missing",
+      details: [],
+    };
+  }
   try {
-    webPush.setVapidDetails("mailto:admin@homesync.app", pub, priv);
+    webPush.setVapidDetails("mailto:admin@homesync.app", pub.trim(), priv.trim());
   } catch (err) {
     console.error("push configuration failed", err);
-    return false;
+    return {
+      ok: false,
+      sent: 0,
+      attempted: 0,
+      subscriptions: 0,
+      reason: "vapid_invalid",
+      details: [{ ok: false, error: err instanceof Error ? err.message : "Configuración VAPID inválida" }],
+    };
   }
   const { data: subs } = await supabase
     .from("push_subscriptions")
     .select("id, endpoint, p256dh, auth")
     .in("user_id", userIds);
-  let any = false;
-  for (const sub of (subs ?? []) as any[]) {
+  const rows = (subs ?? []) as any[];
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      sent: 0,
+      attempted: 0,
+      subscriptions: 0,
+      reason: "no_subscriptions",
+      details: [],
+    };
+  }
+
+  let sent = 0;
+  const details: PushDeliveryDetail[] = [];
+  for (const sub of rows) {
+    const detail: PushDeliveryDetail = {
+      ok: false,
+      subscriptionId: sub.id,
+      endpointHost: safeEndpointHost(sub.endpoint),
+      statusCode: null,
+      error: null,
+    };
     try {
       await webPush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify(payload),
+        JSON.stringify({
+          ...payload,
+          tag: `homesync-${payload.url}`,
+          timestamp: Date.now(),
+          vibrate: [120, 60, 120],
+        }),
       );
-      any = true;
+      sent += 1;
+      detail.ok = true;
     } catch (err: any) {
       console.error("push failed", err?.statusCode, err?.body);
+      detail.statusCode = err?.statusCode ?? null;
+      detail.error = err?.body || err?.message || "delivery_failed";
       if (err?.statusCode === 404 || err?.statusCode === 410) {
         await supabase.from("push_subscriptions").delete().eq("id", sub.id);
       }
+    } finally {
+      details.push(detail);
     }
   }
-  return any;
+
+  return {
+    ok: sent > 0,
+    sent,
+    attempted: rows.length,
+    subscriptions: rows.length,
+    reason: sent > 0 ? null : "delivery_failed",
+    details,
+  };
+}
+
+function safeEndpointHost(endpoint: string) {
+  try {
+    return new URL(endpoint).host;
+  } catch {
+    return null;
+  }
 }
 
 export async function resolveHouseholdUserIds(

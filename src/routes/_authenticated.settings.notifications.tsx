@@ -35,13 +35,25 @@ function NotificationsSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [testLoading, setTestLoading] = useState<"telegram" | "push" | null>(null);
+  const [localTestLoading, setLocalTestLoading] = useState(false);
+  const [lastPushResult, setLastPushResult] = useState<{
+    ok: boolean;
+    sent: number;
+    attempted: number;
+    subscriptions: number;
+    reason: string | null;
+    details?: Array<{ ok: boolean; endpointHost?: string | null; statusCode?: number | null; error?: string | null }>;
+  } | null>(null);
   const [pushStatus, setPushStatus] = useState<{
     supported: boolean;
     permission: NotificationPermission | "unsupported";
     serviceWorker: string;
+    controller: string;
     browserSubscription: boolean;
     displayMode: string;
     endpointHost: string | null;
+    visibility: string;
+    online: boolean;
   } | null>(null);
   const queryClient = useQueryClient();
   const { data: telegramProfile } = useSuspenseQuery(telegramQueryOptions);
@@ -66,9 +78,12 @@ function NotificationsSettingsPage() {
         supported: false,
         permission: "unsupported",
         serviceWorker: "No soportado",
+        controller: "No",
         browserSubscription: false,
         displayMode,
         endpointHost: null,
+        visibility: document.visibilityState,
+        online: navigator.onLine,
       });
       return;
     }
@@ -77,6 +92,9 @@ function NotificationsSettingsPage() {
       const existing = await navigator.serviceWorker.getRegistration("/");
       const reg = existing ?? (await navigator.serviceWorker.register("/sw.js", { scope: "/" }));
       await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) {
+        await navigator.serviceWorker.ready;
+      }
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
         await doSubscribe({ data: sub.toJSON() as any });
@@ -86,9 +104,12 @@ function NotificationsSettingsPage() {
         supported: true,
         permission: Notification.permission,
         serviceWorker: reg.active ? "Activo" : reg.installing ? "Instalando" : reg.waiting ? "Esperando" : "Registrado",
+        controller: navigator.serviceWorker.controller ? "Sí" : "Pendiente hasta recargar",
         browserSubscription: Boolean(sub),
         displayMode,
         endpointHost: sub ? safeEndpointHost(sub.endpoint) : null,
+        visibility: document.visibilityState,
+        online: navigator.onLine,
       });
     } catch (err) {
       console.error("SW register failed", err);
@@ -97,9 +118,12 @@ function NotificationsSettingsPage() {
         supported: true,
         permission: "Notification" in window ? Notification.permission : "unsupported",
         serviceWorker: err instanceof Error ? err.message : "Error",
+        controller: navigator.serviceWorker?.controller ? "Sí" : "No",
         browserSubscription: false,
         displayMode,
         endpointHost: null,
+        visibility: document.visibilityState,
+        online: navigator.onLine,
       });
     }
   };
@@ -140,7 +164,7 @@ function NotificationsSettingsPage() {
         );
       }
       const { publicKey } = await getKey();
-      if (!publicKey) throw new Error("VAPID key no configurada");
+      if (!publicKey) throw new Error("VAPID_PUBLIC_KEY no configurada en Cloudflare");
       const existing = await navigator.serviceWorker.getRegistration("/");
       const reg = existing ?? (await navigator.serviceWorker.register("/sw.js", { scope: "/" }));
       await navigator.serviceWorker.ready;
@@ -148,7 +172,7 @@ function NotificationsSettingsPage() {
       if (previousSub) await previousSub.unsubscribe();
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+        applicationServerKey: urlBase64ToUint8Array(publicKey.trim()),
       });
       await doSubscribe({ data: sub.toJSON() as any });
       setSubscribed(true);
@@ -211,16 +235,59 @@ function NotificationsSettingsPage() {
     setTestLoading("push");
     try {
       const result = await doPushTest();
+      setLastPushResult(result as any);
       if (result.ok) {
-        toast.success("Prueba push enviada");
+        toast.success(`Prueba push enviada (${result.sent}/${result.attempted})`);
       } else {
-        toast.warning("No se encontró una suscripción push activa. Pulsa Desactivar y luego Activar notificaciones para regenerarla.");
+        toast.warning(pushReasonLabel(result.reason));
         await inspectPushState();
       }
     } catch (err: any) {
       toast.error(err.message || "Error al probar push");
     } finally {
       setTestLoading(null);
+    }
+  };
+
+  const handleLocalNotificationTest = async () => {
+    setLocalTestLoading(true);
+    try {
+      if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+        throw new Error("Este navegador no soporta notificaciones web");
+      }
+      const perm = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+      if (perm !== "granted") {
+        throw new Error("Permiso de notificaciones no concedido para este sitio");
+      }
+      const existing = await navigator.serviceWorker.getRegistration("/");
+      const reg = existing ?? (await navigator.serviceWorker.register("/sw.js", { scope: "/" }));
+      await navigator.serviceWorker.ready;
+
+      if (reg.active) {
+        reg.active.postMessage({
+          type: "HOMESYNC_SHOW_TEST_NOTIFICATION",
+          title: "Prueba local de HomeSync",
+          body: "Si ves este aviso, Android/Chrome permite mostrar notificaciones para HomeSync.",
+          url: "/settings/notifications",
+        });
+      } else {
+        await reg.showNotification("Prueba local de HomeSync", {
+          body: "Si ves este aviso, Android/Chrome permite mostrar notificaciones para HomeSync.",
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: "homesync-local-test",
+          renotify: true,
+          vibrate: [140, 70, 140],
+          data: { url: "/settings/notifications" },
+        });
+      }
+      await inspectPushState();
+      toast.success("Prueba local solicitada");
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo mostrar la notificación local");
+      await inspectPushState();
+    } finally {
+      setLocalTestLoading(false);
     }
   };
 
@@ -278,17 +345,25 @@ function NotificationsSettingsPage() {
               <Smartphone className="mr-2 h-4 w-4" />
               Diagnosticar este dispositivo
             </Button>
+            <Button variant="outline" onClick={handleLocalNotificationTest} disabled={localTestLoading} className="w-full sm:col-span-2">
+              {localTestLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <BellRing className="mr-2 h-4 w-4" />
+              Probar notificación local en este dispositivo
+            </Button>
           </div>
           {pushStatus && (
             <div className="grid gap-2 rounded-lg border bg-muted/30 p-3 text-sm sm:grid-cols-2">
               <InfoPill label="Soporte" value={pushStatus.supported ? "Compatible" : "No compatible"} />
               <InfoPill label="Permiso" value={permissionLabel(pushStatus.permission)} />
               <InfoPill label="Service worker" value={pushStatus.serviceWorker} />
+              <InfoPill label="Control SW" value={pushStatus.controller} />
               <InfoPill label="Suscripción local" value={pushStatus.browserSubscription ? "Existe" : "No existe"} />
               <InfoPill label="Modo" value={pushStatus.displayMode} />
               <InfoPill label="Proveedor push" value={pushStatus.endpointHost ?? "Sin endpoint"} />
+              <InfoPill label="Conexión" value={pushStatus.online ? "Online" : "Offline"} />
+              <InfoPill label="Estado pantalla" value={pushStatus.visibility} />
               <p className="text-xs text-muted-foreground sm:col-span-2">
-                Chrome y la app instalada pueden guardar suscripciones distintas. Activa o repara las notificaciones en cada modo que vayas a usar.
+                Primero prueba la notificación local. Si no aparece, revisa permisos de Android/Chrome para este sitio. Si aparece pero falla “Probar push”, el problema está en VAPID, suscripción o envío del servidor.
               </p>
             </div>
           )}
@@ -325,6 +400,28 @@ function NotificationsSettingsPage() {
             Las pruebas se envían solo a tu usuario actual. Sirven para comprobar el canal antes de depender de
             recordatorios o alertas reales.
           </p>
+          {lastPushResult && (
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm sm:col-span-2">
+              <p className="font-medium">
+                Última prueba push: {lastPushResult.ok ? "enviada" : "fallida"}
+              </p>
+              <p className="text-muted-foreground">
+                Enviadas: {lastPushResult.sent} · Intentos: {lastPushResult.attempted} · Suscripciones: {lastPushResult.subscriptions}
+              </p>
+              {lastPushResult.reason && (
+                <p className="mt-1 text-muted-foreground">Motivo: {pushReasonLabel(lastPushResult.reason)}</p>
+              )}
+              {lastPushResult.details?.length ? (
+                <div className="mt-2 space-y-1">
+                  {lastPushResult.details.map((detail, index) => (
+                    <p key={index} className="break-words text-xs text-muted-foreground">
+                      {detail.endpointHost ?? "endpoint"}: {detail.ok ? "OK" : `Error ${detail.statusCode ?? ""} ${detail.error ?? ""}`.trim()}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -422,6 +519,23 @@ function safeEndpointHost(endpoint: string) {
     return new URL(endpoint).host;
   } catch {
     return "endpoint no legible";
+  }
+}
+
+function pushReasonLabel(reason: string | null | undefined) {
+  switch (reason) {
+    case "no_users":
+      return "No hay usuario autenticado para enviar la prueba.";
+    case "vapid_missing":
+      return "Faltan VAPID_PUBLIC_KEY o VAPID_PRIVATE_KEY en Cloudflare.";
+    case "vapid_invalid":
+      return "Las claves VAPID no son válidas o no coinciden.";
+    case "no_subscriptions":
+      return "No hay suscripción push guardada. Pulsa Reparar suscripción push.";
+    case "delivery_failed":
+      return "El servidor intentó enviar la push, pero el proveedor la rechazó.";
+    default:
+      return "No se pudo enviar la prueba push.";
   }
 }
 
