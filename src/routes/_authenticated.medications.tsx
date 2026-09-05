@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSuspenseQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -128,6 +128,8 @@ function MedicationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [medicalRegistryOpen, setMedicalRegistryOpen] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [showFloatingActions, setShowFloatingActions] = useState(false);
 
   const doCreate = useServerFn(createMedication);
   const doUpdate = useServerFn(updateMedication);
@@ -160,6 +162,17 @@ function MedicationsPage() {
     if (m.low_stock_threshold == null || m.current_quantity == null) return false;
     return m.current_quantity <= m.low_stock_threshold;
   });
+
+  useEffect(() => {
+    const node = headerRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowFloatingActions(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   const handleSave = async (payload: any) => {
     try {
@@ -234,7 +247,7 @@ function MedicationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div ref={headerRef} className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Salud</h2>
           <p className="text-muted-foreground">Medicación, registro médico y datos de emergencia</p>
@@ -440,6 +453,25 @@ function MedicationsPage() {
         medicalRegistry={medicalRegistry}
         onSave={handleSave}
       />
+
+      {showFloatingActions && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 md:bottom-6">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-full border bg-background/95 p-2 shadow-lg backdrop-blur">
+            <SosButton variant="compact" />
+            <Button
+              size="sm"
+              className="rounded-full"
+              onClick={() => {
+                setEditing(null);
+                setDialogOpen(true);
+              }}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Añadir medicación
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

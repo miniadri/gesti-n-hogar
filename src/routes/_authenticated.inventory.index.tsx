@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight, Pill, ChevronDown, ScanBarcode, ChefHat, SlidersHorizontal } from "lucide-react";
+import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight, Pill, ChevronDown, ScanBarcode, ChefHat, SlidersHorizontal, Search, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ import { getMercadonaProduct } from "@/lib/mercadona.functions";
 import { listInventory, createInventoryItem, deleteInventoryItem, restoreInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
 import { listMedicines, createMedicine, updateMedicine, deleteMedicine, restoreMedicine } from "@/lib/medicines.functions";
 import { listHouseholdActivity } from "@/lib/activity.functions";
+import { searchCimaMedicines } from "@/lib/cima.functions";
 import { ActivityList } from "@/components/ActivityList";
 import { undoableToast } from "@/hooks/use-undoable";
 import { INVENTORY_LOCATIONS, suggestLocation, type InventoryLocation } from "@/lib/inventory-locations";
@@ -349,12 +350,6 @@ function InventoryPage() {
         </Card>
       )}
 
-      <ActivityList
-        title="Actividad reciente de inventario"
-        items={activity ?? []}
-        empty="Cuando alguien añada, modifique o retire productos, aparecerá aquí."
-      />
-
       <div className="space-y-6">
         {INVENTORY_LOCATIONS.map((loc) => {
           const items = grouped[loc];
@@ -468,6 +463,12 @@ function InventoryPage() {
       </div>
 
       <MedicinesSection />
+
+      <ActivityList
+        title="Actividad reciente de inventario"
+        items={activity ?? []}
+        empty="Cuando alguien añada, modifique o retire productos, aparecerá aquí."
+      />
 
       <Dialog open={!!minEdit} onOpenChange={(o) => !o && setMinEdit(null)}>
         <DialogContent className="sm:max-w-sm">
@@ -793,6 +794,7 @@ function MedicineDialog({
 }) {
   const doCreate = useServerFn(createMedicine);
   const doUpdate = useServerFn(updateMedicine);
+  const doSearchCima = useServerFn(searchCimaMedicines);
   const [name, setName] = useState("");
   const [form, setForm] = useState("pill");
   const [dose, setDose] = useState("");
@@ -805,6 +807,10 @@ function MedicineDialog({
   const [note, setNote] = useState("");
   const [needs, setNeeds] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [cimaSearch, setCimaSearch] = useState("");
+  const [cimaResults, setCimaResults] = useState<any[]>([]);
+  const [cimaLoading, setCimaLoading] = useState(false);
+  const [cimaSelected, setCimaSelected] = useState<any | null>(null);
 
   // reset when opening
   const openRef = open ? editing?.id ?? "new" : "closed";
@@ -822,7 +828,39 @@ function MedicineDialog({
     setYear(editing?.expiry_year ? String(editing.expiry_year) : "");
     setNote(editing?.notes ?? editing?.note ?? "");
     setNeeds(editing?.needs_purchase ?? false);
+    setCimaSearch(editing?.name ?? "");
+    setCimaResults([]);
+    setCimaSelected(null);
   }
+
+  const handleCimaSearch = async () => {
+    const query = (cimaSearch || name).trim();
+    if (query.length < 2) {
+      toast.error("Escribe un nombre, código nacional o EAN");
+      return;
+    }
+    setCimaLoading(true);
+    try {
+      const response = await doSearchCima({ data: { query } });
+      setCimaResults(response.results ?? []);
+      if ((response.results ?? []).length === 0) toast.warning("CIMA no encontró coincidencias");
+    } catch (err: any) {
+      toast.error(err?.message || "No se pudo consultar CIMA/AEMPS");
+    } finally {
+      setCimaLoading(false);
+    }
+  };
+
+  const pickCimaMedicine = (medicine: any) => {
+    setCimaSelected(medicine);
+    setName(medicine.name || name);
+    if (medicine.dose) setUnit(medicine.dose);
+    if (medicine.form && !note.trim()) {
+      setNote(`CIMA/AEMPS: ${medicine.form}${medicine.cn ? ` · CN ${medicine.cn}` : ""}`);
+    }
+    setCimaResults([]);
+    toast.success("Medicamento oficial seleccionado");
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -870,6 +908,81 @@ function MedicineDialog({
           <div className="space-y-2">
             <Label>Nombre</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Paracetamol" autoFocus />
+          </div>
+          <div className="space-y-3 rounded-lg border p-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[220px] flex-1 space-y-1">
+                <Label>CIMA/AEMPS oficial</Label>
+                <Input
+                  value={cimaSearch}
+                  onChange={(e) => setCimaSearch(e.target.value)}
+                  placeholder="Nombre, código nacional o EAN"
+                />
+              </div>
+              <Button type="button" variant="outline" onClick={handleCimaSearch} disabled={cimaLoading}>
+                <Search className="mr-2 h-4 w-4" />
+                {cimaLoading ? "Buscando..." : "Buscar"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Busca en CIMA/AEMPS para rellenar datos del medicamento de inventario. No lo asigna a ningún miembro.
+            </p>
+            {cimaSelected && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium">{cimaSelected.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {cimaSelected.nregistro ? `Registro ${cimaSelected.nregistro}` : "Registro no disponible"}
+                      {cimaSelected.cn ? ` · CN ${cimaSelected.cn}` : ""}
+                      {cimaSelected.prescriptionRequired ? " · sujeto a receta" : ""}
+                    </p>
+                  </div>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setCimaSelected(null)}>
+                    Quitar
+                  </Button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {cimaSelected.prospectUrl && (
+                    <Button type="button" asChild size="sm" variant="outline">
+                      <a href={cimaSelected.prospectUrl} target="_blank" rel="noreferrer">
+                        Prospecto <ExternalLink className="ml-1 h-3 w-3" />
+                      </a>
+                    </Button>
+                  )}
+                  {cimaSelected.cimaUrl && (
+                    <Button type="button" asChild size="sm" variant="outline">
+                      <a href={cimaSelected.cimaUrl} target="_blank" rel="noreferrer">
+                        AEMPS <ExternalLink className="ml-1 h-3 w-3" />
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+            {cimaResults.length > 0 && (
+              <div className="space-y-2">
+                {cimaResults.map((medicine: any) => (
+                  <button
+                    key={medicine.nregistro ?? medicine.name}
+                    type="button"
+                    className="w-full rounded-lg border bg-card p-3 text-left transition hover:border-primary"
+                    onClick={() => pickCimaMedicine(medicine)}
+                  >
+                    <p className="font-medium">{medicine.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[medicine.dose, medicine.form, medicine.lab].filter(Boolean).join(" · ")}
+                    </p>
+                    {(medicine.activeIngredients?.length > 0 || medicine.excipients?.length > 0) && (
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        Principios: {(medicine.activeIngredients ?? []).join(", ") || "no disponible"}
+                        {medicine.excipients?.length ? ` · Excipientes: ${medicine.excipients.slice(0, 6).join(", ")}` : ""}
+                      </p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">

@@ -1295,8 +1295,7 @@ function PharmacySection({ medicines }: { medicines: any[] }) {
   const queryClient = useQueryClient();
   const doUpdate = useServerFn(updateMedicine);
   const toBuy = medicines.filter((m) => m.needs_purchase);
-
-  if (toBuy.length === 0) return null;
+  const [editing, setEditing] = useState<any | null>(null);
 
   const markBought = async (m: any) => {
     try {
@@ -1310,38 +1309,165 @@ function PharmacySection({ medicines }: { medicines: any[] }) {
     }
   };
 
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["shopping"] });
+    queryClient.invalidateQueries({ queryKey: ["medicines"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
+  if (toBuy.length === 0) return null;
+
   return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Pill className="h-4 w-4 text-muted-foreground" />
-        <h3 className="font-semibold uppercase tracking-wide">Farmacia/Parafarmacia</h3>
-        <Badge variant="secondary" className="ml-auto">{toBuy.length} pendientes</Badge>
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {toBuy.map((m) => (
-          <Card key={m.id}>
-            <CardContent className="p-3">
-              <div className="flex items-start justify-between gap-2">
-                <button
-                  onClick={() => markBought(m)}
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 border-muted-foreground/30 hover:border-primary"
-                  title="Marcar como comprada"
-                >
-                  <Check className="h-3.5 w-3.5 opacity-0 hover:opacity-100" />
-                </button>
-              </div>
-              <div className="mt-3 flex flex-col items-center text-center">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-secondary-foreground">
-                  <Pill className="h-6 w-6" />
+    <>
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Pill className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-semibold uppercase tracking-wide">Farmacia/Parafarmacia</h3>
+          <Badge variant="secondary" className="ml-auto">{toBuy.length} pendientes</Badge>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {toBuy.map((m) => (
+            <Card key={m.id}>
+              <CardContent className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <button
+                    onClick={() => markBought(m)}
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 border-muted-foreground/30 hover:border-primary"
+                    title="Marcar como comprada"
+                  >
+                    <Check className="h-3.5 w-3.5 opacity-0 hover:opacity-100" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(m)}
+                    className="text-muted-foreground hover:text-primary"
+                    title="Editar detalles"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
                 </div>
-                <p className="mt-2 line-clamp-2 text-sm font-semibold leading-tight">{m.name}</p>
-                {m.note && <p className="line-clamp-2 text-xs text-muted-foreground">{m.note}</p>}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </section>
+                <button type="button" onClick={() => setEditing(m)} className="mt-3 flex w-full flex-col items-center text-center">
+                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-secondary-foreground">
+                    <Pill className="h-6 w-6" />
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-sm font-semibold leading-tight">{m.name}</p>
+                  {(m.notes || m.note) && <p className="line-clamp-2 text-xs text-muted-foreground">{m.notes || m.note}</p>}
+                </button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <PharmacyEditDialog
+        item={editing}
+        open={!!editing}
+        onOpenChange={(open) => !open && setEditing(null)}
+        onSaved={() => {
+          refresh();
+          setEditing(null);
+        }}
+      />
+    </>
+  );
+}
+
+function PharmacyEditDialog({
+  item,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  item: any | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const doUpdate = useServerFn(updateMedicine);
+  const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
+  const [currentQty, setCurrentQty] = useState("");
+  const [threshold, setThreshold] = useState("");
+  const [needsPurchase, setNeedsPurchase] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open || !item) return;
+    setName(item.name ?? "");
+    setNotes(item.notes ?? item.note ?? "");
+    setCurrentQty(item.current_quantity != null ? String(item.current_quantity) : "");
+    setThreshold(item.low_stock_threshold != null ? String(item.low_stock_threshold) : "");
+    setNeedsPurchase(item.needs_purchase ?? true);
+  }, [open, item]);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!item || !name.trim()) return;
+    setSaving(true);
+    try {
+      await doUpdate({
+        data: {
+          id: item.id,
+          name: name.trim(),
+          notes: notes.trim() || null,
+          note: notes.trim() || null,
+          current_quantity: currentQty ? Number(currentQty) : null,
+          low_stock_threshold: threshold ? Number(threshold) : null,
+          needs_purchase: needsPurchase,
+        },
+      });
+      toast.success("Medicina actualizada");
+      onSaved();
+    } catch (err: any) {
+      toast.error(err?.message || "No se pudo actualizar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar farmacia/parafarmacia</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Producto</Label>
+            <Input value={name} onChange={(event) => setName(event.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Stock actual</Label>
+              <Input type="number" min="0" step="0.01" value={currentQty} onChange={(event) => setCurrentQty(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Avisar cuando queden</Label>
+              <Input type="number" min="0" step="0.01" value={threshold} onChange={(event) => setThreshold(event.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Detalles</Label>
+            <Textarea
+              rows={2}
+              maxLength={500}
+              placeholder="Ej. formato, marca, dosis, dónde comprar..."
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Switch checked={needsPurchase} onCheckedChange={setNeedsPurchase} />
+            <span>Mantener en la lista de farmacia</span>
+          </label>
+          <DialogFooter>
+            <Button type="submit" disabled={saving || !name.trim()} className="w-full">
+              {saving ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
