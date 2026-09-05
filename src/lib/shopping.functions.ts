@@ -47,6 +47,12 @@ const UpdateItemInput = z.object({
   manual_price: z.number().nonnegative().nullable().optional(),
   priority: z.enum(["urgente", "normal", "sin_prisa"]).optional(),
   notes: z.string().max(500).nullable().optional(),
+  image_url: z.string().url().nullable().optional(),
+  mercadona_id: z.string().max(32).nullable().optional(),
+  store_product_source: z.enum(["mercadona", "dia", "consum", "carrefour"]).nullable().optional(),
+  store_product_id: z.string().max(80).nullable().optional(),
+  store_product_url: z.string().url().nullable().optional(),
+  store_product_brand: z.string().max(120).nullable().optional(),
   shopping_list_id: z.string().uuid().optional(),
 });
 
@@ -57,6 +63,42 @@ function normalizeProductName(value: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function productTokens(value: string): string[] {
+  return normalizeProductName(value)
+    .split(" ")
+    .filter((token) => token.length > 1)
+    .filter((token, index, tokens) => tokens.indexOf(token) === index)
+    .sort();
+}
+
+function productTokenScore(left: string, right: string): number {
+  const a = productTokens(left);
+  const b = productTokens(right);
+  if (!a.length || !b.length) return 0;
+  const overlap = a.filter((token) => b.includes(token)).length;
+  return overlap / Math.max(a.length, b.length);
+}
+
+function hasSelectedCatalogProduct(patch: Record<string, unknown>) {
+  return Boolean(patch.store_product_source || patch.store_product_id || patch.store_product_url);
+}
+
+function applyCatalogProductToPatch(patch: Record<string, unknown>, product: any) {
+  patch.name = product.display_name ?? patch.name;
+  patch.category = product.category ?? patch.category ?? null;
+  patch.manual_price = product.unit_price != null ? Number(product.unit_price) : null;
+  patch.image_url = product.thumbnail ?? null;
+  patch.mercadona_id = product.source === "mercadona" ? product.id : null;
+  patch.store_product_source = product.source ?? null;
+  patch.store_product_id = product.id ?? null;
+  patch.store_product_url = product.share_url ?? null;
+  patch.store_product_brand = product.brand ?? null;
+}
+
+function isSearchableStoreProductSource(value: unknown): value is "mercadona" | "dia" | "consum" | "carrefour" {
+  return value === "mercadona" || value === "dia" || value === "consum" || value === "carrefour";
 }
 
 const UpdateItemPriorityInput = z.object({
@@ -324,7 +366,7 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
       const householdId = (await context.supabase.rpc("current_household")).data;
       const { data: targetList, error: targetError } = await context.supabase
         .from("shopping_lists")
-        .select("id, store_id")
+        .select("id, store_id, store:store_id(name, official_source)")
         .eq("id", patch.shopping_list_id)
         .eq("household_id", householdId)
         .eq("is_archived", false)
@@ -344,15 +386,30 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
 
       // A store move must never leave a price/link belonging to the old store.
       if (movedStore) {
-        (patch as any).manual_price = null;
-        (patch as any).store_product_source = null;
-        (patch as any).store_product_id = null;
-        (patch as any).store_product_url = null;
-        (patch as any).store_product_brand = null;
+        const selectedProduct = hasSelectedCatalogProduct(patch);
+        if (!selectedProduct) {
+          (patch as any).manual_price = null;
+          (patch as any).image_url = null;
+          (patch as any).mercadona_id = null;
+          (patch as any).store_product_source = null;
+          (patch as any).store_product_id = null;
+          (patch as any).store_product_url = null;
+          (patch as any).store_product_brand = null;
+        }
 
         // Reuse the latest catalog price for the same household/store/product name.
         const name = String(patch.name ?? (currentItem as any)?.name ?? "");
-        if (householdId && targetStoreId && name) {
+        const targetSource = (targetList as any)?.store?.official_source;
+        if (!selectedProduct && isSearchableStoreProductSource(targetSource) && name) {
+          const { searchStoreProducts } = await import("./store-products.server");
+          const results = await searchStoreProducts(name, [targetSource], 8);
+          const best = results
+            .map((product) => ({ product, score: productTokenScore(name, product.display_name) }))
+            .filter(({ product, score }) => Number(product.unit_price) > 0 && score >= 0.55)
+            .sort((a, b) => b.score - a.score)[0]?.product;
+          if (best) applyCatalogProductToPatch(patch, best);
+        }
+        if (!hasSelectedCatalogProduct(patch) && householdId && targetStoreId && name) {
           const { data: candidates } = await context.supabase
             .from("product_prices")
             .select("last_price, last_seen_at, store_id, products:product_ean(name)")
@@ -362,7 +419,8 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
             .limit(200);
           const wanted = normalizeProductName(name);
           const match = (candidates ?? []).find((candidate: any) =>
-            normalizeProductName(candidate.products?.name ?? "") === wanted &&
+            (normalizeProductName(candidate.products?.name ?? "") === wanted ||
+              productTokenScore(candidate.products?.name ?? "", wanted) >= 0.75) &&
             Number(candidate.last_price) > 0,
           ) as any;
           if (match) (patch as any).manual_price = Number(match.last_price);

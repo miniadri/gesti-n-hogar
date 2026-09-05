@@ -1560,7 +1560,19 @@ function EditItemDialog({
   const [price, setPrice] = useState(item.manual_price != null ? String(item.manual_price) : "");
   const [notes, setNotes] = useState(item.notes ?? "");
   const [shoppingListId, setShoppingListId] = useState(item.shopping_list_id ?? "");
+  const [selectedCatalogProduct, setSelectedCatalogProduct] = useState<StoreProductSuggestion | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const selectedList = lists.find((list: any) => list.id === shoppingListId);
+  const selectedStore = stores.find((store: any) => store.id === selectedList?.store_id);
+  const editCatalogSources =
+    selectedStore && isOfficialStore(selectedStore) && isStoreEnabled(selectedStore)
+      ? ([selectedStore.official_source].filter(Boolean) as StoreProductSuggestion["source"][])
+      : [];
+  const editCatalogEnabled = editCatalogSources.length > 0;
+  const editCatalogHint = selectedStore && !isNoStore(selectedStore) && !isOfficialStore(selectedStore)
+    ? `${selectedStore.name} no tiene búsqueda de catálogo integrada.`
+    : "Elige una tienda oficial activa para buscar equivalencias.";
 
   useEffect(() => {
     if (!open) return;
@@ -1572,13 +1584,23 @@ function EditItemDialog({
     setPrice(item.manual_price != null ? String(item.manual_price) : "");
     setNotes(item.notes ?? "");
     setShoppingListId(item.shopping_list_id ?? item.shopping_list?.id ?? "");
+    setSelectedCatalogProduct(null);
   }, [open, item]);
+
+  const handleSelectCatalogProduct = (product: StoreProductSuggestion) => {
+    setSelectedCatalogProduct(product);
+    setName(product.display_name);
+    if (product.category) setCategory(guessShoppingCategory(product.display_name, product.category));
+    setPrice(product.unit_price != null ? String(product.unit_price) : "");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
     try {
+      const initialListId = item.shopping_list_id ?? item.shopping_list?.id ?? "";
+      const isMovingStore = Boolean(shoppingListId && shoppingListId !== initialListId);
       await doUpdate({
         data: {
           id: item.id,
@@ -1589,6 +1611,14 @@ function EditItemDialog({
           unit: unit.trim() ? unit.trim() : null,
           manual_price: price ? Number(price) : null,
           notes: notes.trim() ? notes.trim() : null,
+          image_url: selectedCatalogProduct?.thumbnail ?? (isMovingStore ? null : undefined),
+          mercadona_id: selectedCatalogProduct
+            ? selectedCatalogProduct.source === "mercadona" ? selectedCatalogProduct.id : null
+            : isMovingStore ? null : undefined,
+          store_product_source: selectedCatalogProduct?.source ?? (isMovingStore ? null : undefined),
+          store_product_id: selectedCatalogProduct?.id ?? (isMovingStore ? null : undefined),
+          store_product_url: selectedCatalogProduct?.share_url ?? (isMovingStore ? null : undefined),
+          store_product_brand: selectedCatalogProduct?.brand ?? (isMovingStore ? null : undefined),
           shopping_list_id: shoppingListId || undefined,
         },
       });
@@ -1611,7 +1641,22 @@ function EditItemDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-name">Producto</Label>
-            <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} />
+            <StoreProductAutocomplete
+              id="edit-name"
+              placeholder="Busca el equivalente en la tienda elegida"
+              value={name}
+              onValueChange={(value) => {
+                setName(value);
+                setSelectedCatalogProduct(null);
+              }}
+              onSelect={handleSelectCatalogProduct}
+              sources={editCatalogSources}
+              enabled={editCatalogEnabled}
+              disabledHint={editCatalogHint}
+            />
+            <p className="text-xs text-muted-foreground">
+              Al cambiar de tienda, selecciona aquí el producto equivalente si el nombre no coincide exactamente.
+            </p>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -1691,6 +1736,16 @@ function EditItemDialog({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">Al guardar, el producto pasará a la lista de la tienda elegida.</p>
+            {selectedCatalogProduct && (
+              <div className="rounded-md border bg-muted/40 p-2 text-xs">
+                <p className="font-medium">{selectedCatalogProduct.display_name}</p>
+                <p className="text-muted-foreground">
+                  {selectedCatalogProduct.source_label}
+                  {selectedCatalogProduct.unit_price != null ? ` · ${selectedCatalogProduct.unit_price.toFixed(2)} €` : ""}
+                  {selectedCatalogProduct.brand ? ` · ${selectedCatalogProduct.brand}` : ""}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
