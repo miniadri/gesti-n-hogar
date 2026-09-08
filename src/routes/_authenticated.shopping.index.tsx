@@ -1382,8 +1382,6 @@ function PharmacySection({ medicines }: { medicines: any[] }) {
 
 function PharmacyEditDialog({
   item,
-  stores,
-  lists,
   open,
   onOpenChange,
   onSaved,

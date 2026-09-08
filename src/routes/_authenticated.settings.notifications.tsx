@@ -276,10 +276,8 @@ function NotificationsSettingsPage() {
           icon: "/icon-192.png",
           badge: "/icon-192.png",
           tag: "homesync-local-test",
-          renotify: true,
-          vibrate: [140, 70, 140],
           data: { url: "/settings/notifications" },
-        });
+        } as NotificationOptions & { renotify?: boolean; vibrate?: number[] });
       }
       await inspectPushState();
       toast.success("Prueba local solicitada");
