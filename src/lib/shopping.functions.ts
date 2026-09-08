@@ -533,7 +533,7 @@ export const addInventorySuggestionToShopping = createServerFn({ method: "POST" 
         quantity: targetQty,
         unit: invItem.unit ?? null,
         linked_inventory_item_id: invItem.id,
-      })
+      } as any)
       .select()
       .single();
     if (error) throw error;
