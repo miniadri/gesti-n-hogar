@@ -464,7 +464,8 @@ function NavItem({
 function SignOutButton({ collapsed = false }: { collapsed?: boolean }) {
   const { t } = useTranslation();
   // Acceso libre activado: no se muestra el botón de cerrar sesión.
-  if (import.meta.env.MODE !== "__never__") return null;
+  const openAccess: boolean = true;
+  if (openAccess) return null;
   return (
     <button
       onClick={() => supabase.auth.signOut()}
