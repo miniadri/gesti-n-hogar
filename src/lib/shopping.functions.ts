@@ -368,7 +368,7 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
         .from("shopping_lists")
         .select("id, store_id, store:store_id(name, official_source)")
         .eq("id", patch.shopping_list_id)
-        .eq("household_id", householdId)
+        .eq("household_id", householdId as string)
         .eq("is_archived", false)
         .maybeSingle();
       if (targetError) throw targetError;
