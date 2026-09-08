@@ -6,10 +6,20 @@ export async function ensureOpenAccessSession() {
   const { data } = await supabase.auth.getUser();
   if (data.user) return data.user;
 
-  const { tokenHash } = await getOpenAccessToken({ data: undefined } as never);
+  let result: Awaited<ReturnType<typeof getOpenAccessToken>>;
+  try {
+    result = await getOpenAccessToken({ data: undefined } as never);
+  } catch {
+    throw new Error(
+      "El servicio de datos no responde ahora mismo (puede estar en pausa). Inténtalo de nuevo en unos minutos.",
+    );
+  }
+
+  if ("error" in result) throw new Error(result.error);
+
   const { data: verified, error } = await supabase.auth.verifyOtp({
     type: "magiclink",
-    token_hash: tokenHash,
+    token_hash: result.tokenHash,
   });
   if (error) throw error;
   return verified.user ?? null;
