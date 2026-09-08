@@ -40,9 +40,10 @@ const householdQueryOptions = queryOptions({
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
+    // Acceso libre: sin login. Se abre sesión automáticamente si no hay ninguna.
+    const user = await ensureOpenAccessSession();
+    if (!user) throw redirect({ to: "/auth" });
+    return { user };
   },
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(profileQueryOptions);
