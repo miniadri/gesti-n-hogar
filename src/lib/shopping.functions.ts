@@ -321,7 +321,7 @@ export const createShoppingItem = createServerFn({ method: "POST" })
     const householdId = await getHouseholdIdForShoppingList(context.supabase, data.shopping_list_id);
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .insert(data)
+      .insert(data as any)
       .select()
       .single();
     if (error) throw error;
@@ -346,7 +346,7 @@ export const updateShoppingItemPriority = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update({ priority: data.priority })
+      .update({ priority: data.priority } as any)
       .eq("id", data.id)
       .select()
       .single();
@@ -432,7 +432,7 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
     );
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update(payload)
+      .update(payload as any)
       .eq("id", id)
       .select("*, shopping_list:shopping_list_id(household_id)")
       .single();
@@ -572,7 +572,7 @@ export const addShoppingItemByName = createServerFn({ method: "POST" })
       const nextQuantity = Number(existing.quantity ?? 0) + data.quantity;
       const { data: item, error } = await context.supabase
         .from("shopping_list_items")
-        .update({ quantity: nextQuantity })
+        .update({ quantity: nextQuantity } as any)
         .eq("id", existing.id)
         .select()
         .single();
@@ -591,7 +591,7 @@ export const addShoppingItemByName = createServerFn({ method: "POST" })
 
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .insert({ shopping_list_id: listId, name: data.name, quantity: data.quantity })
+      .insert({ shopping_list_id: listId, name: data.name, quantity: data.quantity } as any)
       .select()
       .single();
     if (error) throw error;
@@ -709,7 +709,7 @@ export const toggleShoppingItem = createServerFn({ method: "POST" })
       .maybeSingle();
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update({ checked: data.checked })
+      .update({ checked: data.checked } as any)
       .eq("id", data.id)
       .select()
       .single();
