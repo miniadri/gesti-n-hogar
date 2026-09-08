@@ -1,26 +1,38 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client-app";
+import { ensureOpenAccessSession } from "@/lib/open-access";
 
 export const Route = createFileRoute("/")({
   head: () => ({
-    meta: [{ title: "HomeSync" }],
+    meta: [
+      { title: "HomeSync — Panel del hogar" },
+      {
+        name: "description",
+        content: "Compra, inventario, tareas, medicación y calendario del hogar en un solo panel.",
+      },
+      { property: "og:title", content: "HomeSync — Panel del hogar" },
+      {
+        property: "og:description",
+        content: "Compra, inventario, tareas, medicación y calendario del hogar en un solo panel.",
+      },
+    ],
   }),
   component: IndexPage,
 });
 
 function IndexPage() {
-  const [loading, setLoading] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setAuthenticated(!!data.user);
-      setLoading(false);
-    });
+    ensureOpenAccessSession()
+      .then(() => setReady(true))
+      .catch(() => setFailed(true));
   }, []);
 
-  if (loading) {
+  if (failed) return <Navigate to="/auth" />;
+
+  if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -28,5 +40,5 @@ function IndexPage() {
     );
   }
 
-  return authenticated ? <Navigate to="/dashboard" /> : <Navigate to="/auth" />;
+  return <Navigate to="/dashboard" />;
 }
