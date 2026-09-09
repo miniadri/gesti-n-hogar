@@ -321,7 +321,7 @@ export const createShoppingItem = createServerFn({ method: "POST" })
     const householdId = await getHouseholdIdForShoppingList(context.supabase, data.shopping_list_id);
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .insert(data)
+      .insert({ ...data, notes: data.notes ?? null })
       .select()
       .single();
     if (error) throw error;
@@ -346,7 +346,8 @@ export const updateShoppingItemPriority = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update({ priority: data.priority })
+      // types.ts marca "notes" como obligatorio por error; no debemos sobrescribirlo
+      .update({ priority: data.priority } as any)
       .eq("id", data.id)
       .select()
       .single();
@@ -364,6 +365,7 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
     let targetStoreId: string | null = null;
     if (patch.shopping_list_id) {
       const householdId = (await context.supabase.rpc("current_household")).data;
+      if (!householdId) throw new Error("No household");
       const { data: targetList, error: targetError } = await context.supabase
         .from("shopping_lists")
         .select("id, store_id, store:store_id(name, official_source)")
@@ -432,7 +434,7 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
     );
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update(payload)
+      .update(payload as any)
       .eq("id", id)
       .select("*, shopping_list:shopping_list_id(household_id)")
       .single();
@@ -533,6 +535,7 @@ export const addInventorySuggestionToShopping = createServerFn({ method: "POST" 
         quantity: targetQty,
         unit: invItem.unit ?? null,
         linked_inventory_item_id: invItem.id,
+        notes: null,
       })
       .select()
       .single();
@@ -572,7 +575,7 @@ export const addShoppingItemByName = createServerFn({ method: "POST" })
       const nextQuantity = Number(existing.quantity ?? 0) + data.quantity;
       const { data: item, error } = await context.supabase
         .from("shopping_list_items")
-        .update({ quantity: nextQuantity })
+        .update({ quantity: nextQuantity } as any)
         .eq("id", existing.id)
         .select()
         .single();
@@ -591,7 +594,7 @@ export const addShoppingItemByName = createServerFn({ method: "POST" })
 
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .insert({ shopping_list_id: listId, name: data.name, quantity: data.quantity })
+      .insert({ shopping_list_id: listId, name: data.name, quantity: data.quantity, notes: null })
       .select()
       .single();
     if (error) throw error;
@@ -709,7 +712,7 @@ export const toggleShoppingItem = createServerFn({ method: "POST" })
       .maybeSingle();
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update({ checked: data.checked })
+      .update({ checked: data.checked } as any)
       .eq("id", data.id)
       .select()
       .single();
