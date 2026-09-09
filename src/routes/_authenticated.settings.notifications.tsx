@@ -276,9 +276,9 @@ function NotificationsSettingsPage() {
           icon: "/icon-192.png",
           badge: "/icon-192.png",
           tag: "homesync-local-test",
-          renotify: true,
           vibrate: [140, 70, 140],
           data: { url: "/settings/notifications" },
+          ...({ renotify: true } as NotificationOptions),
         });
       }
       await inspectPushState();

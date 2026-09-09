@@ -364,6 +364,7 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
     let targetStoreId: string | null = null;
     if (patch.shopping_list_id) {
       const householdId = (await context.supabase.rpc("current_household")).data;
+      if (!householdId) throw new Error("No household");
       const { data: targetList, error: targetError } = await context.supabase
         .from("shopping_lists")
         .select("id, store_id, store:store_id(name, official_source)")
