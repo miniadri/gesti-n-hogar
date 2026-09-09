@@ -8,7 +8,6 @@ import { useTranslation } from "react-i18next";
 
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client-app";
-import { ensureOpenAccessSession } from "@/lib/open-access";
 import { joinHousehold } from "@/lib/household.functions";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { setLanguage } from "@/i18n";
@@ -41,10 +40,9 @@ const householdQueryOptions = queryOptions({
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    // Acceso libre: sin login. Se abre sesión automáticamente si no hay ninguna.
-    const user = await ensureOpenAccessSession();
-    if (!user) throw redirect({ to: "/auth" });
-    return { user };
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) throw redirect({ to: "/auth" });
+    return { user: data.user };
   },
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(profileQueryOptions);
