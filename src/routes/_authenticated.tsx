@@ -42,12 +42,7 @@ export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
     // Acceso libre: sin login. Se abre sesión automáticamente si no hay ninguna.
-    let user = null;
-    try {
-      user = await ensureOpenAccessSession();
-    } catch {
-      throw redirect({ to: "/auth" });
-    }
+    const user = await ensureOpenAccessSession();
     if (!user) throw redirect({ to: "/auth" });
     return { user };
   },
