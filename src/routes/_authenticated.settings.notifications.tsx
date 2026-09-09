@@ -271,15 +271,16 @@ function NotificationsSettingsPage() {
           url: "/settings/notifications",
         });
       } else {
-        await reg.showNotification("Prueba local de HomeSync", {
+        const options = {
           body: "Si ves este aviso, Android/Chrome permite mostrar notificaciones para HomeSync.",
           icon: "/icon-192.png",
           badge: "/icon-192.png",
           tag: "homesync-local-test",
+          renotify: true,
           vibrate: [140, 70, 140],
           data: { url: "/settings/notifications" },
-          ...({ renotify: true } as NotificationOptions),
-        });
+        } as unknown as NotificationOptions;
+        await reg.showNotification("Prueba local de HomeSync", options);
       }
       await inspectPushState();
       toast.success("Prueba local solicitada");
