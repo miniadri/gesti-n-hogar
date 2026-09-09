@@ -36,6 +36,20 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
         const results = [];
         const escalated = [];
         for (const intake of intakes ?? []) {
+          const { data: latest, error: latestError } = await supabase
+            .from("medication_intakes")
+            .select("status, reminder_count, last_reminder_sent_at")
+            .eq("id", intake.id)
+            .single();
+          if (latestError) {
+            console.error("Error refreshing intake before reminder", latestError);
+            continue;
+          }
+          if (latest?.status !== "pending") continue;
+
+          intake.reminder_count = latest.reminder_count ?? 0;
+          intake.last_reminder_sent_at = latest.last_reminder_sent_at ?? null;
+
           const med = intake.medications;
           if (!med?.reminders_enabled) continue;
 
@@ -81,14 +95,19 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
                 );
               }
             }
-            await supabase
+            const { error: markSentError } = await supabase
               .from("medication_intakes")
               .update({
                 reminder_count: (intake.reminder_count ?? 0) + 1,
                 last_reminder_sent_at: new Date().toISOString(),
               })
-              .eq("id", intake.id);
-            results.push(intake.id);
+              .eq("id", intake.id)
+              .eq("status", "pending");
+            if (markSentError) {
+              console.error("Error marking reminder as sent", markSentError);
+            } else {
+              results.push(intake.id);
+            }
           }
 
           // Escalation: notify adults + emergency contacts after N minutes past due.

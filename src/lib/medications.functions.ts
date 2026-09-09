@@ -440,6 +440,8 @@ export const recordIntake = createServerFn({ method: "POST" })
   .inputValidator((input) => RecordIntakeInput.parse(input))
   .handler(async ({ data, context }) => {
     const takenAt = data.taken_at ? new Date(data.taken_at).toISOString() : new Date().toISOString();
+    const householdId = await context.supabase.rpc("current_household");
+    if (!householdId.data) throw new Error("No household");
 
     const { data: intake, error: fetchError } = await context.supabase
       .from("medication_intakes")
@@ -447,25 +449,33 @@ export const recordIntake = createServerFn({ method: "POST" })
       .eq("id", data.intake_id)
       .single();
     if (fetchError || !intake) throw fetchError || new Error("Intake not found");
+    if (intake.medications?.household_id !== householdId.data) {
+      throw new Error("Sin permiso para registrar esta toma");
+    }
 
-    const { error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
       .from("medication_intakes")
       .update({
         status: data.status,
-        taken_at: takenAt,
+        taken_at: data.status === "taken" ? takenAt : null,
         confirmed_by: context.userId,
+        reminder_count: 0,
+        last_reminder_sent_at: null,
       })
-      .eq("id", data.intake_id);
+      .eq("id", data.intake_id)
+      .select("id")
+      .single();
     if (error) throw error;
 
-    if (data.status === "taken" && intake.medications?.dose_amount) {
+    if (data.status === "taken" && intake.status !== "taken" && intake.medications?.dose_amount) {
       const newQty = Math.max(0, (intake.medications.current_quantity ?? 0) - intake.medications.dose_amount);
-      await context.supabase
+      await supabaseAdmin
         .from("medications")
         .update({ current_quantity: newQty })
         .eq("id", intake.medication_id);
 
-      await context.supabase
+      await supabaseAdmin
         .from("medicines")
         .update({ current_quantity: newQty })
         .eq("household_id", intake.medications.household_id)

@@ -167,6 +167,16 @@ async function handleCallbackQuery(
   }
 
   if (action === "snooze") {
+    if ((intake as any).status !== "pending") {
+      await answerCallback(telegramApiKey, callbackId, "Esta toma ya estaba registrada");
+      await editMessage(
+        telegramApiKey,
+        chatId,
+        messageId,
+        `✅ Toma ya registrada — ${med?.name ?? ""}`,
+      );
+      return;
+    }
     const base = new Date((intake as any).scheduled_for);
     const now = new Date();
     const from = base > now ? base : now;
@@ -174,7 +184,8 @@ async function handleCallbackQuery(
     await supabase
       .from("medication_intakes")
       .update({ scheduled_for: next, status: "pending", last_reminder_sent_at: null, reminder_count: 0 })
-      .eq("id", intakeId);
+      .eq("id", intakeId)
+      .eq("status", "pending");
     await answerCallback(telegramApiKey, callbackId, "✅ Opción registrada: pospuesto 10 min");
     await editMessage(
       telegramApiKey,
@@ -186,14 +197,30 @@ async function handleCallbackQuery(
   }
 
   if (action === "taken" || action === "skipped") {
+    if ((intake as any).status !== "pending") {
+      await answerCallback(telegramApiKey, callbackId, "Esta toma ya estaba registrada");
+      await editMessage(
+        telegramApiKey,
+        chatId,
+        messageId,
+        (intake as any).status === "taken"
+          ? `✅ Toma ya registrada — Tomada — ${med?.name ?? ""}`
+          : `⏭️ Toma ya registrada — Omitida — ${med?.name ?? ""}`,
+      );
+      return;
+    }
+
     await supabase
       .from("medication_intakes")
       .update({
         status: action,
-        taken_at: new Date().toISOString(),
+        taken_at: action === "taken" ? new Date().toISOString() : null,
         confirmed_by: profile.user_id,
+        reminder_count: 0,
+        last_reminder_sent_at: null,
       })
-      .eq("id", intakeId);
+      .eq("id", intakeId)
+      .eq("status", "pending");
 
     if (action === "taken" && med?.dose_amount) {
       const prevQty = med.current_quantity ?? 0;
