@@ -277,6 +277,7 @@ export function SosButton({
 
   const startHold = (e: React.PointerEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (sending) return;
     if (holdStart.current != null) return;
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -291,6 +292,8 @@ export function SosButton({
   };
 
   const endHold = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (pointerId.current === e.pointerId) {
       e.currentTarget.releasePointerCapture?.(e.pointerId);
     }
@@ -410,12 +413,17 @@ export function SosButton({
         <Button
           variant="destructive"
           size="sm"
-          className={cn("relative touch-none overflow-hidden", className)}
+          className={cn(
+            "relative touch-none overflow-hidden select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
+            className,
+          )}
           disabled={sending}
           onPointerDown={startHold}
           onPointerUp={endHold}
           onPointerLeave={endHold}
           onPointerCancel={endHold}
+          onContextMenu={(e) => e.preventDefault()}
+          onSelect={(e) => e.preventDefault()}
           onClick={handleClick}
           title="Mantén pulsado 2 s para enviar SOS"
         >
@@ -441,10 +449,14 @@ export function SosButton({
         onPointerUp={endHold}
         onPointerLeave={endHold}
         onPointerCancel={endHold}
+        onContextMenu={(e) => e.preventDefault()}
+        onSelect={(e) => e.preventDefault()}
         onClick={handleClick}
+        draggable={false}
         className={cn(
           "relative w-full overflow-hidden rounded-2xl border-2 border-destructive bg-destructive text-destructive-foreground shadow-lg",
           "flex touch-none items-center justify-center gap-3 px-6 py-6 font-bold text-lg select-none",
+          "[-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
           "transition-transform active:scale-[0.98] disabled:opacity-70",
           className,
         )}

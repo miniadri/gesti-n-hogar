@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import webPush from "web-push";
 import { requireSupabaseAdminEnv } from "@/integrations/supabase/env.server";
+import { generateUpcomingIntakes } from "@/lib/medications.functions";
 
 export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
   server: {
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
           auth: { persistSession: false, autoRefreshToken: false },
         });
 
+        const generation = await generateIntakesForActiveMedications(supabase);
         const now = new Date().toISOString();
         const { data: intakes, error } = await supabase
           .from("medication_intakes")
@@ -153,11 +155,42 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
           }
         }
 
-        return Response.json({ success: true, reminded: results.length, escalated: escalated.length });
+        return Response.json({
+          success: true,
+          generated: generation.generated,
+          generation_errors: generation.errors,
+          reminded: results.length,
+          escalated: escalated.length,
+        });
       },
     },
   },
 });
+
+async function generateIntakesForActiveMedications(supabase: any) {
+  const { data: meds, error } = await supabase
+    .from("medications")
+    .select("id, household_id")
+    .eq("reminders_enabled", true);
+
+  if (error) {
+    console.error("Medication intake generation lookup failed", error);
+    return { generated: 0, errors: 1 };
+  }
+
+  let generated = 0;
+  let errors = 0;
+  for (const med of meds ?? []) {
+    try {
+      const result = await generateUpcomingIntakes(supabase, med.id, med.household_id, 14);
+      generated += result.generated ?? 0;
+    } catch (err) {
+      errors += 1;
+      console.error("Medication intake generation failed", med.id, err);
+    }
+  }
+  return { generated, errors };
+}
 
 async function sendPushToUsers(supabase: any, userIds: string[], title: string, body: string, url: string) {
   webPush.setVapidDetails(
