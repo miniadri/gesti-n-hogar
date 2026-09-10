@@ -3,8 +3,19 @@ import { useEffect, useMemo, useState } from "react";
 import { Users, ChefHat, Home, Globe, Bell, ChevronRight, LayoutList, Calendar, ShieldAlert, ShieldCheck, FlaskConical, Activity, MonitorSmartphone } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client-app";
 import { APP_VERSION } from "@/lib/app-version";
+import { CHANGELOG } from "@/lib/changelog";
 
 const PRIVATE_ADMIN_EMAILS = new Set([
   "adri.miniadri@gmail.com",
@@ -137,8 +148,40 @@ function SettingsHubPage() {
           );
         })}
       </div>
-      <div className="pointer-events-none absolute bottom-0 right-0 text-xs text-muted-foreground">
-        {APP_VERSION}
+      <div className="absolute bottom-0 right-0">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground">
+              {APP_VERSION}
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[85vh] max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Changelog HomeSync</DialogTitle>
+              <DialogDescription>Resumen de cambios recientes de la webapp.</DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh] pr-3">
+              <div className="space-y-4">
+                {CHANGELOG.map((entry) => (
+                  <section key={entry.version} className="rounded-lg border p-4">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <h3 className="font-semibold">{entry.version}</h3>
+                      <p className="text-sm font-medium">{entry.title}</p>
+                      {entry.date ? <p className="text-xs text-muted-foreground">{entry.date}</p> : null}
+                    </div>
+                    <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                      {entry.highlights.map((item) => (
+                        <li key={item} className="leading-relaxed">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
