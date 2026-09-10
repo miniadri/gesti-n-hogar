@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { normalizeMedicationTime } from "@/lib/medication-time";
 import webPush from "web-push";
 
 const MedicationFormEnum = z.enum(["pill", "ml", "drops", "inhaler", "patch", "injection", "other"]);
@@ -8,7 +9,10 @@ const IntakeStatusEnum = z.enum(["pending", "taken", "skipped", "missed"]);
 
 const ScheduleInput = z.object({
   id: z.string().uuid().optional(),
-  time_of_day: z.string().regex(/^\d{2}:\d{2}$/),
+  time_of_day: z.preprocess(
+    (value) => (typeof value === "string" ? normalizeMedicationTime(value) : value),
+    z.string().regex(/^\d{2}:\d{2}$/),
+  ),
   days_of_week: z.array(z.number().int().min(0).max(6)),
   frequency_type: z.enum(["daily", "interval"]),
   interval_hours: z.number().positive().min(0.25).optional(),

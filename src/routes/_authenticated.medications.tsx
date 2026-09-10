@@ -46,6 +46,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client-app";
 import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake, snoozeIntake } from "@/lib/medications.functions";
 import { listMedicines } from "@/lib/medicines.functions";
+import { normalizeMedicationTime } from "@/lib/medication-time";
 import { searchCimaMedicines } from "@/lib/cima.functions";
 import { createShoppingItem } from "@/lib/shopping.functions";
 import {
@@ -1328,7 +1329,7 @@ function MedicationDialog({
       setSchedules(
         (editing.medication_schedules ?? []).map((s: any) => ({
           id: s.id,
-          time_of_day: s.time_of_day,
+          time_of_day: normalizeMedicationTime(s.time_of_day ?? "09:00"),
           days_of_week: s.days_of_week ?? [1, 2, 3, 4, 5, 6, 0],
           frequency_type: s.frequency_type,
           interval_hours: s.interval_hours ?? 8,
@@ -1384,7 +1385,10 @@ function MedicationDialog({
       expiry_month: expiryMonth ? Number(expiryMonth) : null,
       expiry_year: expiryYear ? Number(expiryYear) : null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      schedules,
+      schedules: schedules.map((schedule) => ({
+        ...schedule,
+        time_of_day: normalizeMedicationTime(schedule.time_of_day ?? "09:00"),
+      })),
     });
 
   };

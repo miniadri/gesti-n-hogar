@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.64",
+    title: "Edicion de stock de medicacion",
+    highlights: [
+      "Se normalizan los horarios recibidos como HH:MM:SS antes de validar y guardar una medicacion.",
+      "Ya se puede modificar el stock sin que un horario existente bloquee la actualizacion.",
+    ],
+  },
+  {
     version: "v0.63",
     title: "Changelog integrado",
     highlights: [
