@@ -6,7 +6,7 @@ import {
   Plus,
   Trash2,
   Store,
-  ScanLine,
+  ScanBarcode,
   Check,
   Package,
   Milk,
@@ -290,9 +290,9 @@ function ShoppingPage() {
             Añadir
           </Button>
           <Button variant="outline" asChild>
-            <Link to="/shopping/scan-ticket">
-              <ScanLine className="mr-2 h-4 w-4" />
-              Escanear ticket
+            <Link to="/shopping/scan-add">
+              <ScanBarcode className="mr-2 h-4 w-4" />
+              Escanear producto
             </Link>
           </Button>
           <Button variant="outline" onClick={() => setStoreOpen(true)}>
@@ -1382,6 +1382,8 @@ function PharmacySection({ medicines }: { medicines: any[] }) {
 
 function PharmacyEditDialog({
   item,
+  stores,
+  lists,
   open,
   onOpenChange,
   onSaved,

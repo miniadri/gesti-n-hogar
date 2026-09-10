@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.65",
+    title: "Escáner en la lista de compra",
+    highlights: [
+      "El acceso de tickets de Lista de compra pasa a escanear códigos de producto.",
+      "Tras reconocer o nombrar el producto, se añade directamente a la lista predeterminada sin duplicarlo.",
+    ],
+  },
+  {
     version: "v0.64",
     title: "Edicion de stock de medicacion",
     highlights: [

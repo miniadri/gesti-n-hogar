@@ -26,6 +26,7 @@ import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedRecipesIndexRouteImport } from './routes/_authenticated.recipes.index'
 import { Route as AuthenticatedInventoryIndexRouteImport } from './routes/_authenticated.inventory.index'
 import { Route as AuthenticatedShoppingScanTicketRouteImport } from './routes/_authenticated.shopping.scan-ticket'
+import { Route as AuthenticatedShoppingScanAddRouteImport } from './routes/_authenticated.shopping.scan-add'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated.settings.notifications'
 import { Route as AuthenticatedSettingsNavigationRouteImport } from './routes/_authenticated.settings.navigation'
 import { Route as AuthenticatedSettingsLocalizationRouteImport } from './routes/_authenticated.settings.localization'
@@ -139,6 +140,12 @@ const AuthenticatedShoppingScanTicketRoute =
   AuthenticatedShoppingScanTicketRouteImport.update({
     id: '/shopping/scan-ticket',
     path: '/shopping/scan-ticket',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedShoppingScanAddRoute =
+  AuthenticatedShoppingScanAddRouteImport.update({
+    id: '/shopping/scan-add',
+    path: '/shopping/scan-add',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSettingsNotificationsRoute =
@@ -314,6 +321,7 @@ export interface FileRoutesByFullPath {
   '/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
   '/settings/navigation': typeof AuthenticatedSettingsNavigationRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/shopping/scan-add': typeof AuthenticatedShoppingScanAddRoute
   '/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
   '/inventory/': typeof AuthenticatedInventoryIndexRoute
   '/recipes/': typeof AuthenticatedRecipesIndexRoute
@@ -356,6 +364,7 @@ export interface FileRoutesByTo {
   '/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
   '/settings/navigation': typeof AuthenticatedSettingsNavigationRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/shopping/scan-add': typeof AuthenticatedShoppingScanAddRoute
   '/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
   '/inventory': typeof AuthenticatedInventoryIndexRoute
   '/recipes': typeof AuthenticatedRecipesIndexRoute
@@ -400,6 +409,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/localization': typeof AuthenticatedSettingsLocalizationRoute
   '/_authenticated/settings/navigation': typeof AuthenticatedSettingsNavigationRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/_authenticated/shopping/scan-add': typeof AuthenticatedShoppingScanAddRoute
   '/_authenticated/shopping/scan-ticket': typeof AuthenticatedShoppingScanTicketRoute
   '/_authenticated/inventory/': typeof AuthenticatedInventoryIndexRoute
   '/_authenticated/recipes/': typeof AuthenticatedRecipesIndexRoute
@@ -444,6 +454,7 @@ export interface FileRouteTypes {
     | '/settings/localization'
     | '/settings/navigation'
     | '/settings/notifications'
+    | '/shopping/scan-add'
     | '/shopping/scan-ticket'
     | '/inventory/'
     | '/recipes/'
@@ -486,6 +497,7 @@ export interface FileRouteTypes {
     | '/settings/localization'
     | '/settings/navigation'
     | '/settings/notifications'
+    | '/shopping/scan-add'
     | '/shopping/scan-ticket'
     | '/inventory'
     | '/recipes'
@@ -529,6 +541,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/localization'
     | '/_authenticated/settings/navigation'
     | '/_authenticated/settings/notifications'
+    | '/_authenticated/shopping/scan-add'
     | '/_authenticated/shopping/scan-ticket'
     | '/_authenticated/inventory/'
     | '/_authenticated/recipes/'
@@ -675,6 +688,13 @@ declare module '@tanstack/react-router' {
       path: '/shopping/scan-ticket'
       fullPath: '/shopping/scan-ticket'
       preLoaderRoute: typeof AuthenticatedShoppingScanTicketRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/shopping/scan-add': {
+      id: '/_authenticated/shopping/scan-add'
+      path: '/shopping/scan-add'
+      fullPath: '/shopping/scan-add'
+      preLoaderRoute: typeof AuthenticatedShoppingScanAddRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/settings/notifications': {
@@ -886,6 +906,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsLocalizationRoute: typeof AuthenticatedSettingsLocalizationRoute
   AuthenticatedSettingsNavigationRoute: typeof AuthenticatedSettingsNavigationRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
+  AuthenticatedShoppingScanAddRoute: typeof AuthenticatedShoppingScanAddRoute
   AuthenticatedShoppingScanTicketRoute: typeof AuthenticatedShoppingScanTicketRoute
   AuthenticatedInventoryIndexRoute: typeof AuthenticatedInventoryIndexRoute
   AuthenticatedRecipesIndexRoute: typeof AuthenticatedRecipesIndexRoute
@@ -923,6 +944,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsNavigationRoute: AuthenticatedSettingsNavigationRoute,
   AuthenticatedSettingsNotificationsRoute:
     AuthenticatedSettingsNotificationsRoute,
+  AuthenticatedShoppingScanAddRoute: AuthenticatedShoppingScanAddRoute,
   AuthenticatedShoppingScanTicketRoute: AuthenticatedShoppingScanTicketRoute,
   AuthenticatedInventoryIndexRoute: AuthenticatedInventoryIndexRoute,
   AuthenticatedRecipesIndexRoute: AuthenticatedRecipesIndexRoute,
