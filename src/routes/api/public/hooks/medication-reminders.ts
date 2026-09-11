@@ -36,27 +36,8 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
         const results = [];
         const escalated = [];
         for (const intake of intakes ?? []) {
-          const { data: latest, error: latestError } = await supabase
-            .from("medication_intakes")
-            .select("status, reminder_count, last_reminder_sent_at")
-            .eq("id", intake.id)
-            .single();
-          if (latestError) {
-            console.error("Error refreshing intake before reminder", latestError);
-            continue;
-          }
-          if (latest?.status !== "pending") continue;
-
-          intake.reminder_count = latest.reminder_count ?? 0;
-          intake.last_reminder_sent_at = latest.last_reminder_sent_at ?? null;
-
           const med = intake.medications;
           if (!med?.reminders_enabled) continue;
-
-          const lastSent = intake.last_reminder_sent_at ? new Date(intake.last_reminder_sent_at).getTime() : 0;
-          const minutesSinceLast = (Date.now() - lastSent) / 60000;
-          const reminderInterval = 5;
-          const shouldRemind = intake.reminder_count === 0 || minutesSinceLast >= reminderInterval;
 
           const memberName = med?.household_members?.display_name || "familiar";
           const title = `💊 Toca medicación: ${med?.name}`;
@@ -71,7 +52,18 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
             .eq("household_id", householdId);
           const userIds = (members ?? []).map((m: any) => m.user_id).filter(Boolean);
 
-          if (shouldRemind) {
+          // Claim the reminder before notifying.  The database update is atomic, so
+          // overlapping cron invocations cannot both send the same reminder.
+          const { data: claim, error: claimError } = await supabase.rpc(
+            "claim_medication_intake_reminder",
+            { _intake_id: intake.id, _minimum_interval_minutes: 5 },
+          );
+          if (claimError) {
+            console.error("Error claiming medication reminder", claimError);
+            continue;
+          }
+
+          if ((claim ?? []).length) {
             await sendPushToUsers(supabase, userIds, title, body, "/medications");
             const { data: profiles } = await supabase
               .from("telegram_profiles")
@@ -95,19 +87,7 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
                 );
               }
             }
-            const { error: markSentError } = await supabase
-              .from("medication_intakes")
-              .update({
-                reminder_count: (intake.reminder_count ?? 0) + 1,
-                last_reminder_sent_at: new Date().toISOString(),
-              })
-              .eq("id", intake.id)
-              .eq("status", "pending");
-            if (markSentError) {
-              console.error("Error marking reminder as sent", markSentError);
-            } else {
-              results.push(intake.id);
-            }
+            results.push(intake.id);
           }
 
           // Escalation: notify adults + emergency contacts after N minutes past due.
@@ -143,6 +123,21 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
               (id: string) => id && id !== patientUserId,
             );
 
+            // Reserve the escalation before delivering it for the same reason as
+            // regular reminders: concurrent cron requests must not duplicate it.
+            const { data: escalationClaim, error: escalationClaimError } = await supabase
+              .from("medication_intakes")
+              .update({ escalated_at: new Date().toISOString() })
+              .eq("id", intake.id)
+              .eq("status", "pending")
+              .is("escalated_at", null)
+              .select("id");
+            if (escalationClaimError) {
+              console.error("Error claiming medication escalation", escalationClaimError);
+              continue;
+            }
+            if (!(escalationClaim ?? []).length) continue;
+
             if (targetIds.length) {
               await sendPushToUsers(supabase, targetIds, escTitle, escBody, "/medications");
               const { data: escProfiles } = await supabase
@@ -166,10 +161,6 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
               }
             }
 
-            await supabase
-              .from("medication_intakes")
-              .update({ escalated_at: new Date().toISOString() })
-              .eq("id", intake.id);
             escalated.push(intake.id);
           }
         }

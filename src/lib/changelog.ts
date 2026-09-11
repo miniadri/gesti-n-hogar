@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.67",
+    title: "Avisos de medicación sin duplicados",
+    highlights: [
+      "Cada recordatorio se reserva en la base de datos antes de enviarse, evitando avisos simultáneos duplicados.",
+      "Las tomas futuras quedan protegidas contra duplicados generados por ejecuciones concurrentes.",
+    ],
+  },
+  {
     version: "v0.66",
     title: "Inventario más compacto",
     highlights: [

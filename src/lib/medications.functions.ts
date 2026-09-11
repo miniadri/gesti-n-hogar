@@ -208,7 +208,11 @@ export async function generateUpcomingIntakes(
 
 
   if (inserts.length) {
-    const { error: insertError } = await supabase.from("medication_intakes").insert(inserts);
+    // The database constraint makes concurrent generators idempotent.  A cron
+    // run and a medication edit may generate the same future intake at once.
+    const { error: insertError } = await supabase
+      .from("medication_intakes")
+      .upsert(inserts, { onConflict: "medication_id,schedule_id,scheduled_for", ignoreDuplicates: true });
     if (insertError) throw insertError;
   }
   return { generated: inserts.length };
@@ -621,6 +625,16 @@ export const sendMedicationReminders = createServerFn({ method: "POST" })
   });
 
 async function notifyIntake(supabase: any, intake: any) {
+  // Manual sends share the same atomic reservation as the cron endpoint.
+  // Without this, a manual send concurrent with the cron could duplicate a
+  // notification even though each path individually looked valid.
+  const { data: claim, error: claimError } = await supabase.rpc(
+    "claim_medication_intake_reminder",
+    { _intake_id: intake.id, _minimum_interval_minutes: 5 },
+  );
+  if (claimError) throw claimError;
+  if (!(claim ?? []).length) return { ok: false, skipped: "already_claimed" };
+
   const med = intake.medications;
   const memberName = med?.household_members?.display_name || "familiar";
   const title = `💊 Toca medicación: ${med?.name}`;
@@ -647,14 +661,6 @@ async function notifyIntake(supabase: any, intake: any) {
       await sendTelegramMessage(profile.chat_id, `${title}\n${body}\n\nAbre HomeSync para confirmar.`);
     }
   }
-
-  await supabase
-    .from("medication_intakes")
-    .update({
-      reminder_count: (intake.reminder_count ?? 0) + 1,
-      last_reminder_sent_at: new Date().toISOString(),
-    })
-    .eq("id", intake.id);
 
   return { ok: true };
 }

@@ -3270,6 +3270,14 @@ export type Database = {
         Returns: boolean
       }
       can_view_wishlist_claim: { Args: { _item_id: string }; Returns: boolean }
+      claim_medication_intake_reminder: {
+        Args: { _intake_id: string; _minimum_interval_minutes?: number }
+        Returns: {
+          id: string
+          last_reminder_sent_at: string
+          reminder_count: number
+        }[]
+      }
       cleanup_household_activity_retention: { Args: never; Returns: number }
       current_household: { Args: never; Returns: string }
       get_household_contributions: {
