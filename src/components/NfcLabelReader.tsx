@@ -13,8 +13,11 @@ function nfcReaderConstructor() {
 }
 
 function decodeRecord(record: any): string | null {
+  if (record?.recordType !== "url" && record?.recordType !== "text" && record?.recordType !== "absolute-url") return null;
   if (typeof record?.data === "string") return record.data;
-  if (record?.data instanceof DataView) return new TextDecoder(record.encoding || "utf-8").decode(record.data);
+  if (record?.data instanceof DataView) {
+    return new TextDecoder(record.encoding || "utf-8").decode(record.data.buffer, record.data.byteOffset, record.data.byteLength);
+  }
   return null;
 }
 
@@ -22,6 +25,7 @@ function decodeRecord(record: any): string | null {
 export function NfcLabelReader({ onDetected, writeUrl }: Props) {
   const [reading, setReading] = useState(false);
   const [writing, setWriting] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const supported = Boolean(nfcReaderConstructor());
 
   const read = async () => {
@@ -34,20 +38,27 @@ export function NfcLabelReader({ onDetected, writeUrl }: Props) {
       const reader = new NDEFReader();
       await reader.scan();
       setReading(true);
+      setStatus("NFC activo: acerca una etiqueta al teléfono.");
       toast.message("Acerca una etiqueta NFC al teléfono");
-      reader.addEventListener("reading", (event: any) => {
+      reader.onreadingerror = () => {
+        setStatus("No se pudo leer esta etiqueta. Debe contener un registro URL o texto.");
+      };
+      reader.onreading = (event: any) => {
         const record = Array.from(event.message.records as any[])
           .map(decodeRecord)
           .find((value): value is string => Boolean(value));
         if (!record) {
+          setStatus("La etiqueta no contiene una URL o código HomeSync legible.");
           toast.error("La etiqueta NFC no contiene una URL o código legible");
           return;
         }
         setReading(false);
+        setStatus("Etiqueta NFC leída.");
         onDetected(record);
-      }, { once: true });
+      };
     } catch (error: any) {
       setReading(false);
+      setStatus(error?.message || "No se pudo activar NFC.");
       toast.error(error?.message || "No se pudo activar NFC");
     }
   };
@@ -59,6 +70,7 @@ export function NfcLabelReader({ onDetected, writeUrl }: Props) {
       setWriting(true);
       const writer = new NDEFReader();
       await writer.write({ records: [{ recordType: "url", data: writeUrl }] });
+      setStatus("Etiqueta NFC programada correctamente.");
       toast.success("Etiqueta NFC programada con el acceso rápido de HomeSync");
     } catch (error: any) {
       toast.error(error?.message || "No se pudo programar la etiqueta NFC");
@@ -76,6 +88,7 @@ export function NfcLabelReader({ onDetected, writeUrl }: Props) {
         <Tag className="mr-2 h-4 w-4" /> {writing ? "Programando NFC…" : "Programar NFC"}
       </Button>}
       {!supported && <p className="text-xs text-muted-foreground sm:col-span-2"><Nfc className="mr-1 inline h-3.5 w-3.5" /> NFC requiere Chrome en Android (o la PWA instalada). El QR funciona en todos los móviles.</p>}
+      {supported && status && <p className="text-xs text-muted-foreground sm:col-span-2" role="status">{status}</p>}
     </div>
   );
 }

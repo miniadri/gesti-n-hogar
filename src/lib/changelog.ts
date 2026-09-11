@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.73",
+    title: "Etiquetas QR y NFC con alternativa fiable",
+    highlights: [
+      "Además del lector en directo, Etiquetas permite hacer una foto del QR con la cámara nativa del móvil, igual que en Finanzas.",
+      "La lectura NFC muestra su estado y admite los registros URL estándar programados por HomeSync.",
+      "Una URL o código sin reserva muestra claramente qué etiqueta falta en lugar de una pantalla sin acción.",
+    ],
+  },
+  {
     version: "v0.72",
     title: "Lectura de etiquetas más fiable",
     highlights: [

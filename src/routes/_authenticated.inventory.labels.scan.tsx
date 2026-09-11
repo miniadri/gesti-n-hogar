@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { NfcLabelReader } from "@/components/NfcLabelReader";
+import { QrImageScanner } from "@/components/QrImageScanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -66,11 +67,16 @@ function ScanInventoryLabelPage() {
     : undefined;
   return <div className="mx-auto max-w-xl space-y-4">
     <div className="flex items-center gap-2"><Button variant="ghost" size="icon" asChild><Link to="/inventory/labels"><ArrowLeft className="h-4 w-4" /></Link></Button><div><h2 className="text-2xl font-bold tracking-tight">Leer etiqueta</h2><p className="text-sm text-muted-foreground">Acción rápida para un producto o recipiente.</p></div></div>
-    <BarcodeScanner onDetected={detected} paused={busy || !!code} requireUserGesture />
-    <NfcLabelReader onDetected={detected} writeUrl={nfcWriteUrl} />
+    {!code && <Card><CardHeader><CardTitle className="text-lg">Leer QR o NFC</CardTitle></CardHeader><CardContent className="space-y-3">
+      <BarcodeScanner onDetected={detected} paused={busy} requireUserGesture />
+      <p className="text-xs text-muted-foreground">Si la vista en directo no se inicia, usa «Hacer foto del QR»: abre la cámara nativa del móvil, igual que el registro de gastos.</p>
+      <QrImageScanner onDetected={detected} />
+      <NfcLabelReader onDetected={detected} />
+    </CardContent></Card>}
+    {code && <NfcLabelReader onDetected={detected} writeUrl={nfcWriteUrl} />}
     {!code && <form onSubmit={submitManual} className="flex gap-2"><Input value={manualCode} onChange={(e) => setManualCode(e.target.value)} placeholder="HS-GEN-0001" /><Button type="submit">Abrir</Button></form>}
     {code && isLoading && <p className="text-sm text-muted-foreground">Buscando etiqueta…</p>}
-    {code && !isLoading && !label && <Card className="border-amber-500/40"><CardContent className="p-4"><p className="font-medium">Etiqueta no encontrada</p><p className="mt-1 text-sm text-muted-foreground">Debe crearse primero desde el generador de HomeSync.</p><Button className="mt-3" variant="outline" onClick={() => { setCode(""); setManualCode(""); }}>Leer otra</Button></CardContent></Card>}
+    {code && !isLoading && !label && <Card className="border-amber-500/40"><CardContent className="p-4"><p className="font-medium">Etiqueta no encontrada: {code}</p><p className="mt-1 text-sm text-muted-foreground">Este código tiene formato correcto, pero no está reservado en este hogar. Genera el lote primero o comprueba que el código coincida con el texto impreso.</p><Button className="mt-3" variant="outline" onClick={() => { setCode(""); setManualCode(""); navigate({ to: "/inventory/labels/scan", search: {}, replace: true }); }}>Leer otra</Button></CardContent></Card>}
     {label && !item && <Card><CardHeader><CardTitle className="flex items-center gap-2"><QrCode className="h-5 w-5" /> {label.code}</CardTitle></CardHeader><CardContent className="space-y-4"><p className="text-sm text-muted-foreground">Etiqueta disponible. Vincúlala una vez al producto que quieres controlar.</p><div className="space-y-2"><Label>Producto de inventario</Label><Select value={selectedItemId} onValueChange={setSelectedItemId}><SelectTrigger><SelectValue placeholder="Selecciona un producto" /></SelectTrigger><SelectContent>{(inventory as any[]).map((row) => <SelectItem key={row.id} value={row.id}>{row.name} · {row.quantity} {row.unit || "ud."}</SelectItem>)}</SelectContent></Select></div><Button onClick={assign} disabled={busy || !selectedItemId}><Check className="mr-2 h-4 w-4" /> Vincular etiqueta</Button></CardContent></Card>}
     {label && item && <Card><CardHeader><CardTitle>{item.name}</CardTitle></CardHeader><CardContent className="space-y-4"><p className="text-sm text-muted-foreground">{label.code} · {item.location || "Sin ubicación"}</p><div className="rounded-lg bg-muted p-4 text-center"><p className="text-sm text-muted-foreground">Stock actual</p><p className="text-3xl font-bold">{item.quantity} <span className="text-base font-normal">{item.unit || "ud."}</span></p></div><div className="space-y-2"><Label>Cantidad</Label><Input type="text" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></div><div className="grid grid-cols-2 gap-2"><Button variant="outline" disabled={busy} onClick={() => adjust(-1)}><Minus className="mr-2 h-4 w-4" /> Consumir</Button><Button disabled={busy} onClick={() => adjust(1)}><Plus className="mr-2 h-4 w-4" /> Reponer</Button></div></CardContent></Card>}
   </div>;

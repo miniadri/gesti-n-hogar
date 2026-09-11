@@ -11,6 +11,11 @@ describe("normalizeInventoryLabelCode", () => {
       .toBe("HS-PAN-0001");
   });
 
+  it("extracts a code from a URL with other query parameters", () => {
+    expect(normalizeInventoryLabelCode("https://gestion-hogar.pages.dev/inventory/labels/scan?from=nfc&code=HS-FRI-0042"))
+      .toBe("HS-FRI-0042");
+  });
+
   it("rejects values that do not belong to HomeSync", () => {
     expect(normalizeInventoryLabelCode("https://example.com/other")).toBeNull();
   });
