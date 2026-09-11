@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   Search,
   ExternalLink,
+  QrCode,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -431,6 +432,12 @@ function InventoryPage() {
             <Link to="/inventory/kitchen">
               <ChefHat className="mr-2 h-4 w-4" />
               Modo cocina
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/inventory/labels">
+              <QrCode className="mr-2 h-4 w-4" />
+              Etiquetas QR
             </Link>
           </Button>
           <Button onClick={openDialog}>

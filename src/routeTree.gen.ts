@@ -42,6 +42,7 @@ import { Route as AuthenticatedRecipesPlannerRouteImport } from './routes/_authe
 import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_authenticated.recipes.discover'
 import { Route as AuthenticatedRecipesRecipeIdRouteImport } from './routes/_authenticated.recipes.$recipeId'
 import { Route as AuthenticatedInventoryScanAddRouteImport } from './routes/_authenticated.inventory.scan-add'
+import { Route as AuthenticatedInventoryLabelsRouteImport } from './routes/_authenticated.inventory.labels'
 import { Route as AuthenticatedInventoryKitchenRouteImport } from './routes/_authenticated.inventory.kitchen'
 import { Route as AuthenticatedCalendarScheduleRouteImport } from './routes/_authenticated.calendar.schedule'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
@@ -51,6 +52,7 @@ import { Route as ApiPublicHooksMercadonaPricesRouteImport } from './routes/api/
 import { Route as ApiPublicHooksMedicationRemindersRouteImport } from './routes/api/public/hooks/medication-reminders'
 import { Route as ApiPublicHooksGoogleCalendarSyncRouteImport } from './routes/api/public/hooks/google-calendar-sync'
 import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google/callback'
+import { Route as AuthenticatedInventoryLabelsScanRouteImport } from './routes/_authenticated.inventory.labels.scan'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -238,6 +240,12 @@ const AuthenticatedInventoryScanAddRoute =
     path: '/inventory/scan-add',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedInventoryLabelsRoute =
+  AuthenticatedInventoryLabelsRouteImport.update({
+    id: '/inventory/labels',
+    path: '/inventory/labels',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedInventoryKitchenRoute =
   AuthenticatedInventoryKitchenRouteImport.update({
     id: '/inventory/kitchen',
@@ -291,6 +299,12 @@ const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
   path: '/api/auth/google/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedInventoryLabelsScanRoute =
+  AuthenticatedInventoryLabelsScanRouteImport.update({
+    id: '/scan',
+    path: '/scan',
+    getParentRoute: () => AuthenticatedInventoryLabelsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -306,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/calendar/schedule': typeof AuthenticatedCalendarScheduleRoute
   '/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
+  '/inventory/labels': typeof AuthenticatedInventoryLabelsRouteWithChildren
   '/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
@@ -327,6 +342,7 @@ export interface FileRoutesByFullPath {
   '/recipes/': typeof AuthenticatedRecipesIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/shopping/': typeof AuthenticatedShoppingIndexRoute
+  '/inventory/labels/scan': typeof AuthenticatedInventoryLabelsScanRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
@@ -349,6 +365,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/calendar/schedule': typeof AuthenticatedCalendarScheduleRoute
   '/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
+  '/inventory/labels': typeof AuthenticatedInventoryLabelsRouteWithChildren
   '/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
@@ -370,6 +387,7 @@ export interface FileRoutesByTo {
   '/recipes': typeof AuthenticatedRecipesIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/shopping': typeof AuthenticatedShoppingIndexRoute
+  '/inventory/labels/scan': typeof AuthenticatedInventoryLabelsScanRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
@@ -394,6 +412,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/_authenticated/calendar/schedule': typeof AuthenticatedCalendarScheduleRoute
   '/_authenticated/inventory/kitchen': typeof AuthenticatedInventoryKitchenRoute
+  '/_authenticated/inventory/labels': typeof AuthenticatedInventoryLabelsRouteWithChildren
   '/_authenticated/inventory/scan-add': typeof AuthenticatedInventoryScanAddRoute
   '/_authenticated/recipes/$recipeId': typeof AuthenticatedRecipesRecipeIdRoute
   '/_authenticated/recipes/discover': typeof AuthenticatedRecipesDiscoverRoute
@@ -415,6 +434,7 @@ export interface FileRoutesById {
   '/_authenticated/recipes/': typeof AuthenticatedRecipesIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/shopping/': typeof AuthenticatedShoppingIndexRoute
+  '/_authenticated/inventory/labels/scan': typeof AuthenticatedInventoryLabelsScanRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
   '/api/public/hooks/google-calendar-sync': typeof ApiPublicHooksGoogleCalendarSyncRoute
   '/api/public/hooks/medication-reminders': typeof ApiPublicHooksMedicationRemindersRoute
@@ -439,6 +459,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/calendar/schedule'
     | '/inventory/kitchen'
+    | '/inventory/labels'
     | '/inventory/scan-add'
     | '/recipes/$recipeId'
     | '/recipes/discover'
@@ -460,6 +481,7 @@ export interface FileRouteTypes {
     | '/recipes/'
     | '/settings/'
     | '/shopping/'
+    | '/inventory/labels/scan'
     | '/api/auth/google/callback'
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
@@ -482,6 +504,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/calendar/schedule'
     | '/inventory/kitchen'
+    | '/inventory/labels'
     | '/inventory/scan-add'
     | '/recipes/$recipeId'
     | '/recipes/discover'
@@ -503,6 +526,7 @@ export interface FileRouteTypes {
     | '/recipes'
     | '/settings'
     | '/shopping'
+    | '/inventory/labels/scan'
     | '/api/auth/google/callback'
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
@@ -526,6 +550,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/_authenticated/calendar/schedule'
     | '/_authenticated/inventory/kitchen'
+    | '/_authenticated/inventory/labels'
     | '/_authenticated/inventory/scan-add'
     | '/_authenticated/recipes/$recipeId'
     | '/_authenticated/recipes/discover'
@@ -547,6 +572,7 @@ export interface FileRouteTypes {
     | '/_authenticated/recipes/'
     | '/_authenticated/settings/'
     | '/_authenticated/shopping/'
+    | '/_authenticated/inventory/labels/scan'
     | '/api/auth/google/callback'
     | '/api/public/hooks/google-calendar-sync'
     | '/api/public/hooks/medication-reminders'
@@ -802,6 +828,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventoryScanAddRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/inventory/labels': {
+      id: '/_authenticated/inventory/labels'
+      path: '/inventory/labels'
+      fullPath: '/inventory/labels'
+      preLoaderRoute: typeof AuthenticatedInventoryLabelsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inventory/kitchen': {
       id: '/_authenticated/inventory/kitchen'
       path: '/inventory/kitchen'
@@ -865,6 +898,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthGoogleCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/inventory/labels/scan': {
+      id: '/_authenticated/inventory/labels/scan'
+      path: '/scan'
+      fullPath: '/inventory/labels/scan'
+      preLoaderRoute: typeof AuthenticatedInventoryLabelsScanRouteImport
+      parentRoute: typeof AuthenticatedInventoryLabelsRoute
+    }
   }
 }
 
@@ -881,6 +921,21 @@ const AuthenticatedCalendarRouteWithChildren =
     AuthenticatedCalendarRouteChildren,
   )
 
+interface AuthenticatedInventoryLabelsRouteChildren {
+  AuthenticatedInventoryLabelsScanRoute: typeof AuthenticatedInventoryLabelsScanRoute
+}
+
+const AuthenticatedInventoryLabelsRouteChildren: AuthenticatedInventoryLabelsRouteChildren =
+  {
+    AuthenticatedInventoryLabelsScanRoute:
+      AuthenticatedInventoryLabelsScanRoute,
+  }
+
+const AuthenticatedInventoryLabelsRouteWithChildren =
+  AuthenticatedInventoryLabelsRoute._addFileChildren(
+    AuthenticatedInventoryLabelsRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -891,6 +946,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMedicationsRoute: typeof AuthenticatedMedicationsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedInventoryKitchenRoute: typeof AuthenticatedInventoryKitchenRoute
+  AuthenticatedInventoryLabelsRoute: typeof AuthenticatedInventoryLabelsRouteWithChildren
   AuthenticatedInventoryScanAddRoute: typeof AuthenticatedInventoryScanAddRoute
   AuthenticatedRecipesRecipeIdRoute: typeof AuthenticatedRecipesRecipeIdRoute
   AuthenticatedRecipesDiscoverRoute: typeof AuthenticatedRecipesDiscoverRoute
@@ -924,6 +980,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMedicationsRoute: AuthenticatedMedicationsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedInventoryKitchenRoute: AuthenticatedInventoryKitchenRoute,
+  AuthenticatedInventoryLabelsRoute:
+    AuthenticatedInventoryLabelsRouteWithChildren,
   AuthenticatedInventoryScanAddRoute: AuthenticatedInventoryScanAddRoute,
   AuthenticatedRecipesRecipeIdRoute: AuthenticatedRecipesRecipeIdRoute,
   AuthenticatedRecipesDiscoverRoute: AuthenticatedRecipesDiscoverRoute,

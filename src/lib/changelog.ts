@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.70",
+    title: "Etiquetas QR para inventario",
+    highlights: [
+      "Genera lotes imprimibles de etiquetas QR consecutivas y los reserva por hogar y serie.",
+      "Una etiqueta se vincula a un producto para consultar, consumir o reponer stock desde una única pantalla rápida.",
+      "Las series de frigorífico, congelador, armario, medicina y general organizan la impresión sin bloquear el cambio posterior de ubicación.",
+    ],
+  },
+  {
     version: "v0.67",
     title: "Avisos de medicación sin duplicados",
     highlights: [
