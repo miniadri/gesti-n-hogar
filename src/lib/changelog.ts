@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.75",
+    title: "Etiquetas disponibles siempre a mano",
+    highlights: [
+      "Las etiquetas QR sin asignar permanecen visibles al volver a Etiquetas QR y NFC.",
+      "Se pueden imprimir de nuevo cuando haga falta y se ocultan automáticamente al vincularlas a un producto.",
+    ],
+  },
+  {
     version: "v0.74",
     title: "Acceso funcional a la lectura de etiquetas",
     highlights: [

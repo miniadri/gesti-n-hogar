@@ -31,7 +31,6 @@ function InventoryLabelsPage() {
   const { data: labels = [] } = useQuery({ queryKey: ["inventory-labels"], queryFn: () => doList() });
   const [labelType, setLabelType] = useState<InventoryLabelType>("general");
   const [count, setCount] = useState("24");
-  const [generated, setGenerated] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
 
   const generate = async () => {
@@ -43,7 +42,6 @@ function InventoryLabelsPage() {
     setBusy(true);
     try {
       const result: any[] = await doGenerate({ data: { label_type: labelType, count: quantity } });
-      setGenerated(result);
       qc.invalidateQueries({ queryKey: ["inventory-labels"] });
       toast.success(`${result.length} etiquetas reservadas y listas para imprimir`);
     } catch (error: any) {
@@ -54,7 +52,8 @@ function InventoryLabelsPage() {
   };
 
   const used = labels.filter((label: any) => label.inventory_item_id).length;
-  const available = labels.length - used;
+  const unassignedLabels = labels.filter((label: any) => !label.inventory_item_id);
+  const available = unassignedLabels.length;
   const scanUrl = (code: string) => typeof window === "undefined"
     ? code
     : `${window.location.origin}/inventory/labels/scan?code=${encodeURIComponent(code)}`;
@@ -88,11 +87,11 @@ function InventoryLabelsPage() {
 
       <Card className="border-dashed"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-medium">Usar una etiqueta NFC</p><p className="text-sm text-muted-foreground">Lee una etiqueta NFC o prográmala con la misma URL de una etiqueta QR ya creada. Ambas actualizarán el mismo stock.</p></div><Button variant="outline" asChild><Link to="/inventory/labels/scan"><Nfc className="mr-2 h-4 w-4" /> Leer o programar NFC</Link></Button></CardContent></Card>
 
-      {generated.length > 0 && (
+      {unassignedLabels.length > 0 && (
         <section className="space-y-3 print:space-y-0">
-          <div className="flex items-center justify-between print:hidden"><div><h3 className="text-lg font-semibold">Lote recién generado</h3><p className="text-sm text-muted-foreground">Imprime esta hoja o guárdala como PDF antes de pegar las etiquetas.</p></div><Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button></div>
+          <div className="flex items-center justify-between print:hidden"><div><h3 className="text-lg font-semibold">Etiquetas QR disponibles</h3><p className="text-sm text-muted-foreground">Estas etiquetas siguen sin vincular. Imprímelas o guárdalas como PDF; dejarán de mostrarse al asignarlas a un producto.</p></div><Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir disponibles</Button></div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 print:grid-cols-3 print:gap-2">
-            {generated.map((label: any) => <div key={label.id} className="break-inside-avoid rounded border bg-white p-3 text-center text-black"><BarcodeDisplay value={scanUrl(label.code)} format="QR" className="[&_canvas]:!h-auto [&_canvas]:!w-full" /><p className="mt-2 font-mono text-sm font-semibold">{label.code}</p><p className="text-[10px] uppercase tracking-wide text-slate-600">HomeSync · {INVENTORY_LABEL_TYPE_INFO[label.label_type as InventoryLabelType].label}</p></div>)}
+            {unassignedLabels.map((label: any) => <div key={label.id} className="break-inside-avoid rounded border bg-white p-3 text-center text-black"><BarcodeDisplay value={scanUrl(label.code)} format="QR" className="[&_canvas]:!h-auto [&_canvas]:!w-full" /><p className="mt-2 font-mono text-sm font-semibold">{label.code}</p><p className="text-[10px] uppercase tracking-wide text-slate-600">HomeSync · {INVENTORY_LABEL_TYPE_INFO[label.label_type as InventoryLabelType].label}</p></div>)}
           </div>
         </section>
       )}
