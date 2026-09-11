@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.74",
+    title: "Acceso funcional a la lectura de etiquetas",
+    highlights: [
+      "La ruta de lectura QR y NFC ya muestra su pantalla de escaneo, vínculo y ajuste de stock.",
+      "Los botones de Etiquetas y las URL impresas llevan ahora a esa pantalla en lugar de volver silenciosamente al listado.",
+    ],
+  },
+  {
     version: "v0.73",
     title: "Etiquetas QR y NFC con alternativa fiable",
     highlights: [

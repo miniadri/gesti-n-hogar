@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Camera, Nfc, Printer, QrCode, Tags } from "lucide-react";
@@ -19,6 +19,12 @@ export const Route = createFileRoute("/_authenticated/inventory/labels")({
 });
 
 function InventoryLabelsPage() {
+  // `scan` is a child route. Render its outlet instead of this landing page
+  // while it is active; otherwise the child (camera/NFC/binding UI) is never
+  // mounted and navigation appears to return to this screen.
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  if (pathname === "/inventory/labels/scan") return <Outlet />;
+
   const qc = useQueryClient();
   const doList = useServerFn(listInventoryLabels);
   const doGenerate = useServerFn(generateInventoryLabelBatch);
