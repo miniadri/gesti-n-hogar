@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.71",
+    title: "Etiquetas QR y NFC utilizables",
+    highlights: [
+      "Los QR nuevos contienen una URL de HomeSync que abre directamente la acción rápida, también desde Lens.",
+      "El lector QR pide activar la cámara mediante un toque y deja de reiniciarla durante la lectura.",
+      "En Android con Chrome o la PWA se puede leer y programar una etiqueta NFC con el mismo acceso que el QR.",
+    ],
+  },
+  {
     version: "v0.70",
     title: "Etiquetas QR para inventario",
     highlights: [

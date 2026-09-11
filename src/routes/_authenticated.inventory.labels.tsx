@@ -49,6 +49,9 @@ function InventoryLabelsPage() {
 
   const used = labels.filter((label: any) => label.inventory_item_id).length;
   const available = labels.length - used;
+  const scanUrl = (code: string) => typeof window === "undefined"
+    ? code
+    : `${window.location.origin}/inventory/labels/scan?code=${encodeURIComponent(code)}`;
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -81,7 +84,7 @@ function InventoryLabelsPage() {
         <section className="space-y-3 print:space-y-0">
           <div className="flex items-center justify-between print:hidden"><div><h3 className="text-lg font-semibold">Lote recién generado</h3><p className="text-sm text-muted-foreground">Imprime esta hoja o guárdala como PDF antes de pegar las etiquetas.</p></div><Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button></div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 print:grid-cols-3 print:gap-2">
-            {generated.map((label: any) => <div key={label.id} className="break-inside-avoid rounded border bg-white p-3 text-center text-black"><BarcodeDisplay value={label.code} format="QR" className="[&_canvas]:!h-auto [&_canvas]:!w-full" /><p className="mt-2 font-mono text-sm font-semibold">{label.code}</p><p className="text-[10px] uppercase tracking-wide text-slate-600">HomeSync · {INVENTORY_LABEL_TYPE_INFO[label.label_type as InventoryLabelType].label}</p></div>)}
+            {generated.map((label: any) => <div key={label.id} className="break-inside-avoid rounded border bg-white p-3 text-center text-black"><BarcodeDisplay value={scanUrl(label.code)} format="QR" className="[&_canvas]:!h-auto [&_canvas]:!w-full" /><p className="mt-2 font-mono text-sm font-semibold">{label.code}</p><p className="text-[10px] uppercase tracking-wide text-slate-600">HomeSync · {INVENTORY_LABEL_TYPE_INFO[label.label_type as InventoryLabelType].label}</p></div>)}
           </div>
         </section>
       )}

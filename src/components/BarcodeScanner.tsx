@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { Button } from "@/components/ui/button";
 import { Camera, CameraOff } from "lucide-react";
@@ -7,21 +7,29 @@ interface Props {
   onDetected: (ean: string) => void;
   active?: boolean;
   paused?: boolean;
+  /** Camera permission is more reliable when requested by an explicit tap. */
+  requireUserGesture?: boolean;
 }
 
 /**
  * Live camera barcode scanner using @zxing/browser.
  * Uses the rear camera on mobile when available.
  */
-export function BarcodeScanner({ onDetected, active = true, paused = false }: Props) {
+export function BarcodeScanner({ onDetected, active = true, paused = false, requireUserGesture = false }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [requested, setRequested] = useState(!requireUserGesture);
   const lastRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
+  const onDetectedRef = useRef(onDetected);
 
   useEffect(() => {
-    if (!active || paused) return;
+    onDetectedRef.current = onDetected;
+  }, [onDetected]);
+
+  useEffect(() => {
+    if (!active || paused || !requested) return;
     let cancelled = false;
     const reader = new BrowserMultiFormatReader();
 
@@ -46,7 +54,7 @@ export function BarcodeScanner({ onDetected, active = true, paused = false }: Pr
             // Debounce duplicate detections within 2s
             if (code === lastRef.current.code && now - lastRef.current.at < 2000) return;
             lastRef.current = { code, at: now };
-            onDetected(code);
+            onDetectedRef.current(code);
           },
         );
         controlsRef.current = controls;
@@ -63,7 +71,12 @@ export function BarcodeScanner({ onDetected, active = true, paused = false }: Pr
       controlsRef.current = null;
       setRunning(false);
     };
-  }, [active, paused, onDetected]);
+  }, [active, paused, requested]);
+
+  const requestCamera = useCallback(() => {
+    setError(null);
+    setRequested(true);
+  }, []);
 
   return (
     <div className="space-y-2">
@@ -81,6 +94,11 @@ export function BarcodeScanner({ onDetected, active = true, paused = false }: Pr
           <CameraOff className="h-4 w-4" />
           {error}
         </p>
+      )}
+      {!requested && (
+        <Button type="button" className="w-full" onClick={requestCamera}>
+          <Camera className="mr-2 h-4 w-4" /> Activar cámara
+        </Button>
       )}
     </div>
   );

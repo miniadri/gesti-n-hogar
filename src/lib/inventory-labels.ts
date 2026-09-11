@@ -12,13 +12,13 @@ export const INVENTORY_LABEL_TYPE_INFO: Record<InventoryLabelType, { prefix: str
 
 const LABEL_CODE = /^HS-(FRI|CON|PAN|MED|GEN)-(\d{4,})$/i;
 
-/** Extracts a HomeSync label from raw QR text or a future /scan/<code> URL. */
+/** Extracts a HomeSync label from raw QR text, a scan URL, or a future /scan/<code> URL. */
 export function normalizeInventoryLabelCode(raw: string): string | null {
   const value = raw.trim();
   const candidate = (() => {
     try {
       const url = new URL(value);
-      return url.pathname.split("/").filter(Boolean).at(-1) ?? value;
+      return url.searchParams.get("code") ?? url.pathname.split("/").filter(Boolean).at(-1) ?? value;
     } catch {
       return value;
     }
