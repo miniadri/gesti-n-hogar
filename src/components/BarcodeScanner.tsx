@@ -18,6 +18,9 @@ interface Props {
 export function BarcodeScanner({ onDetected, active = true, paused = false, requireUserGesture = false }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const startingRef = useRef(false);
+  const generationRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [requested, setRequested] = useState(!requireUserGesture);
@@ -28,55 +31,79 @@ export function BarcodeScanner({ onDetected, active = true, paused = false, requ
     onDetectedRef.current = onDetected;
   }, [onDetected]);
 
-  useEffect(() => {
-    if (!active || paused || !requested) return;
-    let cancelled = false;
-    const reader = new BrowserMultiFormatReader();
+  const stopCamera = useCallback(() => {
+    generationRef.current += 1;
+    controlsRef.current?.stop();
+    controlsRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setRunning(false);
+  }, []);
 
-    const start = async () => {
-      try {
-        const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-        // Prefer rear camera
-        const rear =
-          devices.find((d) => /back|rear|environment/i.test(d.label)) ?? devices[0];
-        if (!rear) {
-          setError("No se ha encontrado ninguna cámara");
-          return;
-        }
-        if (!videoRef.current || cancelled) return;
-        const controls = await reader.decodeFromVideoDevice(
-          rear.deviceId,
-          videoRef.current,
-          (result) => {
-            if (!result) return;
-            const code = result.getText();
-            const now = Date.now();
-            // Debounce duplicate detections within 2s
-            if (code === lastRef.current.code && now - lastRef.current.at < 2000) return;
-            lastRef.current = { code, at: now };
-            onDetectedRef.current(code);
-          },
-        );
-        controlsRef.current = controls;
-        setRunning(true);
-      } catch (e: any) {
-        setError(e?.message || "No se pudo acceder a la cámara");
+  const startCamera = useCallback(async () => {
+    if (startingRef.current || controlsRef.current) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("Este navegador no permite usar la cámara");
+      return;
+    }
+
+    startingRef.current = true;
+    const generation = generationRef.current;
+    setError(null);
+    try {
+      // Request the stream directly. Enumerating cameras before asking for it
+      // fails on some Android/PWA combinations even when camera access works.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+      if (generation !== generationRef.current || !videoRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
       }
-    };
-    start();
+      streamRef.current = stream;
+      const reader = new BrowserMultiFormatReader();
+      const controls = await reader.decodeFromStream(stream, videoRef.current, (result) => {
+        if (!result) return;
+        const code = result.getText();
+        const now = Date.now();
+        // Debounce duplicate detections within 2s.
+        if (code === lastRef.current.code && now - lastRef.current.at < 2000) return;
+        lastRef.current = { code, at: now };
+        onDetectedRef.current(code);
+      });
+      if (generation !== generationRef.current) {
+        controls.stop();
+        return;
+      }
+      controlsRef.current = controls;
+      setRunning(true);
+    } catch (e: any) {
+      setError(e?.message || "No se pudo acceder a la cámara");
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    } finally {
+      startingRef.current = false;
+    }
+  }, []);
 
-    return () => {
-      cancelled = true;
-      controlsRef.current?.stop();
-      controlsRef.current = null;
-      setRunning(false);
-    };
-  }, [active, paused, requested]);
+  useEffect(() => {
+    if (active && !paused && requested) {
+      void startCamera();
+    } else {
+      stopCamera();
+    }
+  }, [active, paused, requested, startCamera, stopCamera]);
+
+  useEffect(() => stopCamera, [stopCamera]);
 
   const requestCamera = useCallback(() => {
     setError(null);
     setRequested(true);
-  }, []);
+    // Start in the tap handler itself: mobile browsers can require this user
+    // gesture for getUserMedia, rather than a later React effect.
+    if (active && !paused) void startCamera();
+  }, [active, paused, startCamera]);
 
   return (
     <div className="space-y-2">
@@ -95,9 +122,9 @@ export function BarcodeScanner({ onDetected, active = true, paused = false, requ
           {error}
         </p>
       )}
-      {!requested && (
+      {(!requested || error) && (
         <Button type="button" className="w-full" onClick={requestCamera}>
-          <Camera className="mr-2 h-4 w-4" /> Activar cámara
+          <Camera className="mr-2 h-4 w-4" /> {requested ? "Reintentar cámara" : "Activar cámara"}
         </Button>
       )}
     </div>

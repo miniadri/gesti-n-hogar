@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Camera, Printer, QrCode, Tags } from "lucide-react";
+import { ArrowLeft, Camera, Nfc, Printer, QrCode, Tags } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { BarcodeDisplay } from "@/components/BarcodeDisplay";
@@ -58,7 +58,7 @@ function InventoryLabelsPage() {
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" asChild><Link to="/inventory"><ArrowLeft className="h-4 w-4" /></Link></Button>
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Etiquetas QR</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Etiquetas QR y NFC</h2>
           <p className="text-sm text-muted-foreground">Genera, imprime y reutiliza accesos rápidos al inventario.</p>
         </div>
       </div>
@@ -79,6 +79,8 @@ function InventoryLabelsPage() {
       </div>
 
       <Card className="border-dashed"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-medium">Leer y configurar una etiqueta</p><p className="text-sm text-muted-foreground">Escanéala con la cámara; si está vacía, elige el producto que controlará.</p></div><Button asChild><Link to="/inventory/labels/scan"><Camera className="mr-2 h-4 w-4" /> Leer etiqueta</Link></Button></CardContent></Card>
+
+      <Card className="border-dashed"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-medium">Usar una etiqueta NFC</p><p className="text-sm text-muted-foreground">Lee una etiqueta NFC o prográmala con la misma URL de una etiqueta QR ya creada. Ambas actualizarán el mismo stock.</p></div><Button variant="outline" asChild><Link to="/inventory/labels/scan"><Nfc className="mr-2 h-4 w-4" /> Leer o programar NFC</Link></Button></CardContent></Card>
 
       {generated.length > 0 && (
         <section className="space-y-3 print:space-y-0">

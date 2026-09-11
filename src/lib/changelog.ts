@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.72",
+    title: "Lectura de etiquetas más fiable",
+    highlights: [
+      "El lector de Etiquetas QR abre la cámara directamente, igual que la prueba de cámara de Ajustes.",
+      "Si el navegador no puede abrirla, se puede reintentar desde la misma pantalla.",
+      "Etiquetas QR muestra ahora un acceso visible para leer y programar NFC.",
+    ],
+  },
+  {
     version: "v0.71",
     title: "Etiquetas QR y NFC utilizables",
     highlights: [
