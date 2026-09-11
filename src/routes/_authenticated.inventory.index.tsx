@@ -2,7 +2,25 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Package, AlertTriangle, Trash2, Refrigerator, Snowflake, Archive, CheckSquare, X, ArrowLeftRight, Pill, ChevronDown, ScanBarcode, ChefHat, SlidersHorizontal, Search, ExternalLink } from "lucide-react";
+import {
+  Plus,
+  Package,
+  AlertTriangle,
+  Trash2,
+  Refrigerator,
+  Snowflake,
+  Archive,
+  CheckSquare,
+  X,
+  ArrowLeftRight,
+  Pill,
+  ChevronDown,
+  ScanBarcode,
+  ChefHat,
+  SlidersHorizontal,
+  Search,
+  ExternalLink,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,13 +51,29 @@ import {
   type MercadonaSuggestion,
 } from "@/components/MercadonaAutocomplete";
 import { getMercadonaProduct } from "@/lib/mercadona.functions";
-import { listInventory, createInventoryItem, deleteInventoryItem, restoreInventoryItem, updateInventoryItem } from "@/lib/inventory.functions";
-import { listMedicines, createMedicine, updateMedicine, deleteMedicine, restoreMedicine } from "@/lib/medicines.functions";
+import {
+  listInventory,
+  createInventoryItem,
+  deleteInventoryItem,
+  restoreInventoryItem,
+  updateInventoryItem,
+} from "@/lib/inventory.functions";
+import {
+  listMedicines,
+  createMedicine,
+  updateMedicine,
+  deleteMedicine,
+  restoreMedicine,
+} from "@/lib/medicines.functions";
 import { listHouseholdActivity } from "@/lib/activity.functions";
 import { searchCimaMedicines } from "@/lib/cima.functions";
 import { ActivityList } from "@/components/ActivityList";
 import { undoableToast } from "@/hooks/use-undoable";
-import { INVENTORY_LOCATIONS, suggestLocation, type InventoryLocation } from "@/lib/inventory-locations";
+import {
+  INVENTORY_LOCATIONS,
+  suggestLocation,
+  type InventoryLocation,
+} from "@/lib/inventory-locations";
 import { toast } from "sonner";
 
 const inventoryQueryOptions = queryOptions({
@@ -58,11 +92,12 @@ const activityQueryOptions = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/inventory/")({
-  loader: ({ context }) => Promise.all([
-    context.queryClient.ensureQueryData(inventoryQueryOptions),
-    context.queryClient.ensureQueryData(medicinesQueryOptions),
-    context.queryClient.ensureQueryData(activityQueryOptions),
-  ]),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(inventoryQueryOptions),
+      context.queryClient.ensureQueryData(medicinesQueryOptions),
+      context.queryClient.ensureQueryData(activityQueryOptions),
+    ]),
 
   head: () => ({
     meta: [{ title: "Inventario - HomeSync" }],
@@ -70,7 +105,18 @@ export const Route = createFileRoute("/_authenticated/inventory/")({
   component: InventoryPage,
 });
 
-const categories = ["Frutas", "Verduras", "Lácteos", "Carne", "Pescado", "Bebidas", "Congelados", "Limpieza", "Farmacia", "Otros"];
+const categories = [
+  "Frutas",
+  "Verduras",
+  "Lácteos",
+  "Carne",
+  "Pescado",
+  "Bebidas",
+  "Congelados",
+  "Limpieza",
+  "Farmacia",
+  "Otros",
+];
 
 const MEDICINE_FORMS = [
   { value: "pill", label: "Pastilla(s)" },
@@ -112,8 +158,14 @@ function InventoryPage() {
   const [moving, setMoving] = useState(false);
   const [minEdit, setMinEdit] = useState<{ id: string; name: string; value: string } | null>(null);
   const [savingMin, setSavingMin] = useState(false);
-  const [expiringOnly, setExpiringOnly] = useState(false);
-  const [mercadona, setMercadona] = useState<(MercadonaSuggestion & { ean?: string | null }) | null>(null);
+  const [openLocations, setOpenLocations] = useState<Record<InventoryLocation, boolean>>({
+    Frigorífico: false,
+    Congelador: false,
+    Armario: false,
+  });
+  const [mercadona, setMercadona] = useState<
+    (MercadonaSuggestion & { ean?: string | null }) | null
+  >(null);
 
   const parseDecimal = (v: string) => {
     const n = Number(v.replace(",", "."));
@@ -163,8 +215,10 @@ function InventoryPage() {
             location: target,
           };
           if (!item.expiry_date) {
-            if (current === "Frigorífico" && target === "Congelador") patch.expiry_date = addDays(30);
-            else if (current === "Congelador" && target === "Frigorífico") patch.expiry_date = addDays(2);
+            if (current === "Frigorífico" && target === "Congelador")
+              patch.expiry_date = addDays(30);
+            else if (current === "Congelador" && target === "Frigorífico")
+              patch.expiry_date = addDays(2);
           }
           return doUpdate({ data: patch });
         }),
@@ -188,9 +242,15 @@ function InventoryPage() {
         data: {
           name: name.trim(),
           category,
-          quantity: (() => { const n = parseDecimal(quantity); return Number.isFinite(n) && n >= 0 ? n : 1; })(),
+          quantity: (() => {
+            const n = parseDecimal(quantity);
+            return Number.isFinite(n) && n >= 0 ? n : 1;
+          })(),
           unit: unit.trim() || undefined,
-          min_stock: (() => { const n = parseDecimal(minStock); return Number.isFinite(n) && n >= 0 ? n : 0; })(),
+          min_stock: (() => {
+            const n = parseDecimal(minStock);
+            return Number.isFinite(n) && n >= 0 ? n : 0;
+          })(),
           location,
           expiry_date: expiry || undefined,
           mercadona_id: mercadona?.id,
@@ -232,17 +292,110 @@ function InventoryPage() {
     const d = new Date(item.expiry_date);
     return d <= soonThreshold;
   };
-  const expiringCount = data.filter(isExpiringSoon).length;
-  const visibleData = expiringOnly ? data.filter(isExpiringSoon) : data;
+  const expiringItems = data.filter(isExpiringSoon);
 
   const grouped: Record<InventoryLocation, typeof data> = {
     Frigorífico: [],
     Congelador: [],
     Armario: [],
   };
-  for (const item of visibleData) {
+  // Los productos urgentes se muestran arriba para verlos sin desplegar nada.
+  // El resto queda en su ubicación correspondiente para evitar duplicados.
+  for (const item of data.filter((item) => !isExpiringSoon(item))) {
     grouped[normalizeLocation(item.location)].push(item);
   }
+
+  const renderInventoryItem = (item: any) => {
+    const isSelected = selected.has(item.id);
+    return (
+      <Card
+        key={item.id}
+        onClick={selectMode ? () => toggleSelected(item.id) : undefined}
+        className={
+          selectMode
+            ? `cursor-pointer transition-colors ${isSelected ? "border-primary ring-2 ring-primary/40 bg-primary/5" : "hover:bg-muted/40"}`
+            : undefined
+        }
+      >
+        <CardContent className="flex items-start justify-between p-4">
+          <div className="flex items-start gap-3">
+            {selectMode && (
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => toggleSelected(item.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1 h-4 w-4 accent-primary"
+              />
+            )}
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary">
+              <Package className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-medium">{item.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {item.category} · {item.quantity} {item.unit || "ud."}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Mínimo: {Number(item.min_stock) || 0} {item.unit || "ud."}
+              </p>
+              {item.expiry_date &&
+                (() => {
+                  const d = new Date(item.expiry_date);
+                  const expired = d < todayMidnight;
+                  const soon = d <= soonThreshold;
+                  return (
+                    <p
+                      className={`text-xs ${expired ? "text-destructive font-medium" : soon ? "text-amber-600 font-medium" : "text-muted-foreground"}`}
+                    >
+                      {expired ? "Caducó: " : "Caduca: "}
+                      {d.toLocaleDateString("es-ES")}
+                    </p>
+                  );
+                })()}
+            </div>
+          </div>
+          {!selectMode && (
+            <div className="flex flex-col items-end gap-2">
+              {Number(item.quantity) <= Number(item.min_stock) && (
+                <Badge variant="destructive">Bajo</Badge>
+              )}
+              <button
+                onClick={() =>
+                  setMinEdit({
+                    id: item.id,
+                    name: item.name,
+                    value: String(Number(item.min_stock) || 0),
+                  })
+                }
+                className="text-muted-foreground hover:text-primary"
+                title="Editar stock mínimo"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+              </button>
+              <button
+                onClick={async () => {
+                  const snapshot = { ...item };
+                  await doDelete({ data: { id: item.id } });
+                  refresh();
+                  undoableToast({
+                    message: `"${item.name}" eliminado del inventario`,
+                    undo: async () => {
+                      await doRestore({ data: { row: snapshot } });
+                      refresh();
+                    },
+                  });
+                }}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -253,17 +406,9 @@ function InventoryPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
-            variant={expiringOnly ? "secondary" : "outline"}
-            onClick={() => setExpiringOnly((v) => !v)}
-            title="Ver solo productos próximos a caducar (7 días o menos, incluye caducados)"
+            variant={selectMode ? "secondary" : "outline"}
+            onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
           >
-            <AlertTriangle className="mr-2 h-4 w-4" />
-            Próximo a caducar
-            {expiringCount > 0 && (
-              <Badge variant="destructive" className="ml-2">{expiringCount}</Badge>
-            )}
-          </Button>
-          <Button variant={selectMode ? "secondary" : "outline"} onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}>
             {selectMode ? (
               <>
                 <X className="mr-2 h-4 w-4" />
@@ -350,114 +495,53 @@ function InventoryPage() {
         </Card>
       )}
 
+      {expiringItems.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <h3 className="text-lg font-semibold">Próximos a caducar</h3>
+            <Badge variant="destructive">{expiringItems.length}</Badge>
+            <span className="text-sm text-muted-foreground">
+              Incluye caducados y productos de los próximos 7 días
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {expiringItems.map(renderInventoryItem)}
+          </div>
+        </section>
+      )}
+
       <div className="space-y-6">
         {INVENTORY_LOCATIONS.map((loc) => {
           const items = grouped[loc];
           const LocIcon = locationIcons[loc];
           return (
-            <section key={loc} className="space-y-3">
-              <div className="flex items-center gap-2">
+            <Collapsible
+              key={loc}
+              open={openLocations[loc]}
+              onOpenChange={(open) => setOpenLocations((current) => ({ ...current, [loc]: open }))}
+              className="rounded-lg border bg-card"
+            >
+              <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/40">
                 <LocIcon className="h-5 w-5 text-muted-foreground" />
                 <h3 className="text-lg font-semibold">{loc}</h3>
                 <span className="text-sm text-muted-foreground">({items.length})</span>
-              </div>
-              {items.length === 0 ? (
-                <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                  Sin productos en {loc.toLowerCase()}
-                </p>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {items.map((item) => {
-                    const isSelected = selected.has(item.id);
-                    return (
-                      <Card
-                        key={item.id}
-                        onClick={selectMode ? () => toggleSelected(item.id) : undefined}
-                        className={
-                          selectMode
-                            ? `cursor-pointer transition-colors ${isSelected ? "border-primary ring-2 ring-primary/40 bg-primary/5" : "hover:bg-muted/40"}`
-                            : undefined
-                        }
-                      >
-                        <CardContent className="flex items-start justify-between p-4">
-                          <div className="flex items-start gap-3">
-                            {selectMode && (
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleSelected(item.id)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="mt-1 h-4 w-4 accent-primary"
-                              />
-                            )}
-                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary">
-                              <Package className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{item.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {item.category} · {item.quantity} {item.unit || "ud."}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Mínimo: {Number(item.min_stock) || 0} {item.unit || "ud."}
-                              </p>
-                              {item.expiry_date && (() => {
-                                const d = new Date(item.expiry_date);
-                                const expired = d < todayMidnight;
-                                const soon = d <= soonThreshold;
-                                return (
-                                  <p className={`text-xs ${expired ? "text-destructive font-medium" : soon ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
-                                    {expired ? "Caducó: " : "Caduca: "}
-                                    {d.toLocaleDateString("es-ES")}
-                                  </p>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                          {!selectMode && (
-                            <div className="flex flex-col items-end gap-2">
-                              {Number(item.quantity) <= Number(item.min_stock) && (
-                                <Badge variant="destructive">Bajo</Badge>
-                              )}
-                              <button
-                                onClick={() =>
-                                  setMinEdit({
-                                    id: item.id,
-                                    name: item.name,
-                                    value: String(Number(item.min_stock) || 0),
-                                  })
-                                }
-                                className="text-muted-foreground hover:text-primary"
-                                title="Editar stock mínimo"
-                              >
-                                <SlidersHorizontal className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  const snapshot = { ...item };
-                                  await doDelete({ data: { id: item.id } });
-                                  refresh();
-                                  undoableToast({
-                                    message: `"${item.name}" eliminado del inventario`,
-                                    undo: async () => {
-                                      await doRestore({ data: { row: snapshot } });
-                                      refresh();
-                                    },
-                                  });
-                                }}
-                                className="text-muted-foreground hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+                <ChevronDown
+                  className={`ml-auto h-4 w-4 transition-transform ${openLocations[loc] ? "rotate-180" : ""}`}
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="border-t p-4">
+                {items.length === 0 ? (
+                  <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    Sin productos en {loc.toLowerCase()}
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {items.map(renderInventoryItem)}
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           );
         })}
       </div>
@@ -499,7 +583,10 @@ function InventoryPage() {
               className="space-y-4"
             >
               <p className="text-sm text-muted-foreground">
-                Cuando la cantidad de <span className="font-medium text-foreground">{minEdit.name}</span> baje a este valor, se añadirá automáticamente a la lista de la compra en <span className="font-medium text-foreground">Sin tienda</span>.
+                Cuando la cantidad de{" "}
+                <span className="font-medium text-foreground">{minEdit.name}</span> baje a este
+                valor, se añadirá automáticamente a la lista de la compra en{" "}
+                <span className="font-medium text-foreground">Sin tienda</span>.
               </p>
               <div className="space-y-2">
                 <Label>Stock mínimo</Label>
@@ -553,7 +640,10 @@ function InventoryPage() {
               />
               {mercadona && (
                 <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  Mercadona · {mercadona.unit_price != null ? `${mercadona.unit_price.toFixed(2)} €` : "sin precio"}
+                  Mercadona ·{" "}
+                  {mercadona.unit_price != null
+                    ? `${mercadona.unit_price.toFixed(2)} €`
+                    : "sin precio"}
                   <MercadonaProductLink productId={mercadona.id} label="Abrir en Mercadona" />
                 </p>
               )}
@@ -601,7 +691,8 @@ function InventoryPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground -mt-2">
-              Puedes usar decimales para paquetes incompletos (p. ej. 0,25 = un cuarto de paquete) o indicar la unidad real (250 gr, 1 blister, 0,5 kg…).
+              Puedes usar decimales para paquetes incompletos (p. ej. 0,25 = un cuarto de paquete) o
+              indicar la unidad real (250 gr, 1 blister, 0,5 kg…).
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -696,8 +787,14 @@ function MedicinesSection() {
     }
   };
 
-  const openNew = () => { setEditing(null); setDialogOpen(true); };
-  const openEdit = (m: any) => { setEditing(m); setDialogOpen(true); };
+  const openNew = () => {
+    setEditing(null);
+    setDialogOpen(true);
+  };
+  const openEdit = (m: any) => {
+    setEditing(m);
+    setDialogOpen(true);
+  };
 
   const needBuyCount = meds.filter((m: any) => m.needs_purchase).length;
 
@@ -709,9 +806,13 @@ function MedicinesSection() {
           <span className="font-medium">Medicinas</span>
           <span className="text-xs text-muted-foreground">({meds.length})</span>
           {needBuyCount > 0 && (
-            <Badge variant="secondary" className="ml-1">{needBuyCount} por comprar</Badge>
+            <Badge variant="secondary" className="ml-1">
+              {needBuyCount} por comprar
+            </Badge>
           )}
-          <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+          <ChevronDown
+            className={`ml-auto h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+          />
         </CollapsibleTrigger>
         <CollapsibleContent className="border-t p-4 space-y-3">
           <div className="flex justify-end">
@@ -732,11 +833,27 @@ function MedicinesSection() {
                       <button onClick={() => openEdit(m)} className="text-left flex-1">
                         <p className="font-medium">{m.name}</p>
                         <div className="mt-1 flex flex-wrap gap-1">
-                          {m.form && <Badge variant="outline">{MEDICINE_FORMS.find((f) => f.value === m.form)?.label ?? m.form}</Badge>}
-                          {m.dose_amount != null && m.unit && <Badge variant="secondary">{m.dose_amount} {m.unit}</Badge>}
+                          {m.form && (
+                            <Badge variant="outline">
+                              {MEDICINE_FORMS.find((f) => f.value === m.form)?.label ?? m.form}
+                            </Badge>
+                          )}
+                          {m.dose_amount != null && m.unit && (
+                            <Badge variant="secondary">
+                              {m.dose_amount} {m.unit}
+                            </Badge>
+                          )}
                           {m.current_quantity != null && (
-                            <Badge variant={m.low_stock_threshold != null && m.current_quantity <= m.low_stock_threshold ? "destructive" : "outline"}>
-                              Stock {m.current_quantity}{m.total_quantity != null ? `/${m.total_quantity}` : ""}
+                            <Badge
+                              variant={
+                                m.low_stock_threshold != null &&
+                                m.current_quantity <= m.low_stock_threshold
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                            >
+                              Stock {m.current_quantity}
+                              {m.total_quantity != null ? `/${m.total_quantity}` : ""}
                             </Badge>
                           )}
                         </div>
@@ -746,11 +863,20 @@ function MedicinesSection() {
                           </p>
                         )}
                         {m.low_stock_threshold != null && (
-                          <p className="text-xs text-muted-foreground">Avisar cuando queden: {m.low_stock_threshold}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Avisar cuando queden: {m.low_stock_threshold}
+                          </p>
                         )}
-                        {(m.notes || m.note) && <p className="text-xs text-muted-foreground line-clamp-2">{m.notes || m.note}</p>}
+                        {(m.notes || m.note) && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {m.notes || m.note}
+                          </p>
+                        )}
                       </button>
-                      <button onClick={() => remove(m)} className="text-muted-foreground hover:text-destructive">
+                      <button
+                        onClick={() => remove(m)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -813,7 +939,7 @@ function MedicineDialog({
   const [cimaSelected, setCimaSelected] = useState<any | null>(null);
 
   // reset when opening
-  const openRef = open ? editing?.id ?? "new" : "closed";
+  const openRef = open ? (editing?.id ?? "new") : "closed";
   const [lastKey, setLastKey] = useState<string>("");
   if (openRef !== lastKey) {
     setLastKey(openRef);
@@ -907,7 +1033,12 @@ function MedicineDialog({
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
             <Label>Nombre</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Paracetamol" autoFocus />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Paracetamol"
+              autoFocus
+            />
           </div>
           <div className="space-y-3 rounded-lg border p-3">
             <div className="flex flex-wrap items-end gap-2">
@@ -919,13 +1050,19 @@ function MedicineDialog({
                   placeholder="Nombre, código nacional o EAN"
                 />
               </div>
-              <Button type="button" variant="outline" onClick={handleCimaSearch} disabled={cimaLoading}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCimaSearch}
+                disabled={cimaLoading}
+              >
                 <Search className="mr-2 h-4 w-4" />
                 {cimaLoading ? "Buscando..." : "Buscar"}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Busca en CIMA/AEMPS para rellenar datos del medicamento de inventario. No lo asigna a ningún miembro.
+              Busca en CIMA/AEMPS para rellenar datos del medicamento de inventario. No lo asigna a
+              ningún miembro.
             </p>
             {cimaSelected && (
               <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
@@ -933,12 +1070,19 @@ function MedicineDialog({
                   <div className="min-w-0">
                     <p className="font-medium">{cimaSelected.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {cimaSelected.nregistro ? `Registro ${cimaSelected.nregistro}` : "Registro no disponible"}
+                      {cimaSelected.nregistro
+                        ? `Registro ${cimaSelected.nregistro}`
+                        : "Registro no disponible"}
                       {cimaSelected.cn ? ` · CN ${cimaSelected.cn}` : ""}
                       {cimaSelected.prescriptionRequired ? " · sujeto a receta" : ""}
                     </p>
                   </div>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setCimaSelected(null)}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setCimaSelected(null)}
+                  >
                     Quitar
                   </Button>
                 </div>
@@ -973,10 +1117,14 @@ function MedicineDialog({
                     <p className="text-xs text-muted-foreground">
                       {[medicine.dose, medicine.form, medicine.lab].filter(Boolean).join(" · ")}
                     </p>
-                    {(medicine.activeIngredients?.length > 0 || medicine.excipients?.length > 0) && (
+                    {(medicine.activeIngredients?.length > 0 ||
+                      medicine.excipients?.length > 0) && (
                       <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        Principios: {(medicine.activeIngredients ?? []).join(", ") || "no disponible"}
-                        {medicine.excipients?.length ? ` · Excipientes: ${medicine.excipients.slice(0, 6).join(", ")}` : ""}
+                        Principios:{" "}
+                        {(medicine.activeIngredients ?? []).join(", ") || "no disponible"}
+                        {medicine.excipients?.length
+                          ? ` · Excipientes: ${medicine.excipients.slice(0, 6).join(", ")}`
+                          : ""}
                       </p>
                     )}
                   </button>
@@ -993,49 +1141,102 @@ function MedicineDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {MEDICINE_FORMS.map((f) => (
-                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                    <SelectItem key={f.value} value={f.value}>
+                      {f.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Unidad</Label>
-              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="pastilla, ml..." />
+              <Input
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="pastilla, ml..."
+              />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Dosis por toma</Label>
-              <Input type="number" step="0.01" min="0" value={dose} onChange={(e) => setDose(e.target.value)} placeholder="1" />
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={dose}
+                onChange={(e) => setDose(e.target.value)}
+                placeholder="1"
+              />
             </div>
             <div className="space-y-2">
               <Label>Stock total caja</Label>
-              <Input type="number" step="0.01" min="0" value={totalQty} onChange={(e) => setTotalQty(e.target.value)} placeholder="30" />
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={totalQty}
+                onChange={(e) => setTotalQty(e.target.value)}
+                placeholder="30"
+              />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Stock actual</Label>
-              <Input type="number" step="0.01" min="0" value={currentQty} onChange={(e) => setCurrentQty(e.target.value)} placeholder="20" />
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={currentQty}
+                onChange={(e) => setCurrentQty(e.target.value)}
+                placeholder="20"
+              />
             </div>
             <div className="space-y-2">
               <Label>Avisar cuando queden</Label>
-              <Input type="number" step="0.01" min="0" value={threshold} onChange={(e) => setThreshold(e.target.value)} placeholder="5" />
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                placeholder="5"
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Mes caducidad</Label>
-              <Input type="number" min={1} max={12} value={month} onChange={(e) => setMonth(e.target.value)} placeholder="MM" />
+              <Input
+                type="number"
+                min={1}
+                max={12}
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                placeholder="MM"
+              />
             </div>
             <div className="space-y-2">
               <Label>Año caducidad</Label>
-              <Input type="number" min={currentYear - 1} max={currentYear + 20} value={year} onChange={(e) => setYear(e.target.value)} placeholder="AAAA" />
+              <Input
+                type="number"
+                min={currentYear - 1}
+                max={currentYear + 20}
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                placeholder="AAAA"
+              />
             </div>
           </div>
           <div className="space-y-2">
             <Label>Anotación</Label>
-            <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Para qué se usa, dosis..." rows={2} />
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Para qué se usa, dosis..."
+              rows={2}
+            />
           </div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <Checkbox checked={needs} onCheckedChange={(v) => setNeeds(!!v)} />

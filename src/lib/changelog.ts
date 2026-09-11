@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.66",
+    title: "Inventario más compacto",
+    highlights: [
+      "Frigorífico, congelador y armario se pliegan individualmente para reducir la longitud de la pantalla.",
+      "Los productos caducados o que caducan en los próximos 7 días permanecen siempre visibles en una sección prioritaria.",
+    ],
+  },
+  {
     version: "v0.65",
     title: "Escáner en la lista de compra",
     highlights: [
