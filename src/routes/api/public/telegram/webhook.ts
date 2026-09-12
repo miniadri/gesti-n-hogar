@@ -41,7 +41,9 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           { auth: { persistSession: false, autoRefreshToken: false } },
         );
 
-        // Medication reminders intentionally only support a ten-minute snooze.
+        // Telegram keeps its established reminder actions. The one-hour safety
+        // window applies to the HomeSync web interface, where accidental taps
+        // on the dashboard were the reported problem.
         if (update.callback_query) {
           await handleCallbackQuery(supabase, update.callback_query, TELEGRAM_API_KEY);
           return Response.json({ ok: true });
@@ -197,7 +199,72 @@ async function handleCallbackQuery(
   }
 
   if (action === "taken" || action === "skipped") {
-    await answerCallback(telegramApiKey, callbackId, "Solo puedes posponer esta toma 10 minutos");
+    if ((intake as any).status !== "pending") {
+      await answerCallback(telegramApiKey, callbackId, "Esta toma ya estaba registrada");
+      await editMessage(
+        telegramApiKey,
+        chatId,
+        messageId,
+        `✅ Toma ya registrada — ${med?.name ?? ""}`,
+      );
+      return;
+    }
+
+    // Only the first callback can change a pending dose. This keeps the
+    // original Telegram flow while preventing a double tap from discounting
+    // stock twice.
+    const { data: recorded, error: recordError } = await supabase
+      .from("medication_intakes")
+      .update({
+        status: action,
+        taken_at: new Date().toISOString(),
+        confirmed_by: profile.user_id,
+      })
+      .eq("id", intakeId)
+      .eq("status", "pending")
+      .select("id");
+    if (recordError) {
+      await answerCallback(telegramApiKey, callbackId, "No se pudo registrar la toma");
+      return;
+    }
+    if (!(recorded ?? []).length) {
+      await answerCallback(telegramApiKey, callbackId, "Esta toma ya estaba registrada");
+      return;
+    }
+
+    if (action === "taken" && med?.dose_amount) {
+      const prevQty = med.current_quantity ?? 0;
+      const newQty = Math.max(0, prevQty - med.dose_amount);
+      await supabase.from("medications").update({ current_quantity: newQty }).eq("id", (intake as any).medication_id);
+
+      const threshold = med.low_stock_threshold;
+      if (threshold != null && newQty <= threshold && prevQty > threshold) {
+        const { addMedicationToShoppingList, sendPushToUsers, sendTelegramToUsers, resolveHouseholdUserIds } =
+          await import("@/lib/notify.server");
+        const added = await addMedicationToShoppingList(supabase, med.household_id, med.name);
+        if (added) {
+          const users = await resolveHouseholdUserIds(supabase, med.household_id);
+          const title = "💊 Stock bajo de medicación";
+          const body = `${med.name}: quedan ${newQty} (umbral ${threshold}). Añadido a la lista de la compra.`;
+          await sendPushToUsers(supabase, users, { title, body, url: "/shopping" });
+          await sendTelegramToUsers(supabase, users, `${title}\n${body}`);
+        }
+      }
+    }
+
+    await answerCallback(
+      telegramApiKey,
+      callbackId,
+      action === "taken" ? "✅ Opción registrada: marcada como tomada" : "✅ Opción registrada: omitida",
+    );
+    await editMessage(
+      telegramApiKey,
+      chatId,
+      messageId,
+      action === "taken"
+        ? `✅ Opción registrada — Tomada — ${med?.name ?? ""}`
+        : `⏭️ Opción registrada — Omitida — ${med?.name ?? ""}`,
+    );
     return;
   }
 

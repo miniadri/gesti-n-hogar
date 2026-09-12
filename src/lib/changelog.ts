@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.78",
+    title: "Corrección de Dashboard y Telegram",
+    highlights: [
+      "Dashboard vuelve a cargar correctamente al restaurar los iconos de las acciones de medicación.",
+      "Los avisos de medicación por Telegram recuperan Tomada, +10 min y Omitir.",
+      "La ventana de una hora y la confirmación siguen aplicándose únicamente en la interfaz web de Inicio y Salud.",
+    ],
+  },
+  {
     version: "v0.77",
     title: "Confirmación protegida de medicación",
     highlights: [
