@@ -37,7 +37,9 @@ import { Badge } from "@/components/ui/badge";
 import { getPrepAheadForTomorrow } from "@/lib/meal-plan.functions";
 import { listMedicines } from "@/lib/medicines.functions";
 import { listInventory } from "@/lib/inventory.functions";
-import { listMedications, snoozeIntake } from "@/lib/medications.functions";
+import { listMedications, recordIntake, snoozeIntake } from "@/lib/medications.functions";
+import { canRecordMedicationIntake } from "@/lib/medication-intake-window";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { listDevices, updateDevice } from "@/lib/devices.functions";
 import { callHomeAssistantService } from "@/lib/home-assistant.functions";
 import { cn } from "@/lib/utils";
@@ -241,6 +243,7 @@ function DashboardPage() {
   const { data: devices } = useSuspenseQuery(devicesQO);
   const queryClient = useQueryClient();
   const doSnooze = useServerFn(snoozeIntake);
+  const doRecord = useServerFn(recordIntake);
   const doUpdateDevice = useServerFn(updateDevice);
   const doCallHa = useServerFn(callHomeAssistantService);
   const pharmacyToBuy = medicines.filter((m: any) => m.needs_purchase);
@@ -309,6 +312,7 @@ function DashboardPage() {
   const scheduleDays = buildScheduleUpcoming(data.schedule);
   const [sectionPrefs, setSectionPrefs] = useState(() => loadDashboardPrefs());
   const [customizing, setCustomizing] = useState(false);
+  const [recordConfirmation, setRecordConfirmation] = useState<{ intake: any; status: "taken" | "skipped" } | null>(null);
 
   useEffect(() => {
     saveDashboardPrefs(sectionPrefs);
@@ -339,6 +343,21 @@ function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["medications"] });
     } catch (err: any) {
       toast.error(err.message || "Error al posponer");
+    }
+  };
+
+  const handleRecord = async () => {
+    if (!recordConfirmation) return;
+    const { intake, status } = recordConfirmation;
+    try {
+      await doRecord({ data: { intake_id: intake.id, status } });
+      toast.success(status === "taken" ? "Toma confirmada" : "Toma omitida");
+      setRecordConfirmation(null);
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+      queryClient.invalidateQueries({ queryKey: ["medicines"] });
+      queryClient.invalidateQueries({ queryKey: ["shopping"] });
+    } catch (err: any) {
+      toast.error(err.message || "Error al registrar");
     }
   };
 
@@ -498,6 +517,16 @@ function DashboardPage() {
                       <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
                         <Clock3 className="h-4 w-4" />
                       </Button>
+                      {canRecordMedicationIntake(intake.scheduled_for) && (
+                        <>
+                          <Button size="sm" variant="outline" title="Omitir toma" onClick={() => setRecordConfirmation({ intake, status: "skipped" })}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" title="Confirmar toma" onClick={() => setRecordConfirmation({ intake, status: "taken" })}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -794,6 +823,7 @@ function DashboardPage() {
 
 
   return (
+    <>
     <div className="space-y-6">
       <section className="flex items-start justify-between gap-4">
         <div>
@@ -866,6 +896,25 @@ function DashboardPage() {
         </div>
       )}
     </div>
+    <Dialog open={!!recordConfirmation} onOpenChange={(open) => !open && setRecordConfirmation(null)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{recordConfirmation?.status === "taken" ? "¿Confirmar toma?" : "¿Omitir toma?"}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          {recordConfirmation?.status === "taken"
+            ? "Se registrará la toma y se descontará la dosis del stock de medicación."
+            : "La toma quedará registrada como omitida."}
+        </p>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setRecordConfirmation(null)}>Cancelar</Button>
+          <Button variant={recordConfirmation?.status === "skipped" ? "destructive" : "default"} onClick={handleRecord}>
+            {recordConfirmation?.status === "taken" ? "Confirmar tomada" : "Confirmar omitida"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

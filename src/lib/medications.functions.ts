@@ -2,9 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeMedicationTime } from "@/lib/medication-time";
+import { canRecordMedicationIntake } from "@/lib/medication-intake-window";
+import { stockAfterIntake } from "@/lib/medication-calc";
 import webPush from "web-push";
 
 const MedicationFormEnum = z.enum(["pill", "ml", "drops", "inhaler", "patch", "injection", "other"]);
+const RecordIntakeInput = z.object({
+  intake_id: z.string().uuid(),
+  status: z.enum(["taken", "skipped"]),
+});
 
 const ScheduleInput = z.object({
   id: z.string().uuid().optional(),
@@ -417,6 +423,65 @@ export const snoozeIntake = createServerFn({ method: "POST" })
       .eq("id", data.intake_id);
     if (error) throw error;
     return { ok: true, scheduled_for: next };
+  });
+
+/** Record a dose only once it is within the protected one-hour action window. */
+export const recordIntake = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => RecordIntakeInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = await context.supabase.rpc("current_household");
+    if (!householdId.data) throw new Error("No household");
+
+    const { data: intake, error: fetchError } = await context.supabase
+      .from("medication_intakes")
+      .select("*, medications(*)")
+      .eq("id", data.intake_id)
+      .single();
+    if (fetchError || !intake) throw fetchError || new Error("Intake not found");
+    if (intake.medications?.household_id !== householdId.data) throw new Error("Sin permiso para esta toma");
+    if (intake.status !== "pending") throw new Error("Esta toma ya estaba registrada");
+    if (!canRecordMedicationIntake(intake.scheduled_for)) {
+      throw new Error("Esta toma solo se puede confirmar u omitir desde una hora antes de la hora programada");
+    }
+
+    // The pending predicate is the concurrency guard: two simultaneous presses
+    // cannot both confirm the dose or discount stock twice.
+    const { data: recorded, error } = await context.supabase
+      .from("medication_intakes")
+      .update({ status: data.status, taken_at: new Date().toISOString(), confirmed_by: context.userId })
+      .eq("id", data.intake_id)
+      .eq("status", "pending")
+      .select("id");
+    if (error) throw error;
+    if (!(recorded ?? []).length) throw new Error("Esta toma ya estaba registrada");
+
+    if (data.status === "taken" && intake.medications?.dose_amount) {
+      const newQty = stockAfterIntake(intake.medications.current_quantity, intake.medications.dose_amount);
+      await context.supabase.from("medications").update({ current_quantity: newQty }).eq("id", intake.medication_id);
+      await context.supabase
+        .from("medicines")
+        .update({ current_quantity: newQty })
+        .eq("household_id", householdId.data)
+        .ilike("name", intake.medications.name);
+
+      const threshold = intake.medications.low_stock_threshold;
+      const previousQty = intake.medications.current_quantity;
+      if (threshold != null && previousQty != null && newQty <= threshold && previousQty > threshold) {
+        const { addMedicationToShoppingList, resolveHouseholdUserIds, sendPushToUsers, sendTelegramToUsers } =
+          await import("@/lib/notify.server");
+        const added = await addMedicationToShoppingList(context.supabase, householdId.data, intake.medications.name);
+        if (added) {
+          const users = await resolveHouseholdUserIds(context.supabase, householdId.data);
+          const title = "💊 Stock bajo de medicación";
+          const body = `${intake.medications.name}: quedan ${newQty} (umbral ${threshold}). Añadido a la lista de la compra.`;
+          await sendPushToUsers(context.supabase, users, { title, body, url: "/shopping" });
+          await sendTelegramToUsers(context.supabase, users, `${title}\n${body}`);
+        }
+      }
+    }
+
+    return { ok: true };
   });
 
 

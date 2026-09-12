@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.77",
+    title: "Confirmación protegida de medicación",
+    highlights: [
+      "Tomada y Omitida vuelven a estar disponibles únicamente desde una hora antes de cada toma programada.",
+      "Inicio y Salud piden una confirmación explícita antes de registrar la acción; antes de la ventana no muestran esos botones.",
+      "El servidor aplica la misma regla y evita que dos pulsaciones descuenten stock dos veces.",
+    ],
+  },
+  {
     version: "v0.76",
     title: "Tomas protegidas y avisos de Cuadrante",
     highlights: [

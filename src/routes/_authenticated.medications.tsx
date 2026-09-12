@@ -44,9 +44,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client-app";
-import { listMedications, createMedication, updateMedication, deleteMedication, snoozeIntake } from "@/lib/medications.functions";
+import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake, snoozeIntake } from "@/lib/medications.functions";
 import { listMedicines } from "@/lib/medicines.functions";
 import { normalizeMedicationTime } from "@/lib/medication-time";
+import { canRecordMedicationIntake } from "@/lib/medication-intake-window";
 import { searchCimaMedicines } from "@/lib/cima.functions";
 import { createShoppingItem } from "@/lib/shopping.functions";
 import {
@@ -131,10 +132,12 @@ function MedicationsPage() {
   const [medicalRegistryOpen, setMedicalRegistryOpen] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const [showFloatingActions, setShowFloatingActions] = useState(false);
+  const [recordConfirmation, setRecordConfirmation] = useState<{ intake: any; status: "taken" | "skipped" } | null>(null);
 
   const doCreate = useServerFn(createMedication);
   const doUpdate = useServerFn(updateMedication);
   const doDelete = useServerFn(deleteMedication);
+  const doRecord = useServerFn(recordIntake);
   const doSnooze = useServerFn(snoozeIntake);
   const doAddShopping = useServerFn(createShoppingItem);
   const doSaveProfile = useServerFn(upsertMedicalProfile);
@@ -211,6 +214,22 @@ function MedicationsPage() {
       queryClient.invalidateQueries({ queryKey: ["medications"] });
     } catch (err: any) {
       toast.error(err.message || "Error al posponer");
+    }
+  };
+
+  const handleRecord = async () => {
+    if (!recordConfirmation) return;
+    const { intake, status } = recordConfirmation;
+    try {
+      await doRecord({ data: { intake_id: intake.id, status } });
+      toast.success(status === "taken" ? "Toma confirmada" : "Toma omitida");
+      setRecordConfirmation(null);
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+      queryClient.invalidateQueries({ queryKey: ["medicines"] });
+      queryClient.invalidateQueries({ queryKey: ["shopping"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch (err: any) {
+      toast.error(err.message || "Error al registrar");
     }
   };
 
@@ -332,6 +351,16 @@ function MedicationsPage() {
                   <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
                     <Clock3 className="h-4 w-4" />
                   </Button>
+                  {canRecordMedicationIntake(intake.scheduled_for) && (
+                    <>
+                      <Button size="sm" variant="outline" title="Omitir toma" onClick={() => setRecordConfirmation({ intake, status: "skipped" })}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" title="Confirmar toma" onClick={() => setRecordConfirmation({ intake, status: "taken" })}>
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
                 </div>
 
               </div>
@@ -382,6 +411,7 @@ function MedicationsPage() {
                       setDialogOpen(true);
                     }}
                     onDelete={() => handleDelete(med)}
+                    onRecord={(intake, status) => setRecordConfirmation({ intake, status })}
                     onSnooze={handleSnooze}
 
                   />
@@ -433,6 +463,24 @@ function MedicationsPage() {
         medicalRegistry={medicalRegistry}
         onSave={handleSave}
       />
+      <Dialog open={!!recordConfirmation} onOpenChange={(open) => !open && setRecordConfirmation(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{recordConfirmation?.status === "taken" ? "¿Confirmar toma?" : "¿Omitir toma?"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {recordConfirmation?.status === "taken"
+              ? "Se registrará la toma y se descontará la dosis del stock de medicación."
+              : "La toma quedará registrada como omitida."}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecordConfirmation(null)}>Cancelar</Button>
+            <Button variant={recordConfirmation?.status === "skipped" ? "destructive" : "default"} onClick={handleRecord}>
+              {recordConfirmation?.status === "taken" ? "Confirmar tomada" : "Confirmar omitida"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showFloatingActions && (
         <div className="pointer-events-none fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 md:bottom-6">
@@ -1084,12 +1132,14 @@ function MedicationCard({
   member,
   onEdit,
   onDelete,
+  onRecord,
   onSnooze,
 }: {
   med: any;
   member: any;
   onEdit: () => void;
   onDelete: () => void;
+  onRecord: (intake: any, status: "taken" | "skipped") => void;
   onSnooze: (intake: any, minutes?: number) => void;
 }) {
 
@@ -1188,6 +1238,16 @@ function MedicationCard({
                   {new Date(intake.scheduled_for).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   {intake.status === "pending" ? (
                     <>
+                      {canRecordMedicationIntake(intake.scheduled_for) && (
+                        <>
+                          <Button size="icon" variant="ghost" className="h-5 w-5" title="Confirmar tomada" onClick={() => onRecord(intake, "taken")}>
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-5 w-5" title="Omitir toma" onClick={() => onRecord(intake, "skipped")}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
                       <Button size="icon" variant="ghost" className="h-5 w-5" title="Posponer 10 min" onClick={() => onSnooze(intake, 10)}>
                         <Clock3 className="h-3 w-3" />
                       </Button>
