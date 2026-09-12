@@ -44,7 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client-app";
-import { listMedications, createMedication, updateMedication, deleteMedication, recordIntake, snoozeIntake } from "@/lib/medications.functions";
+import { listMedications, createMedication, updateMedication, deleteMedication, snoozeIntake } from "@/lib/medications.functions";
 import { listMedicines } from "@/lib/medicines.functions";
 import { normalizeMedicationTime } from "@/lib/medication-time";
 import { searchCimaMedicines } from "@/lib/cima.functions";
@@ -135,7 +135,6 @@ function MedicationsPage() {
   const doCreate = useServerFn(createMedication);
   const doUpdate = useServerFn(updateMedication);
   const doDelete = useServerFn(deleteMedication);
-  const doRecord = useServerFn(recordIntake);
   const doSnooze = useServerFn(snoozeIntake);
   const doAddShopping = useServerFn(createShoppingItem);
   const doSaveProfile = useServerFn(upsertMedicalProfile);
@@ -202,19 +201,6 @@ function MedicationsPage() {
       queryClient.invalidateQueries({ queryKey: ["medications"] });
     } catch (err: any) {
       toast.error(err.message || "Error al eliminar");
-    }
-  };
-
-  const handleRecord = async (intake: any, status: string) => {
-    try {
-      await doRecord({ data: { intake_id: intake.id, status } });
-      toast.success(status === "taken" ? "Toma confirmada" : "Toma omitida");
-      queryClient.invalidateQueries({ queryKey: ["medications"] });
-      queryClient.invalidateQueries({ queryKey: ["medicines"] });
-      queryClient.invalidateQueries({ queryKey: ["shopping"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-    } catch (err: any) {
-      toast.error(err.message || "Error al registrar");
     }
   };
 
@@ -346,12 +332,6 @@ function MedicationsPage() {
                   <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
                     <Clock3 className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="outline" title="Omitir toma" onClick={() => handleRecord(intake, "skipped")}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" title="Confirmar toma" onClick={() => handleRecord(intake, "taken")}>
-                    <Check className="h-4 w-4" />
-                  </Button>
                 </div>
 
               </div>
@@ -402,7 +382,6 @@ function MedicationsPage() {
                       setDialogOpen(true);
                     }}
                     onDelete={() => handleDelete(med)}
-                    onRecord={handleRecord}
                     onSnooze={handleSnooze}
 
                   />
@@ -1105,14 +1084,12 @@ function MedicationCard({
   member,
   onEdit,
   onDelete,
-  onRecord,
   onSnooze,
 }: {
   med: any;
   member: any;
   onEdit: () => void;
   onDelete: () => void;
-  onRecord: (intake: any, status: string) => void;
   onSnooze: (intake: any, minutes?: number) => void;
 }) {
 
@@ -1211,14 +1188,8 @@ function MedicationCard({
                   {new Date(intake.scheduled_for).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   {intake.status === "pending" ? (
                     <>
-                      <Button size="icon" variant="ghost" className="h-5 w-5" title="Confirmar" onClick={() => onRecord(intake, "taken")}>
-                        <Check className="h-3 w-3" />
-                      </Button>
                       <Button size="icon" variant="ghost" className="h-5 w-5" title="Posponer 10 min" onClick={() => onSnooze(intake, 10)}>
                         <Clock3 className="h-3 w-3" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-5 w-5" title="Omitir" onClick={() => onRecord(intake, "skipped")}>
-                        <X className="h-3 w-3" />
                       </Button>
                     </>
 

@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.76",
+    title: "Tomas protegidas y avisos de Cuadrante",
+    highlights: [
+      "Las tomas activas solo permiten posponer 10 minutos; se eliminan las acciones de confirmar u omitir en Salud, Inicio y Telegram.",
+      "Cuadrante vuelve a ejecutar su programador en el despliegue de Cloudflare y avisa al comienzo y al final del turno por Push y Telegram.",
+      "Si ningún canal acepta un aviso de Cuadrante, se libera para que el siguiente ciclo lo reintente.",
+    ],
+  },
+  {
     version: "v0.75",
     title: "Etiquetas disponibles siempre a mano",
     highlights: [

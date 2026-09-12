@@ -260,6 +260,13 @@ async function sendScheduleNotifications(supabase: any, now: Date): Promise<numb
             url: "/calendar/schedule",
           });
         }
+        if (minutesUntilStart <= 0 && minutesUntilStart >= -15) {
+          sent += await sendScheduleNoticeOnce(supabase, member, memberSettings, slotKey, "start_now", {
+            title: "Hora de entrada",
+            body: `${member.display_name}: empieza ahora ${formatTime(slot.start_time)}-${formatTime(slot.end_time)}${slot.label ? ` · ${slot.label}` : ""}`,
+            url: "/calendar/schedule",
+          });
+        }
         // Child profiles never register overtime, so we skip the end-of-shift confirmation prompt.
         if (!member.is_child && minutesAfterEnd >= 0 && minutesAfterEnd <= 120) {
           const plannedHours = slotHours(slot);
@@ -308,6 +315,18 @@ async function sendScheduleNoticeOnce(
     body: payload.body,
     url: payload.url,
   });
+  // A slot is reserved before delivery to prevent concurrent cron executions
+  // from duplicating it. If no configured channel accepted it, release that
+  // reservation so the next five-minute run can retry after Push/Telegram is
+  // repaired instead of silently losing the notice.
+  if (!ok) {
+    const { error: releaseError } = await supabase
+      .from("schedule_notification_log")
+      .delete()
+      .eq("slot_key", slotKey)
+      .eq("notice_type", noticeType);
+    if (releaseError) console.error("schedule notification release failed", releaseError);
+  }
   return ok ? 1 : 0;
 }
 

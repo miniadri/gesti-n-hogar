@@ -16,9 +16,7 @@ import {
   Sparkles,
   Pill,
   AlertTriangle,
-  Check,
   Clock3,
-  X,
   Lightbulb,
   Thermometer,
   Shield,
@@ -39,7 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { getPrepAheadForTomorrow } from "@/lib/meal-plan.functions";
 import { listMedicines } from "@/lib/medicines.functions";
 import { listInventory } from "@/lib/inventory.functions";
-import { listMedications, recordIntake, snoozeIntake } from "@/lib/medications.functions";
+import { listMedications, snoozeIntake } from "@/lib/medications.functions";
 import { listDevices, updateDevice } from "@/lib/devices.functions";
 import { callHomeAssistantService } from "@/lib/home-assistant.functions";
 import { cn } from "@/lib/utils";
@@ -242,7 +240,6 @@ function DashboardPage() {
   const { data: medications } = useSuspenseQuery(medicationsQO);
   const { data: devices } = useSuspenseQuery(devicesQO);
   const queryClient = useQueryClient();
-  const doRecord = useServerFn(recordIntake);
   const doSnooze = useServerFn(snoozeIntake);
   const doUpdateDevice = useServerFn(updateDevice);
   const doCallHa = useServerFn(callHomeAssistantService);
@@ -335,15 +332,6 @@ function DashboardPage() {
     }));
   };
 
-  const handleRecord = async (intake: any, status: string) => {
-    try {
-      await doRecord({ data: { intake_id: intake.id, status } });
-      toast.success(status === "taken" ? "Toma confirmada" : "Toma omitida");
-      queryClient.invalidateQueries({ queryKey: ["medications"] });
-    } catch (err: any) {
-      toast.error(err.message || "Error al registrar");
-    }
-  };
   const handleSnooze = async (intake: any, minutes = 10) => {
     try {
       await doSnooze({ data: { intake_id: intake.id, minutes } });
@@ -509,12 +497,6 @@ function DashboardPage() {
                     <div className="flex shrink-0 gap-1">
                       <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
                         <Clock3 className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="outline" title="Omitir" onClick={() => handleRecord(intake, "skipped")}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" title="Confirmar" onClick={() => handleRecord(intake, "taken")}>
-                        <Check className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -913,4 +895,3 @@ function saveDashboardPrefs(value: { order: DashboardSectionKey[]; hidden: Dashb
     // Local dashboard preference only.
   }
 }
-

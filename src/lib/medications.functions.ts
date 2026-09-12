@@ -5,7 +5,6 @@ import { normalizeMedicationTime } from "@/lib/medication-time";
 import webPush from "web-push";
 
 const MedicationFormEnum = z.enum(["pill", "ml", "drops", "inhaler", "patch", "injection", "other"]);
-const IntakeStatusEnum = z.enum(["pending", "taken", "skipped", "missed"]);
 
 const ScheduleInput = z.object({
   id: z.string().uuid().optional(),
@@ -76,12 +75,6 @@ const UpdateMedicationInput = z.object({
   schedules: z.array(ScheduleInput).min(1),
 });
 
-
-const RecordIntakeInput = z.object({
-  intake_id: z.string().uuid(),
-  status: IntakeStatusEnum,
-  taken_at: z.string().datetime().optional(),
-});
 
 const SnoozeIntakeInput = z.object({
   intake_id: z.string().uuid(),
@@ -440,75 +433,6 @@ export const deleteMedication = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .eq("household_id", householdId.data);
     if (error) throw error;
-    return { ok: true };
-  });
-
-export const recordIntake = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input) => RecordIntakeInput.parse(input))
-  .handler(async ({ data, context }) => {
-    const takenAt = data.taken_at ? new Date(data.taken_at).toISOString() : new Date().toISOString();
-    const householdId = await context.supabase.rpc("current_household");
-    if (!householdId.data) throw new Error("No household");
-
-    const { data: intake, error: fetchError } = await context.supabase
-      .from("medication_intakes")
-      .select("*, medications(*)")
-      .eq("id", data.intake_id)
-      .single();
-    if (fetchError || !intake) throw fetchError || new Error("Intake not found");
-    if (intake.medications?.household_id !== householdId.data) {
-      throw new Error("Sin permiso para registrar esta toma");
-    }
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
-      .from("medication_intakes")
-      .update({
-        status: data.status,
-        taken_at: data.status === "taken" ? takenAt : null,
-        confirmed_by: context.userId,
-        reminder_count: 0,
-        last_reminder_sent_at: null,
-      })
-      .eq("id", data.intake_id)
-      .select("id")
-      .single();
-    if (error) throw error;
-
-    if (data.status === "taken" && intake.status !== "taken" && intake.medications?.dose_amount) {
-      const newQty = Math.max(0, (intake.medications.current_quantity ?? 0) - intake.medications.dose_amount);
-      await supabaseAdmin
-        .from("medications")
-        .update({ current_quantity: newQty })
-        .eq("id", intake.medication_id);
-
-      await supabaseAdmin
-        .from("medicines")
-        .update({ current_quantity: newQty })
-        .eq("household_id", intake.medications.household_id)
-        .ilike("name", intake.medications.name);
-
-      const threshold = intake.medications.low_stock_threshold;
-      const prevQty = intake.medications.current_quantity ?? 0;
-      if (threshold != null && newQty <= threshold && prevQty > threshold) {
-        const { addMedicationToShoppingList, sendPushToUsers, sendTelegramToUsers, resolveHouseholdUserIds } =
-          await import("@/lib/notify.server");
-        const added = await addMedicationToShoppingList(
-          context.supabase,
-          intake.medications.household_id,
-          intake.medications.name,
-        );
-        if (added) {
-          const users = await resolveHouseholdUserIds(context.supabase, intake.medications.household_id);
-          const title = "💊 Stock bajo de medicación";
-          const body = `${intake.medications.name}: quedan ${newQty} (umbral ${threshold}). Añadido a la lista de la compra.`;
-          await sendPushToUsers(context.supabase, users, { title, body, url: "/shopping" });
-          await sendTelegramToUsers(context.supabase, users, `${title}\n${body}`);
-        }
-      }
-    }
-
     return { ok: true };
   });
 

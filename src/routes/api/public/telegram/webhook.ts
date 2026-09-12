@@ -41,7 +41,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           { auth: { persistSession: false, autoRefreshToken: false } },
         );
 
-        // Handle inline button callbacks (Tomada / Snooze / Omitir)
+        // Medication reminders intentionally only support a ten-minute snooze.
         if (update.callback_query) {
           await handleCallbackQuery(supabase, update.callback_query, TELEGRAM_API_KEY);
           return Response.json({ ok: true });
@@ -197,64 +197,7 @@ async function handleCallbackQuery(
   }
 
   if (action === "taken" || action === "skipped") {
-    if ((intake as any).status !== "pending") {
-      await answerCallback(telegramApiKey, callbackId, "Esta toma ya estaba registrada");
-      await editMessage(
-        telegramApiKey,
-        chatId,
-        messageId,
-        (intake as any).status === "taken"
-          ? `✅ Toma ya registrada — Tomada — ${med?.name ?? ""}`
-          : `⏭️ Toma ya registrada — Omitida — ${med?.name ?? ""}`,
-      );
-      return;
-    }
-
-    await supabase
-      .from("medication_intakes")
-      .update({
-        status: action,
-        taken_at: action === "taken" ? new Date().toISOString() : null,
-        confirmed_by: profile.user_id,
-        reminder_count: 0,
-        last_reminder_sent_at: null,
-      })
-      .eq("id", intakeId)
-      .eq("status", "pending");
-
-    if (action === "taken" && med?.dose_amount) {
-      const prevQty = med.current_quantity ?? 0;
-      const newQty = Math.max(0, prevQty - med.dose_amount);
-      await supabase.from("medications").update({ current_quantity: newQty }).eq("id", (intake as any).medication_id);
-
-      const threshold = med.low_stock_threshold;
-      if (threshold != null && newQty <= threshold && prevQty > threshold) {
-        const { addMedicationToShoppingList, sendPushToUsers, sendTelegramToUsers, resolveHouseholdUserIds } =
-          await import("@/lib/notify.server");
-        const added = await addMedicationToShoppingList(supabase, med.household_id, med.name);
-        if (added) {
-          const users = await resolveHouseholdUserIds(supabase, med.household_id);
-          const title = "💊 Stock bajo de medicación";
-          const body = `${med.name}: quedan ${newQty} (umbral ${threshold}). Añadido a la lista de la compra.`;
-          await sendPushToUsers(supabase, users, { title, body, url: "/shopping" });
-          await sendTelegramToUsers(supabase, users, `${title}\n${body}`);
-        }
-      }
-    }
-
-    await answerCallback(
-      telegramApiKey,
-      callbackId,
-      action === "taken" ? "✅ Opción registrada: marcada como tomada" : "✅ Opción registrada: omitida",
-    );
-    await editMessage(
-      telegramApiKey,
-      chatId,
-      messageId,
-      action === "taken"
-        ? `✅ Opción registrada — Tomada — ${med?.name ?? ""}`
-        : `⏭️ Opción registrada — Omitida — ${med?.name ?? ""}`,
-    );
+    await answerCallback(telegramApiKey, callbackId, "Solo puedes posponer esta toma 10 minutos");
     return;
   }
 

@@ -77,9 +77,7 @@ export const Route = createFileRoute("/api/public/hooks/medication-reminders")({
                   {
                     inline_keyboard: [
                       [
-                        { text: "✅ Tomada", callback_data: `intake:taken:${intake.id}` },
                         { text: "⏰ +10 min", callback_data: `intake:snooze:${intake.id}` },
-                        { text: "⏭️ Omitir", callback_data: `intake:skipped:${intake.id}` },
                       ],
                       [{ text: "📱 Abrir HomeSync", url: openUrl }],
                     ],
