@@ -56,6 +56,38 @@ export function splitEventsUpcoming(events: any[]) {
   return grouped;
 }
 
+/**
+ * Returns the next pending dose for each household member. The Dashboard is a
+ * "next" view, so overdue records must not hide a later dose that is still
+ * pending today. Overdue doses remain available from Salud, where they can be
+ * reviewed deliberately.
+ */
+export function nextUpcomingMedicationIntakesByMember(medications: any[], now = new Date()) {
+  const nowMs = now.getTime();
+  const maxMs = nowMs + 24 * 60 * 60 * 1000;
+  const nextByMember = new Map<string, any>();
+
+  for (const medication of medications ?? []) {
+    const memberId = medication.member_id as string | undefined;
+    if (!memberId) continue;
+
+    for (const intake of medication.medication_intakes ?? []) {
+      if (intake.status !== "pending") continue;
+      const scheduledAt = new Date(intake.scheduled_for).getTime();
+      if (!Number.isFinite(scheduledAt) || scheduledAt < nowMs || scheduledAt >= maxMs) continue;
+
+      const current = nextByMember.get(memberId);
+      if (!current || scheduledAt < new Date(current.scheduled_for).getTime()) {
+        nextByMember.set(memberId, { ...intake, medication });
+      }
+    }
+  }
+
+  return Array.from(nextByMember.values()).sort(
+    (a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime(),
+  );
+}
+
 export function slotDateTime(date: Date, time: string, nextDay: boolean) {
   const base = nextDay ? addDays(date, 1) : date;
   const [hour, minute] = formatTime(time).split(":").map(Number);

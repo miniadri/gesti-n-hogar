@@ -56,6 +56,7 @@ import {
   buildScheduleUpcoming,
   dateKey,
   formatTime,
+  nextUpcomingMedicationIntakesByMember,
   slotCrossesMidnight,
   splitEventsUpcoming,
   startOfLocalDay,
@@ -117,14 +118,13 @@ const dashboardQueryOptions = queryOptions({
     const afterTomorrow = addDays(todayStart, 2);
     const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-    const [{ data: tasks }, { data: shopping }, { data: events }, { data: expenses }, { data: agendaEvents }, { data: members }] =
+    const [{ data: tasks }, { count: shoppingCount }, { data: events }, { data: expenses }, { data: agendaEvents }, { data: members }] =
       await Promise.all([
         supabase.from("tasks").select("*").eq("household_id", householdId).eq("status", "pending").limit(5),
         supabase
           .from("shopping_list_items")
-          .select("*, shopping_list:shopping_list_id(store_id, name)")
-          .eq("checked", false)
-          .limit(5),
+          .select("id", { count: "exact", head: true })
+          .eq("checked", false),
         supabase
           .from("calendar_events")
           .select("*")
@@ -185,7 +185,7 @@ const dashboardQueryOptions = queryOptions({
 
     return {
       tasks: tasks ?? [],
-      shopping: shopping ?? [],
+      shoppingCount: shoppingCount ?? 0,
       events: events ?? [],
       expenses: expenses ?? [],
       agendaEvents: agendaEvents ?? [],
@@ -274,31 +274,8 @@ function DashboardPage() {
   const totalExpenses = data.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const urgentTasks = data.tasks.filter((t) => t.priority === "high");
 
-  // Nearest pending medication intake per member (only next one per person)
   const nowMs = Date.now();
-  const nextIntakePerMember = new Map<string, any>();
-  for (const med of (medications ?? []) as any[]) {
-    const memberId: string | undefined = med.member_id;
-    if (!memberId) continue;
-    for (const intake of (med.medication_intakes ?? []) as any[]) {
-      if (intake.status !== "pending") continue;
-      const t = new Date(intake.scheduled_for).getTime();
-      // include past-due pending as well (they are the most urgent)
-      const enriched = { ...intake, medication: med };
-      const current = nextIntakePerMember.get(memberId);
-      if (!current || t < new Date(current.scheduled_for).getTime()) {
-        nextIntakePerMember.set(memberId, enriched);
-      }
-      // We keep the earliest scheduled_for; a past-due entry (smallest t) wins naturally.
-      // Limit lookahead — ignore intakes scheduled more than 24h from now.
-      if (t - nowMs > 24 * 60 * 60 * 1000) {
-        // still allow tracking, but if a closer one exists it will replace it above
-      }
-    }
-  }
-  const nextIntakes = Array.from(nextIntakePerMember.values())
-    .filter((i: any) => new Date(i.scheduled_for).getTime() - nowMs < 24 * 60 * 60 * 1000)
-    .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
+  const nextIntakes = nextUpcomingMedicationIntakesByMember(medications ?? []);
 
   // Low-stock inventory items (only when a min_stock is set)
   const lowStockItems = (inventory as any[])
@@ -395,13 +372,13 @@ function DashboardPage() {
       summary: {
         key: "summary",
         title: SECTION_LABELS.summary,
-        visible: data.shopping.length > 0 || data.events.length > 0 || totalExpenses > 0,
+        visible: data.shoppingCount > 0 || data.events.length > 0 || totalExpenses > 0,
         size: "full",
         node: (
           <div className="grid auto-rows-fr items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <SummaryCard
               title="Por comprar"
-              value={data.shopping.length}
+              value={data.shoppingCount}
               icon={ShoppingCart}
               href="/shopping"
               color="text-chart-1"
@@ -808,7 +785,7 @@ function DashboardPage() {
     agendaEvents,
     data.events.length,
     data.schedule,
-    data.shopping.length,
+    data.shoppingCount,
     expiringFoods,
     expiringMeds,
     lowStockItems,

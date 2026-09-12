@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.79",
+    title: "Contador de compra y próxima toma",
+    highlights: [
+      "La tarjeta Por comprar muestra el total real de productos pendientes de todas las listas, no solo los primeros cinco.",
+      "Próxima toma ignora registros pendientes vencidos y muestra la siguiente toma futura de cada miembro.",
+      "Una toma antigua pendiente ya no puede hacer que aparezcan acciones de otra toma futura antes de su ventana de una hora.",
+    ],
+  },
+  {
     version: "v0.78",
     title: "Corrección de Dashboard y Telegram",
     highlights: [
