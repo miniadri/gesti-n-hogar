@@ -152,15 +152,14 @@ function MedicationsPage() {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
 
-  const todayIntakes = (medications ?? [])
+  const allIntakes = (medications ?? [])
     .flatMap((m: any) =>
-      (m.medication_intakes ?? [])
-        .filter((i: any) => i.scheduled_for >= todayStart && i.scheduled_for < todayEnd)
-        .map((i: any) => ({ ...i, medication: m })),
+      (m.medication_intakes ?? []).map((i: any) => ({ ...i, medication: m })),
     )
     .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
 
-  const pendingToday = todayIntakes.filter((i: any) => i.status === "pending");
+  const todayIntakes = allIntakes.filter((i: any) => i.scheduled_for >= todayStart && i.scheduled_for < todayEnd);
+  const pendingToday = allIntakes.filter((i: any) => i.status === "pending");
   const lowStockMeds = (medications ?? []).filter((m: any) => {
     if (m.low_stock_threshold == null || m.current_quantity == null) return false;
     return m.current_quantity <= m.low_stock_threshold;
@@ -345,6 +344,9 @@ function MedicationsPage() {
                   <p className="text-xs text-muted-foreground">
                     {intake.medication.household_members?.display_name} ·{" "}
                     {new Date(intake.scheduled_for).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(intake.scheduled_for).getTime() < new Date(todayStart).getTime() && (
+                      <span className="ml-1 font-medium text-amber-600">· toma anterior</span>
+                    )}
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -1145,7 +1147,7 @@ function MedicationCard({
 
   const today = new Date().toISOString().split("T")[0];
   const todayIntakes = (med.medication_intakes ?? [])
-    .filter((i: any) => i.scheduled_for.startsWith(today))
+    .filter((i: any) => i.scheduled_for.startsWith(today) || i.status === "pending")
     .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
 
   return (

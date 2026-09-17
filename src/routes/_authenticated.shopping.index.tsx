@@ -32,6 +32,7 @@ import {
   AlarmClock,
   Hourglass,
   Pencil,
+  ChevronDown,
 } from "lucide-react";
 
 
@@ -498,6 +499,7 @@ function RecentItemsSection({
 }) {
   const doCreate = useServerFn(createShoppingItem);
   const [busy, setBusy] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   // Dedupe: keep the most recent per name (case-insensitive), skip items already on the active list.
   const seen = new Set<string>();
@@ -536,14 +538,17 @@ function RecentItemsSection({
 
   return (
     <section className="space-y-3 border-t pt-6">
-      <div className="flex items-center gap-2">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 text-left"
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+      >
         <Package className="h-4 w-4 text-muted-foreground" />
         <h3 className="font-semibold">Comprado recientemente</h3>
-        <span className="ml-auto text-xs text-muted-foreground">
-          Toca para añadirlo de nuevo
-        </span>
-      </div>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+        <ChevronDown className={cn("ml-auto h-4 w-4 transition-transform", expanded && "rotate-180")} />
+      </button>
+      {expanded && <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
         {unique.map((it) => {
           const Icon = iconForShoppingItem(it);
           return (
@@ -566,7 +571,7 @@ function RecentItemsSection({
             </button>
           );
         })}
-      </div>
+      </div>}
     </section>
   );
 }
