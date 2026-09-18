@@ -241,7 +241,8 @@ function DashboardPage() {
   const { data: prepAhead } = useSuspenseQuery(prepAheadQO);
   const { data: medicines } = useSuspenseQuery(medicinesQO);
   const { data: inventory } = useSuspenseQuery(inventoryQO);
-  const { data: medications } = useSuspenseQuery(medicationsQO);
+  const { data: medicationsData } = useSuspenseQuery(medicationsQO);
+  const medications = medicationsData.medications;
   const { data: devices } = useSuspenseQuery(devicesQO);
   const queryClient = useQueryClient();
   const doSnooze = useServerFn(snoozeIntake);

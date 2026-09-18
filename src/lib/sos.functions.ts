@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getHouseholdHistoryAccess } from "./household.functions";
 
 const TriggerInput = z.object({
   latitude: z.number().min(-90).max(90).nullable().optional(),
@@ -242,6 +243,8 @@ export const listSosEvents = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) return [];
+    const { canViewHistory } = await getHouseholdHistoryAccess(context.supabase, householdId, context.userId);
+    if (!canViewHistory) return [];
     const { data, error } = await context.supabase
       .from("sos_events")
       .select("*, sos_acknowledgements(id, recipient_name, acknowledged_at, channel)")

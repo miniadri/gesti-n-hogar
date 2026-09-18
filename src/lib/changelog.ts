@@ -7,6 +7,32 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.821",
+    title: "Entrega acumulativa de privacidad y suscripciones",
+    highlights: [
+      "Reúne en una sola entrega reparada la privacidad de historiales y la exclusión del Quiosco de Finanzas.",
+      "Incluye también las tarjetas de suscripciones con color y divisa ISO.",
+    ],
+  },
+  {
+    version: "v0.82",
+    title: "Suscripciones en tarjetas multidivisa",
+    highlights: [
+      "Finanzas organiza los gastos recurrentes en tarjetas visuales por suscripción.",
+      "Cada tarjeta permite conservar una divisa de tres letras y un color para distinguirla.",
+      "La integración con Google Assistant/Gemini queda anotada como pendiente para una futura versión.",
+    ],
+  },
+  {
+    version: "v0.81",
+    title: "Privacidad de historiales y aportes reales",
+    highlights: [
+      "El miembro técnico del Quiosco ya no aparece ni suma en los aportes de Finanzas.",
+      "Los historiales de actividad, SOS, invitaciones y tomas anteriores quedan privados para administradores por defecto.",
+      "En Ajustes > Familia, un administrador puede habilitar que esos historiales sean visibles para toda la familia. Las compras recientes siguen visibles para todos.",
+    ],
+  },
+  {
     version: "v0.79",
     title: "Contador de compra y próxima toma",
     highlights: [

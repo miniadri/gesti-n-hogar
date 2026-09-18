@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeMedicationTime } from "@/lib/medication-time";
 import { canRecordMedicationIntake } from "@/lib/medication-intake-window";
 import { stockAfterIntake } from "@/lib/medication-calc";
+import { getHouseholdHistoryAccess } from "@/lib/household.functions";
 import webPush from "web-push";
 
 const MedicationFormEnum = z.enum(["pill", "ml", "drops", "inhaler", "patch", "injection", "other"]);
@@ -229,7 +230,7 @@ export const listMedications = createServerFn({ method: "GET" })
       .eq("household_id", householdId.data)
       .order("name");
     if (error) throw error;
-    return data ?? [];
+    return { medications: data ?? [], ...(await getHouseholdHistoryAccess(context.supabase, householdId.data, context.userId)) };
   });
 
 export const createMedication = createServerFn({ method: "POST" })

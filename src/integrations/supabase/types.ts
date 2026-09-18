@@ -86,6 +86,7 @@ export type Database = {
         Row: {
           amount: number
           category_id: string | null
+          card_color: string | null
           created_at: string
           household_id: string
           id: string
@@ -136,6 +137,7 @@ export type Database = {
           category: string | null
           created_at: string
           created_by: string
+          currency: string
           description: string | null
           end_at: string | null
           external_id: string | null
@@ -396,8 +398,10 @@ export type Database = {
         Insert: {
           amount: number
           category_id?: string | null
+          card_color?: string | null
           created_at?: string
           created_by: string
+          currency?: string
           date?: string
           description?: string | null
           household_id: string
@@ -411,8 +415,10 @@ export type Database = {
         Update: {
           amount?: number
           category_id?: string | null
+          card_color?: string | null
           created_at?: string
           created_by?: string
+          currency?: string
           date?: string
           description?: string | null
           household_id?: string

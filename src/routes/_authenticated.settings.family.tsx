@@ -2,12 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { Users, Copy, Plus, UserPlus, Pencil, Check, X, QrCode, Trash2, Camera } from "lucide-react";
+import { Users, Copy, Plus, UserPlus, Pencil, Check, X, QrCode, Trash2, Camera, History } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarcodeDisplay } from "@/components/BarcodeDisplay";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { useServerFn } from "@tanstack/react-start";
-import { getHousehold, createInvite, joinHousehold, createChildMember, updateHousehold, renameMember, listInvites, deleteInvite } from "@/lib/household.functions";
+import { getHousehold, createInvite, joinHousehold, createChildMember, updateHousehold, updateHistoryVisibility, renameMember, listInvites, deleteInvite } from "@/lib/household.functions";
 import { toast } from "sonner";
 
 const householdQueryOptions = queryOptions({
@@ -68,6 +69,7 @@ function FamilySettingsPage() {
   const doJoin = useServerFn(joinHousehold);
   const doCreateChild = useServerFn(createChildMember);
   const doUpdateHousehold = useServerFn(updateHousehold);
+  const doUpdateHistoryVisibility = useServerFn(updateHistoryVisibility);
   const doRenameMember = useServerFn(renameMember);
   const doDeleteInvite = useServerFn(deleteInvite);
 
@@ -75,6 +77,7 @@ function FamilySettingsPage() {
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [memberName, setMemberName] = useState("");
   const [savingMember, setSavingMember] = useState(false);
+  const [savingHistoryVisibility, setSavingHistoryVisibility] = useState(false);
 
   const startEditMember = (m: any) => {
     setEditingMemberId(m.id);
@@ -190,6 +193,19 @@ function FamilySettingsPage() {
     await submitJoin(code);
   };
 
+  const setHistoryVisibility = async (checked: boolean) => {
+    setSavingHistoryVisibility(true);
+    try {
+      await doUpdateHistoryVisibility({ data: { history_visible_to_all: checked } });
+      toast.success(checked ? "Historiales visibles para toda la familia" : "Historiales limitados a administradores");
+      refresh();
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo actualizar la privacidad");
+    } finally {
+      setSavingHistoryVisibility(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -280,6 +296,20 @@ function FamilySettingsPage() {
         </CardContent>
       </Card>
 
+      {data.isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base"><History className="h-5 w-5" />Privacidad de historiales</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium">Mostrar historiales a toda la familia</p>
+              <p className="text-sm text-muted-foreground">Por defecto solo los administradores ven actividad, SOS, invitaciones y tomas anteriores. «Comprado recientemente» no se restringe.</p>
+            </div>
+            <Switch checked={Boolean(data.historyVisibleToAll)} onCheckedChange={setHistoryVisibility} disabled={savingHistoryVisibility} aria-label="Mostrar historiales a toda la familia" />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
@@ -312,7 +342,7 @@ function FamilySettingsPage() {
         </Card>
       </div>
 
-      <Card>
+      {data.canViewHistory && <Card>
         <CardHeader>
           <CardTitle className="text-base">Historial de invitaciones</CardTitle>
         </CardHeader>
@@ -378,7 +408,7 @@ function FamilySettingsPage() {
             );
           })}
         </CardContent>
-      </Card>
+      </Card>}
 
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent className="sm:max-w-md">

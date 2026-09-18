@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useState, useMemo, useRef } from "react";
-import { Plus, Wallet, TrendingUp, Users, AlertTriangle, Eye, EyeOff, Trash2, Settings2, Repeat, Camera, Upload, Loader2, FileDown, FileText } from "lucide-react";
+import { Plus, Wallet, TrendingUp, Users, AlertTriangle, Eye, EyeOff, Trash2, Settings2, Repeat, Camera, Upload, Loader2, FileDown, FileText, CalendarDays } from "lucide-react";
 import { exportExpensesCSV, exportFinancesPDF } from "@/lib/finances-export";
 
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,7 @@ function FinancesPage() {
   const spentPercent = totalContributions > 0 ? (totalExpenses / totalContributions) * 100 : 0;
   const threshold = data.household.critical_threshold_percent;
   const isCritical = spentPercent >= threshold;
+  const subscriptions = useMemo(() => data.expenses.filter((e: any) => e.is_subscription), [data.expenses]);
 
   const expensesByCategory = useMemo(() => {
     const map = new Map<string, number>();
@@ -191,6 +192,27 @@ function FinancesPage() {
           <p className="text-xs text-muted-foreground">
             Alerta configurada al {threshold}% del total de aportes.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Mis suscripciones</CardTitle></CardHeader>
+        <CardContent>
+          {subscriptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay gastos de suscripción registrados.</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {subscriptions.map((subscription: any) => {
+                const currency = subscription.currency || "EUR";
+                const symbol = currency === "EUR" ? "€" : currency === "USD" ? "$" : currency === "GBP" ? "£" : currency;
+                return <div key={subscription.id} className="rounded-2xl p-5 shadow-sm" style={{ backgroundColor: subscription.card_color || "#dbeafe" }}>
+                  <div className="flex items-start justify-between gap-3"><div><p className="text-lg font-bold">{subscription.description || "Suscripción"}</p><p className="text-sm opacity-75">Se cobra en {currency}</p></div><Repeat className="h-5 w-5" /></div>
+                  <div className="mt-5"><p className="text-xs font-semibold uppercase opacity-70">Importe</p><p className="text-3xl font-bold">{symbol}{Number(subscription.amount).toFixed(2)} <span className="text-sm">{currency}</span></p></div>
+                  <p className="mt-3 flex items-center gap-2 text-sm"><CalendarDays className="h-4 w-4" /> Próximo registro: {new Date(subscription.date).toLocaleDateString("es-ES")}</p>
+                </div>;
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -343,6 +365,8 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
   const [newCategory, setNewCategory] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrence, setRecurrence] = useState("monthly");
+  const [currency, setCurrency] = useState("EUR");
+  const [cardColor, setCardColor] = useState("#dbeafe");
   const [submitting, setSubmitting] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scannedReceiptId, setScannedReceiptId] = useState<string | null>(null);
@@ -416,6 +440,8 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
           category_id: finalCategoryId || undefined,
           is_subscription: isRecurring,
           recurrence: isRecurring ? recurrence : undefined,
+          currency: isRecurring ? currency : "EUR",
+          card_color: isRecurring ? cardColor : undefined,
           receipt_id: scannedReceiptId || undefined,
         },
       });
@@ -430,6 +456,8 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
       setNewCategory("");
       setIsRecurring(false);
       setRecurrence("monthly");
+      setCurrency("EUR");
+      setCardColor("#dbeafe");
       setScannedReceiptId(null);
       setScannedUploadPath(null);
       onAdded();
@@ -534,6 +562,10 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
                   <option value="quarterly">Trimestral</option>
                   <option value="yearly">Anual</option>
                 </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><Label>Divisa</Label><Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase().slice(0, 3))} placeholder="EUR" maxLength={3} /></div>
+                  <div><Label>Color de tarjeta</Label><Input type="color" value={cardColor} onChange={(e) => setCardColor(e.target.value)} className="h-10 w-full p-1" /></div>
+                </div>
               </div>
             )}
           </div>

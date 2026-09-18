@@ -11,6 +11,8 @@ const ExpenseInput = z.object({
   date: z.string().date().default(() => new Date().toISOString().split("T")[0]),
   is_subscription: z.boolean().default(false),
   recurrence: z.string().optional(),
+  currency: z.string().regex(/^[A-Z]{3}$/).default("EUR"),
+  card_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   receipt_id: z.string().uuid().optional(),
 });
 
@@ -94,13 +96,18 @@ export const listFinances = createServerFn({ method: "GET" })
       mySalary = data;
     }
 
+    // Technical members (such as the kitchen kiosk) have no user account and
+    // must never be treated as people contributing household income.
+    const realMemberIds = new Set((members ?? []).filter((member: any) => Boolean(member.user_id)).map((member: any) => member.id));
+    const realContributions = (contributions ?? []).filter((contribution: any) => realMemberIds.has(contribution.member_id));
+
     return {
       expenses: expenses ?? [],
       categories: categories ?? [],
       budgets: budgets ?? [],
       members: members ?? [],
       household: household ?? { id: householdId, name: "Mi hogar", critical_threshold_percent: 85 },
-      contributions: (contributions ?? []) as Array<{
+      contributions: realContributions as Array<{
         member_id: string;
         display_name: string;
         is_child: boolean;

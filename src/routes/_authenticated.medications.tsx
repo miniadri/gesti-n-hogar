@@ -122,7 +122,8 @@ const WEEKDAYS = [
 
 function MedicationsPage() {
   const { t } = useTranslation();
-  const { data: medications } = useSuspenseQuery(medicationsQueryOptions);
+  const { data: medicationsData } = useSuspenseQuery(medicationsQueryOptions);
+  const medications = medicationsData.medications;
   const { data: household } = useSuspenseQuery(householdQueryOptions);
   const { data: medicalRegistry } = useQuery(medicalRegistryQueryOptions);
   const queryClient = useQueryClient();
@@ -424,7 +425,7 @@ function MedicationsPage() {
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4">
-          <HistoryView medications={medications ?? []} />
+          <HistoryView medications={medications ?? []} canViewHistory={medicationsData.canViewHistory} />
         </TabsContent>
 
         <TabsContent value="stock" className="space-y-4">
@@ -1862,7 +1863,10 @@ function MedicationDialog({
   );
 }
 
-function HistoryView({ medications }: { medications: any[] }) {
+function HistoryView({ medications, canViewHistory }: { medications: any[]; canViewHistory: boolean }) {
+  if (!canViewHistory) {
+    return <EmptyState icon={History} title="Historial privado" description="Los historiales del hogar solo están disponibles para administradores." />;
+  }
   const allIntakes = medications
     .flatMap((m) => (m.medication_intakes ?? []).map((i: any) => ({ ...i, medication: m })))
     .filter((i) => i.status !== "pending")

@@ -24,8 +24,23 @@ const CreateChildInput = z.object({
 const UpdateHouseholdInput = z.object({
   name: z.string().trim().min(1).max(80),
 });
+const UpdateHistoryVisibilityInput = z.object({
+  history_visible_to_all: z.boolean(),
+});
 
 const KIOSK_MEMBER_NAME = "Kiosko cocina";
+
+/** Server-side policy for household change histories. */
+export async function getHouseholdHistoryAccess(supabase: any, householdId: string, userId: string) {
+  const [{ data: role }, { data: household, error: householdError }] = await Promise.all([
+    supabase.from("user_roles").select("role").eq("household_id", householdId).eq("user_id", userId).maybeSingle(),
+    supabase.from("households").select("history_visible_to_all").eq("id", householdId).single(),
+  ]);
+  if (householdError) throw householdError;
+  const isAdmin = role?.role === "admin";
+  const historyVisibleToAll = Boolean(household?.history_visible_to_all);
+  return { isAdmin, historyVisibleToAll, canViewHistory: isAdmin || historyVisibleToAll };
+}
 
 export const updateHousehold = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -41,6 +56,21 @@ export const updateHousehold = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
     return hh;
+  });
+
+export const updateHistoryVisibility = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => UpdateHistoryVisibilityInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const { isAdmin } = await getHouseholdHistoryAccess(context.supabase, householdId, context.userId);
+    if (!isAdmin) throw new Error("Solo un administrador puede cambiar la visibilidad de los historiales");
+    const { data: household, error } = await context.supabase
+      .from("households").update({ history_visible_to_all: data.history_visible_to_all }).eq("id", householdId)
+      .select("history_visible_to_all").single();
+    if (error) throw error;
+    return household;
   });
 
 export const createChildMember = createServerFn({ method: "POST" })
@@ -153,7 +183,7 @@ export const getHousehold = createServerFn({ method: "GET" })
       .eq("id", householdId)
       .single();
     if (error) throw error;
-    return data;
+    return { ...data, ...(await getHouseholdHistoryAccess(context.supabase, householdId, context.userId)) };
   });
 
 export const listInvites = createServerFn({ method: "GET" })
@@ -162,14 +192,8 @@ export const listInvites = createServerFn({ method: "GET" })
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
 
-    const { data: membership, error: membershipError } = await context.supabase
-      .from("household_members")
-      .select("id")
-      .eq("household_id", householdId)
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (membershipError) throw membershipError;
-    if (!membership) throw new Error("No autorizado para leer invitaciones de este hogar");
+    const { canViewHistory } = await getHouseholdHistoryAccess(context.supabase, householdId, context.userId);
+    if (!canViewHistory) return [];
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin

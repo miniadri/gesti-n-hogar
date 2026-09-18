@@ -152,6 +152,9 @@ function ActivityCenterPage() {
 
   const items = data?.items ?? [];
   const summary = data?.summary;
+  if (data && !data.canViewHistory) {
+    return <div className="space-y-4"><h2 className="text-2xl font-bold tracking-tight">Actividad y avisos</h2><Card><CardContent className="p-6 text-sm text-muted-foreground">Este historial está limitado a los administradores del hogar.</CardContent></Card></div>;
+  }
 
   return (
     <div className="space-y-6">

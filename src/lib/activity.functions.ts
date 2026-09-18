@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getHouseholdHistoryAccess } from "./household.functions";
 
 type ActivityInput = {
   domain:
@@ -62,6 +63,8 @@ export const listHouseholdActivity = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    const { canViewHistory } = await getHouseholdHistoryAccess(context.supabase, householdId, context.userId);
+    if (!canViewHistory) return [];
 
     let query = (context.supabase as any)
       .from("household_activity")
@@ -133,6 +136,10 @@ export const markActivityReviewed = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    const access = await getHouseholdHistoryAccess(context.supabase, householdId, context.userId);
+    if (!access.canViewHistory) {
+      throw new Error("Historial restringido a administradores");
+    }
 
     const userId = context.userId;
     const { error } = await (context.supabase as any)
@@ -157,6 +164,8 @@ export const reopenActivityItem = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    const access = await getHouseholdHistoryAccess(context.supabase, householdId, context.userId);
+    if (!access.canViewHistory) throw new Error("Historial restringido a administradores");
 
     const { error } = await (context.supabase as any)
       .from("household_activity_reviews")
@@ -174,6 +183,10 @@ export const listActivityCenter = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    const access = await getHouseholdHistoryAccess(context.supabase, householdId, context.userId);
+    if (!access.canViewHistory) {
+      return { items: [], summary: { total: 0, errors: 0, warnings: 0, pending: 0, notifications: 0, latestAt: null }, canViewHistory: false };
+    }
 
     try {
       await (context.supabase as any).rpc("cleanup_household_activity_retention");
@@ -410,7 +423,7 @@ export const listActivityCenter = createServerFn({ method: "GET" })
       latestAt: summarySorted[0]?.created_at ?? null,
     };
 
-    return { items: sorted, summary };
+    return { items: sorted, summary, canViewHistory: true };
   });
 
 function normalizeActivityStatus(status: string | null | undefined): CenterItem["status"] {
