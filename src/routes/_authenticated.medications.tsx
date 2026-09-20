@@ -48,6 +48,7 @@ import { listMedications, createMedication, updateMedication, deleteMedication, 
 import { listMedicines } from "@/lib/medicines.functions";
 import { normalizeMedicationTime } from "@/lib/medication-time";
 import { canRecordMedicationIntake } from "@/lib/medication-intake-window";
+import { medicationIntakeDisplayGroups } from "@/lib/medication-intake-display";
 import { searchCimaMedicines } from "@/lib/cima.functions";
 import { createShoppingItem } from "@/lib/shopping.functions";
 import {
@@ -149,18 +150,15 @@ function MedicationsPage() {
 
   const members = (household?.household_members ?? []).sort((a: any, b: any) => (a.is_child === b.is_child ? 0 : a.is_child ? 1 : -1));
 
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
-
   const allIntakes = (medications ?? [])
     .flatMap((m: any) =>
       (m.medication_intakes ?? []).map((i: any) => ({ ...i, medication: m })),
     )
     .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
 
-  const todayIntakes = allIntakes.filter((i: any) => i.scheduled_for >= todayStart && i.scheduled_for < todayEnd);
-  const pendingToday = allIntakes.filter((i: any) => i.status === "pending");
+  const intakeGroups = medicationIntakeDisplayGroups(allIntakes);
+  const pendingToday = [...intakeGroups.previousPending, ...intakeGroups.today]
+    .filter((intake: any) => intake.status === "pending");
   const lowStockMeds = (medications ?? []).filter((m: any) => {
     if (m.low_stock_threshold == null || m.current_quantity == null) return false;
     return m.current_quantity <= m.low_stock_threshold;
@@ -345,7 +343,7 @@ function MedicationsPage() {
                   <p className="text-xs text-muted-foreground">
                     {intake.medication.household_members?.display_name} ·{" "}
                     {new Date(intake.scheduled_for).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    {new Date(intake.scheduled_for).getTime() < new Date(todayStart).getTime() && (
+                    {new Date(intake.scheduled_for).getTime() < intakeGroups.todayStart.getTime() && (
                       <span className="ml-1 font-medium text-amber-600">· toma anterior</span>
                     )}
                   </p>
@@ -1146,10 +1144,12 @@ function MedicationCard({
   onSnooze: (intake: any, minutes?: number) => void;
 }) {
 
-  const today = new Date().toISOString().split("T")[0];
-  const todayIntakes = (med.medication_intakes ?? [])
-    .filter((i: any) => i.scheduled_for.startsWith(today) || i.status === "pending")
-    .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
+  const intakeGroups = medicationIntakeDisplayGroups(med.medication_intakes ?? []);
+  const displayedIntakes = [
+    ...intakeGroups.previousPending.map((intake) => ({ intake, day: "anterior" as const })),
+    ...intakeGroups.today.map((intake) => ({ intake, day: "hoy" as const })),
+    ...intakeGroups.tomorrow.map((intake) => ({ intake, day: "mañana" as const })),
+  ];
 
   return (
     <Card>
@@ -1229,16 +1229,19 @@ function MedicationCard({
           </div>
         </div>
 
-        {todayIntakes.length > 0 && (
+        {displayedIntakes.length > 0 && (
           <div className="mt-4 space-y-2 border-t pt-3">
-            <p className="text-xs font-medium text-muted-foreground">Hoy</p>
+            <p className="text-xs font-medium text-muted-foreground">Tomas diarias</p>
             <div className="flex flex-wrap gap-2">
-              {todayIntakes.map((intake: any) => (
+              {displayedIntakes.map(({ intake, day }) => (
                 <div
                   key={intake.id}
                   className="flex items-center gap-1 rounded-full border px-2 py-1 text-xs"
                 >
                   {new Date(intake.scheduled_for).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  <span className={day === "anterior" ? "font-medium text-amber-600" : "text-muted-foreground"}>
+                    · {day === "anterior" ? "toma anterior" : day === "mañana" ? "mañana" : "hoy"}
+                  </span>
                   {intake.status === "pending" ? (
                     <>
                       {canRecordMedicationIntake(intake.scheduled_for) && (

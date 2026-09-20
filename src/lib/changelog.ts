@@ -7,6 +7,23 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.84",
+    title: "Tomas diarias ordenadas por día",
+    highlights: [
+      "Salud muestra las tomas pendientes anteriores, las de hoy y únicamente el siguiente día, identificado como Mañana.",
+      "Las previsiones de días posteriores ya no se muestran como si fueran tomas de hoy ni repiten botones de acción.",
+      "La clasificación usa el día local para evitar confusiones por la hora UTC.",
+    ],
+  },
+  {
+    version: "v0.83",
+    title: "Categorías financieras iniciales editables",
+    highlights: [
+      "Finanzas incorpora Alquiler/Hipoteca, Electricidad, Gas, Agua y Suscripciones como categorías iniciales de cada hogar.",
+      "Todas las categorías, tanto iniciales como creadas manualmente, pueden renombrarse desde Finanzas > Categorías.",
+    ],
+  },
+  {
     version: "v0.821",
     title: "Entrega acumulativa de privacidad y suscripciones",
     highlights: [
