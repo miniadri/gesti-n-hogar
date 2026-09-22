@@ -56,6 +56,7 @@ import {
   buildScheduleUpcoming,
   dateKey,
   formatTime,
+  medicationDashboardDayLabel,
   nextUpcomingMedicationIntakesByMember,
   slotCrossesMidnight,
   splitEventsUpcoming,
@@ -474,6 +475,8 @@ function DashboardPage() {
               {nextIntakes.map((intake: any) => {
                 const when = new Date(intake.scheduled_for);
                 const overdue = when.getTime() < nowMs;
+                const actionsAvailable = canRecordMedicationIntake(intake.scheduled_for);
+                const dayLabel = medicationDashboardDayLabel(intake.scheduled_for);
                 const memberName = intake.medication.household_members?.display_name ?? "Miembro";
                 return (
                   <div
@@ -489,15 +492,20 @@ function DashboardPage() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {intake.medication.dose_amount} {intake.medication.unit} ·{" "}
-                        {when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {dayLabel} · {when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         {overdue && " · vencida"}
                       </p>
+                      {!actionsAvailable && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Las opciones de esta toma se activarán una hora antes de la hora programada.
+                        </p>
+                      )}
                     </div>
-                    <div className="flex shrink-0 gap-1">
-                      <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
-                        <Clock3 className="h-4 w-4" />
-                      </Button>
-                      {canRecordMedicationIntake(intake.scheduled_for) && (
+                    {actionsAvailable && (
+                      <div className="flex shrink-0 gap-1">
+                        <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
+                          <Clock3 className="h-4 w-4" />
+                        </Button>
                         <>
                           <Button size="sm" variant="outline" title="Omitir toma" onClick={() => setRecordConfirmation({ intake, status: "skipped" })}>
                             <X className="h-4 w-4" />
@@ -506,8 +514,8 @@ function DashboardPage() {
                             <Check className="h-4 w-4" />
                           </Button>
                         </>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

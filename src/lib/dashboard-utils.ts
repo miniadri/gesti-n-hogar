@@ -88,6 +88,22 @@ export function nextUpcomingMedicationIntakesByMember(medications: any[], now = 
   );
 }
 
+/**
+ * The medication card can include the next calendar day (for example, a
+ * morning dose when the Dashboard is opened the previous afternoon). Make
+ * that explicit so its time is never mistaken for a dose due today.
+ */
+export function medicationDashboardDayLabel(scheduledFor: string | Date, now = new Date()) {
+  const scheduledAt = new Date(scheduledFor);
+  if (Number.isNaN(scheduledAt.getTime())) return "Próximamente";
+
+  const today = startOfLocalDay(now);
+  const tomorrow = addDays(today, 1);
+  if (dateKey(scheduledAt) === dateKey(today)) return "Hoy";
+  if (dateKey(scheduledAt) === dateKey(tomorrow)) return "Mañana";
+  return scheduledAt.toLocaleDateString([], { day: "numeric", month: "short" });
+}
+
 export function slotDateTime(date: Date, time: string, nextDay: boolean) {
   const base = nextDay ? addDays(date, 1) : date;
   const [hour, minute] = formatTime(time).split(":").map(Number);

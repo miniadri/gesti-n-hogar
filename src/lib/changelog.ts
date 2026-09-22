@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.85",
+    title: "Próxima toma identificada y protegida",
+    highlights: [
+      "Dashboard identifica de forma explícita las tomas de Hoy y de Mañana para que una hora no se interprete como correspondiente al día actual.",
+      "Antes de la ventana de una hora, la tarjeta explica cuándo se activarán las opciones y no muestra botones que puedan modificar la toma.",
+    ],
+  },
+  {
     version: "v0.84",
     title: "Tomas diarias ordenadas por día",
     highlights: [
