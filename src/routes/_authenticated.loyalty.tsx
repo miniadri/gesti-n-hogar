@@ -65,6 +65,12 @@ import {
   scanLoyaltyCard,
   markLoyaltyCardUsed,
   toggleLoyaltyFavorite,
+  publishLoyaltyPhotoRevision,
+  listLoyaltyPhotoRevisions,
+  requestLoyaltyPhotoTransfer,
+  listLoyaltyPhotoTransfers,
+  markLoyaltyPhotoTransferReady,
+  completeLoyaltyPhotoTransfer,
 } from "@/lib/loyalty-cards.functions";
 import { submitMerchantSuggestion } from "@/lib/merchants.functions";
 import { BarcodeDisplay } from "@/components/BarcodeDisplay";
@@ -72,9 +78,17 @@ import merchantsCatalog from "@/data/merchants.es.json";
 import {
   saveLocalImage,
   getLocalImageURL,
+  getLocalImageBlob,
   deleteLocalImage,
   deleteLocalImages,
+  optimizeLocalImage,
 } from "@/lib/local-images";
+import {
+  decryptTransferredPhoto,
+  encryptPhotoForRecipient,
+  exportRecipientPublicKey,
+  sha256Base64,
+} from "@/lib/loyalty-photo-transfer";
 
 type CatalogMerchant = {
   id: string;
@@ -149,6 +163,12 @@ function LoyaltyPage() {
   const doDelete = useServerFn(deleteLoyaltyCard);
   const doMarkUsed = useServerFn(markLoyaltyCardUsed);
   const doFavorite = useServerFn(toggleLoyaltyFavorite);
+  const doPublishPhoto = useServerFn(publishLoyaltyPhotoRevision);
+  const doRequestPhoto = useServerFn(requestLoyaltyPhotoTransfer);
+  const doMarkTransferReady = useServerFn(markLoyaltyPhotoTransferReady);
+  const doCompleteTransfer = useServerFn(completeLoyaltyPhotoTransfer);
+  const doListPhotoRevisions = useServerFn(listLoyaltyPhotoRevisions);
+  const doListPhotoTransfers = useServerFn(listLoyaltyPhotoTransfers);
 
   const { data: cards = [], isLoading } = useQuery({
     queryKey: ["loyalty-cards"],
@@ -167,20 +187,44 @@ function LoyaltyPage() {
   const [fullscreenCard, setFullscreenCard] = useState<LoyaltyCard | null>(null);
   const [localImages, setLocalImages] = useState<LocalCardImages>({});
   const [localImagesVersion, setLocalImagesVersion] = useState(0);
+  const [localChecksums, setLocalChecksums] = useState<Record<string, string>>({});
+
+  const { data: photoRevisions = [] } = useQuery({
+    queryKey: ["loyalty-photo-revisions"],
+    queryFn: () => doListPhotoRevisions(),
+    enabled: !isLoading,
+  });
+  const { data: photoTransfers = [] } = useQuery({
+    queryKey: ["loyalty-photo-transfers"],
+    queryFn: () => doListPhotoTransfers(),
+    enabled: !!currentUserId,
+    refetchInterval: 30_000,
+  });
 
   useEffect(() => {
     let active = true;
     Promise.all(
       (cards as LoyaltyCard[]).map(async (card) => {
-        const [front, back] = await Promise.all([
+        const [front, back, frontBlob, backBlob] = await Promise.all([
           getLocalImageURL(card.id, "front"),
           getLocalImageURL(card.id, "back"),
+          getLocalImageBlob(card.id, "front"),
+          getLocalImageBlob(card.id, "back"),
         ]);
-        return [card.id, { front, back }] as const;
+        return { cardId: card.id, images: { front, back }, checksums: {
+          front: frontBlob ? await sha256Base64(frontBlob) : null,
+          back: backBlob ? await sha256Base64(backBlob) : null,
+        } };
       }),
     )
       .then((entries) => {
-        if (active) setLocalImages(Object.fromEntries(entries));
+        if (active) {
+          setLocalImages(Object.fromEntries(entries.map((entry) => [entry.cardId, entry.images])));
+          setLocalChecksums(Object.fromEntries(entries.flatMap((entry) => [
+            [`${entry.cardId}:front`, entry.checksums.front],
+            [`${entry.cardId}:back`, entry.checksums.back],
+          ].filter((item): item is [string, string] => !!item[1]))));
+        }
       })
       .catch(() => {
         if (active) setLocalImages({});
@@ -189,6 +233,80 @@ function LoyaltyPage() {
       active = false;
     };
   }, [cards, localImagesVersion]);
+
+  const revisionsForCard = (card: LoyaltyCard) =>
+    (photoRevisions as any[]).filter((revision) =>
+      revision.card_id === card.id && revision.owner_id !== currentUserId &&
+      localChecksums[`${card.id}:${revision.side}`] !== revision.checksum,
+    );
+
+  const publishPhotos = async (card: LoyaltyCard) => {
+    if (!card.is_shared) throw new Error("Comparte primero la tarjeta con el hogar");
+    let published = 0;
+    for (const side of ["front", "back"] as const) {
+      const image = await getLocalImageBlob(card.id, side);
+      if (!image) continue;
+      await doPublishPhoto({ data: {
+        cardId: card.id, side, checksum: await sha256Base64(image), byteSize: image.size,
+        contentType: image.type === "image/jpeg" ? "image/jpeg" : "image/webp",
+      } });
+      published += 1;
+    }
+    if (!published) throw new Error("Añade antes al menos una foto local");
+    qc.invalidateQueries({ queryKey: ["loyalty-photo-revisions"] });
+    toast.success("Actualización de fotos disponible para el hogar");
+  };
+
+  const requestPhotos = async (card: LoyaltyCard) => {
+    const revisions = revisionsForCard(card);
+    if (!revisions.length) return;
+    try {
+      const publicKey = await exportRecipientPublicKey();
+      await Promise.all(revisions.map((revision) => doRequestPhoto({ data: {
+        revisionId: revision.id, recipientPublicKey: publicKey,
+      } })));
+      qc.invalidateQueries({ queryKey: ["loyalty-photo-transfers"] });
+      toast.success("Solicitud enviada. Se transferirá cuando el propietario abra HomeSync.");
+    } catch (error: any) {
+      toast.error(error.message || "No se pudo solicitar la foto");
+    }
+  };
+
+  const sendTransfer = async (transfer: any) => {
+    try {
+      const side = transfer.loyalty_card_photo_revisions?.side as "front" | "back";
+      const photo = await getLocalImageBlob(transfer.card_id, side);
+      if (!photo) throw new Error(`No tienes el ${side === "front" ? "anverso" : "reverso"} local para enviarlo`);
+      const encrypted = await encryptPhotoForRecipient(photo, transfer.recipient_public_key);
+      const objectPath = `${currentUserId}/${transfer.id}.bin`;
+      const { error: uploadError } = await supabase.storage.from("loyalty-photo-transfers")
+        .upload(objectPath, encrypted.encrypted, { contentType: "application/octet-stream", upsert: false });
+      if (uploadError) throw uploadError;
+      await doMarkTransferReady({ data: { transferId: transfer.id, objectPath, encryptedKey: encrypted.encryptedKey, iv: encrypted.iv } });
+      qc.invalidateQueries({ queryKey: ["loyalty-photo-transfers"] });
+      toast.success("Foto cifrada y preparada para el destinatario");
+    } catch (error: any) {
+      toast.error(error.message || "No se pudo preparar la transferencia");
+    }
+  };
+
+  const receiveTransfer = async (transfer: any) => {
+    try {
+      const revision = transfer.loyalty_card_photo_revisions;
+      const { data: encrypted, error: downloadError } = await supabase.storage
+        .from("loyalty-photo-transfers").download(transfer.object_path);
+      if (downloadError || !encrypted) throw downloadError || new Error("Archivo temporal no disponible");
+      const photo = await decryptTransferredPhoto(encrypted, transfer.encrypted_key, transfer.encryption_iv, revision.content_type);
+      if (await sha256Base64(photo) !== revision.checksum) throw new Error("La comprobación de seguridad de la foto ha fallado");
+      await saveLocalImage(transfer.card_id, revision.side, photo);
+      await doCompleteTransfer({ data: { transferId: transfer.id } });
+      setLocalImagesVersion((value) => value + 1);
+      qc.invalidateQueries({ queryKey: ["loyalty-photo-transfers"] });
+      toast.success("Foto recibida y guardada solo en este dispositivo");
+    } catch (error: any) {
+      toast.error(error.message || "No se pudo recibir la foto");
+    }
+  };
 
   const filtered = cards
     .filter((c: LoyaltyCard) =>
@@ -286,6 +404,25 @@ function LoyaltyPage() {
           className="pl-9"
         />
       </div>
+
+      {(photoTransfers as any[]).some((transfer) => transfer.status === "requested" || transfer.status === "ready") && (
+        <Card className="border-primary/30">
+          <CardHeader className="pb-2"><CardTitle className="text-base">Fotos compartidas: transferencias temporales</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {(photoTransfers as any[]).map((transfer) => {
+              const isSender = transfer.sender_id === currentUserId;
+              const side = transfer.loyalty_card_photo_revisions?.side === "front" ? "anverso" : "reverso";
+              return <div key={transfer.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2">
+                <span>{transfer.loyalty_cards?.merchant ?? "Tarjeta"} · {side}</span>
+                {isSender && transfer.status === "requested" && <Button size="sm" onClick={() => sendTransfer(transfer)}>Enviar foto cifrada</Button>}
+                {!isSender && transfer.status === "requested" && <span className="text-muted-foreground">Esperando al propietario</span>}
+                {!isSender && transfer.status === "ready" && <Button size="sm" onClick={() => receiveTransfer(transfer)}>Descargar y guardar</Button>}
+                {isSender && transfer.status === "ready" && <span className="text-muted-foreground">Esperando confirmación</span>}
+              </div>;
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-8">
@@ -390,6 +527,11 @@ function LoyaltyPage() {
                   </Button>
                 </div>
               </div>
+              {currentUserId && c.user_id !== currentUserId && revisionsForCard(c).length > 0 && (
+                <Button className="mt-2 w-full" size="sm" variant="outline" onClick={() => requestPhotos(c)}>
+                  <ImagePlus className="mr-2 h-3.5 w-3.5" /> Fotos nuevas disponibles
+                </Button>
+              )}
             </div>
           ))}
         </div>
@@ -404,6 +546,7 @@ function LoyaltyPage() {
           setDialogOpen(false);
         }}
         onLocalImagesChange={() => setLocalImagesVersion((version) => version + 1)}
+        onPublishPhotos={publishPhotos}
       />
 
       <ViewCardDialog
@@ -649,12 +792,14 @@ function CardDialog({
   editing,
   onSaved,
   onLocalImagesChange,
+  onPublishPhotos,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   editing: LoyaltyCard | null;
   onSaved: () => void;
   onLocalImagesChange: () => void;
+  onPublishPhotos: (card: LoyaltyCard) => Promise<void>;
 }) {
   const doUpsert = useServerFn(upsertLoyaltyCard);
   const doScan = useServerFn(scanLoyaltyCard);
@@ -693,12 +838,13 @@ function CardDialog({
       return;
     }
     try {
-      await saveLocalImage(editing.id, side, file);
+      const optimized = await optimizeLocalImage(file);
+      await saveLocalImage(editing.id, side, optimized);
       const url = await getLocalImageURL(editing.id, side);
       if (side === "front") setLocalFront(url);
       else setLocalBack(url);
       onLocalImagesChange();
-      toast.success("Foto guardada solo en este dispositivo");
+      toast.success("Foto redimensionada y guardada solo en este dispositivo");
     } catch (e: any) {
       toast.error(e.message || "No se pudo guardar la foto");
     }
@@ -744,11 +890,13 @@ function CardDialog({
 
   const handleFile = async (file: File) => {
     setScanning(true);
+    let uploadedPath: string | null = null;
     try {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) throw new Error("No sesión");
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const path = `${userId}/${Date.now()}_${safeName}`;
+      uploadedPath = path;
       const { data: uploaded, error: upErr } = await supabase.storage
         .from("loyalty-cards")
         .upload(path, file, { contentType: file.type || undefined });
@@ -757,8 +905,6 @@ function CardDialog({
         .from("loyalty-cards")
         .createSignedUrl(uploaded.path, 3600);
       if (sErr) throw sErr;
-      setFrontUrl(signed.signedUrl);
-
       const result = await doScan({ data: { imageUrl: signed.signedUrl } });
       if (result.merchant) setMerchant((prev) => prev || result.merchant!);
       if (result.card_number) setCardNumber((prev) => prev || result.card_number!);
@@ -769,6 +915,11 @@ function CardDialog({
     } catch (e: any) {
       toast.error(e.message || "Error al escanear");
     } finally {
+      // The scan image exists only long enough for OCR. It is not a card photo
+      // and must never become a persistent cloud copy.
+      if (uploadedPath) {
+        await supabase.storage.from("loyalty-cards").remove([uploadedPath]).catch(() => {});
+      }
       setScanning(false);
     }
   };
@@ -1017,6 +1168,16 @@ function CardDialog({
               <div className="flex flex-wrap gap-2">
                 {localFront && <Button type="button" variant="ghost" size="sm" onClick={() => handleLocalRemove("front")}>Quitar anverso</Button>}
                 {localBack && <Button type="button" variant="ghost" size="sm" onClick={() => handleLocalRemove("back")}>Quitar reverso</Button>}
+              </div>
+            )}
+            {editing?.is_shared && (localFront || localBack) && (
+              <div className="rounded-md bg-muted p-2">
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Al avisar al hogar solo se guarda una revisión y huella. La foto cifrada se subirá temporalmente solo cuando otro miembro la solicite.
+                </p>
+                <Button type="button" size="sm" variant="outline" onClick={() => onPublishPhotos(editing)}>
+                  <Users className="mr-2 h-4 w-4" /> Avisar al hogar de fotos nuevas
+                </Button>
               </div>
             )}
             {!editing?.id && (

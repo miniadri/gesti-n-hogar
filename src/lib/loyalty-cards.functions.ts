@@ -129,6 +129,196 @@ export const markLoyaltyCardUsed = createServerFn({ method: "POST" })
     return row;
   });
 
+const PhotoSide = z.enum(["front", "back"]);
+const PhotoRevisionInput = z.object({
+  cardId: z.string().uuid(),
+  side: PhotoSide,
+  checksum: z.string().min(32).max(128),
+  byteSize: z.number().int().positive().max(2_000_000),
+  contentType: z.enum(["image/webp", "image/jpeg"]),
+});
+
+/** Stores only a non-sensitive revision marker: never the photo itself. */
+export const publishLoyaltyPhotoRevision = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => PhotoRevisionInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const db = context.supabase as any;
+    const { data: card, error: cardError } = await db
+      .from("loyalty_cards")
+      .select("id,user_id,household_id,is_shared")
+      .eq("id", data.cardId)
+      .eq("user_id", context.userId)
+      .single();
+    if (cardError || !card) throw new Error("No puedes publicar fotos de esta tarjeta");
+    if (!card.is_shared || !card.household_id) {
+      throw new Error("Comparte primero la tarjeta con el hogar");
+    }
+    const { data: existing } = await db
+      .from("loyalty_card_photo_revisions")
+      .select("id,version")
+      .eq("card_id", data.cardId)
+      .eq("side", data.side)
+      .maybeSingle();
+    const payload = {
+      card_id: data.cardId,
+      owner_id: context.userId,
+      household_id: card.household_id,
+      side: data.side,
+      version: (existing?.version ?? 0) + 1,
+      checksum: data.checksum,
+      byte_size: data.byteSize,
+      content_type: data.contentType,
+      revoked_at: null,
+    };
+    const result = existing
+      ? await db.from("loyalty_card_photo_revisions").update(payload).eq("id", existing.id).select().single()
+      : await db.from("loyalty_card_photo_revisions").insert(payload).select().single();
+    if (result.error) throw result.error;
+    return result.data;
+  });
+
+export const listLoyaltyPhotoRevisions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = context.supabase as any;
+    const { data: householdId } = await context.supabase.rpc("current_household");
+    const cardsQuery = context.supabase.from("loyalty_cards").select("id");
+    const { data: cards, error: cardsError } = householdId
+      ? await cardsQuery.or(`user_id.eq.${context.userId},and(is_shared.eq.true,household_id.eq.${householdId})`)
+      : await cardsQuery.eq("user_id", context.userId);
+    if (cardsError) throw cardsError;
+    const cardIds = (cards ?? []).map((card: { id: string }) => card.id);
+    if (cardIds.length === 0) return [];
+    const { data, error } = await db
+      .from("loyalty_card_photo_revisions")
+      .select("id,card_id,owner_id,side,version,checksum,byte_size,content_type,created_at")
+      .in("card_id", cardIds)
+      .is("revoked_at", null);
+    if (error) throw error;
+    return data ?? [];
+  });
+
+const TransferRequestInput = z.object({
+  revisionId: z.string().uuid(),
+  recipientPublicKey: z.string().min(100).max(2000),
+});
+
+/** A recipient asks for one photo; the owner uploads only after this request. */
+export const requestLoyaltyPhotoTransfer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => TransferRequestInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const db = context.supabase as any;
+    const { data: revision, error } = await db
+      .from("loyalty_card_photo_revisions")
+      .select("id,card_id,owner_id")
+      .eq("id", data.revisionId)
+      .is("revoked_at", null)
+      .single();
+    if (error || !revision) throw new Error("La actualización ya no está disponible");
+    if (revision.owner_id === context.userId) throw new Error("Esta foto ya pertenece a tu tarjeta");
+    const { data: existing } = await db
+      .from("loyalty_photo_transfers")
+      .select("id,status")
+      .eq("photo_revision_id", data.revisionId)
+      .eq("recipient_id", context.userId)
+      .in("status", ["requested", "ready"])
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    if (existing) return existing;
+    const { data: transfer, error: insertError } = await db
+      .from("loyalty_photo_transfers")
+      .insert({
+        photo_revision_id: revision.id,
+        card_id: revision.card_id,
+        sender_id: revision.owner_id,
+        recipient_id: context.userId,
+        recipient_public_key: data.recipientPublicKey,
+        status: "requested",
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      })
+      .select()
+      .single();
+    if (insertError) throw insertError;
+    return transfer;
+  });
+
+export const listLoyaltyPhotoTransfers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = context.supabase as any;
+    const { data, error } = await db
+      .from("loyalty_photo_transfers")
+      .select("id,card_id,photo_revision_id,sender_id,recipient_id,recipient_public_key,encrypted_key,encryption_iv,object_path,status,expires_at,loyalty_card_photo_revisions(side,checksum,content_type),loyalty_cards(merchant)")
+      .or(`sender_id.eq.${context.userId},recipient_id.eq.${context.userId}`)
+      .in("status", ["requested", "ready"])
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data ?? [];
+  });
+
+const MarkTransferReadyInput = z.object({
+  transferId: z.string().uuid(),
+  encryptedKey: z.string().min(100).max(2000),
+  iv: z.string().min(12).max(100),
+  objectPath: z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.bin$/i),
+});
+
+export const markLoyaltyPhotoTransferReady = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => MarkTransferReadyInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const db = context.supabase as any;
+    const { data: transfer, error } = await db
+      .from("loyalty_photo_transfers")
+      .select("id,sender_id,status,expires_at")
+      .eq("id", data.transferId)
+      .single();
+    if (error || !transfer || transfer.sender_id !== context.userId || transfer.status !== "requested") {
+      throw new Error("La solicitud ya no está disponible para enviar");
+    }
+    if (new Date(transfer.expires_at).getTime() <= Date.now()) throw new Error("La solicitud ha caducado");
+    if (data.objectPath !== `${context.userId}/${data.transferId}.bin`) throw new Error("Ruta temporal inválida");
+    const { error: updateError } = await db
+      .from("loyalty_photo_transfers")
+      .update({ status: "ready", encrypted_key: data.encryptedKey, encryption_iv: data.iv, object_path: data.objectPath })
+      .eq("id", data.transferId)
+      .eq("sender_id", context.userId)
+      .eq("status", "requested");
+    if (updateError) throw updateError;
+    return { ok: true };
+  });
+
+export const completeLoyaltyPhotoTransfer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ transferId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const db = context.supabase as any;
+    const { data: transfer, error } = await db
+      .from("loyalty_photo_transfers")
+      .select("id,recipient_id,status,object_path")
+      .eq("id", data.transferId)
+      .single();
+    if (error || !transfer || transfer.recipient_id !== context.userId || transfer.status !== "ready") {
+      throw new Error("La transferencia ya no está disponible");
+    }
+    if (transfer.object_path) {
+      const { error: removeError } = await context.supabase.storage
+        .from("loyalty-photo-transfers")
+        .remove([transfer.object_path]);
+      if (removeError) throw removeError;
+    }
+    const { error: updateError } = await db
+      .from("loyalty_photo_transfers")
+      .update({ status: "received", received_at: new Date().toISOString() })
+      .eq("id", data.transferId)
+      .eq("recipient_id", context.userId);
+    if (updateError) throw updateError;
+    return { ok: true };
+  });
+
 const ScanInput = z.object({ imageUrl: z.string().url() });
 
 const CardScanSchema = z.object({

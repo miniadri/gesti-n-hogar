@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.87",
+    title: "Fotos compartidas sin almacenamiento permanente",
+    highlights: [
+      "Las fotos de tarjetas se redimensionan y comprimen en el dispositivo antes de guardarse localmente.",
+      "Al compartirlas, el hogar recibe solo un aviso y una huella; cada destinatario solicita la descarga cuando la necesita.",
+      "La foto viaja cifrada a un buzón privado temporal y se elimina al confirmar la recepción o al caducar en 24 horas.",
+    ],
+  },
+  {
     version: "v0.86",
     title: "Fotos locales y vista completa de tarjetas",
     highlights: [
