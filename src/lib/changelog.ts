@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.86",
+    title: "Fotos locales y vista completa de tarjetas",
+    highlights: [
+      "Las tarjetas de fidelización pueden guardar un anverso y reverso solo en el dispositivo, sin subir esas fotos al servidor.",
+      "El anverso local tiene prioridad sobre el color de la tarjeta y la vista de uso permite voltearla en pantalla completa sin perder el código de barras generado.",
+    ],
+  },
+  {
     version: "v0.85",
     title: "Próxima toma identificada y protegida",
     highlights: [

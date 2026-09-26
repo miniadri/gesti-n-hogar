@@ -22,6 +22,7 @@ import {
   Lightbulb,
   ImagePlus,
   HardDrive,
+  RotateCw,
   X,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -71,6 +72,7 @@ import merchantsCatalog from "@/data/merchants.es.json";
 import {
   saveLocalImage,
   getLocalImageURL,
+  deleteLocalImage,
   deleteLocalImages,
 } from "@/lib/local-images";
 
@@ -118,6 +120,8 @@ type LoyaltyCard = {
   household_id?: string | null;
 };
 
+type LocalCardImages = Record<string, { front: string | null; back: string | null }>;
+
 const BARCODE_FORMATS = [
   { value: "EAN13", label: "EAN-13" },
   { value: "EAN8", label: "EAN-8" },
@@ -161,6 +165,30 @@ function LoyaltyPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewing, setViewing] = useState<LoyaltyCard | null>(null);
   const [fullscreenCard, setFullscreenCard] = useState<LoyaltyCard | null>(null);
+  const [localImages, setLocalImages] = useState<LocalCardImages>({});
+  const [localImagesVersion, setLocalImagesVersion] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all(
+      (cards as LoyaltyCard[]).map(async (card) => {
+        const [front, back] = await Promise.all([
+          getLocalImageURL(card.id, "front"),
+          getLocalImageURL(card.id, "back"),
+        ]);
+        return [card.id, { front, back }] as const;
+      }),
+    )
+      .then((entries) => {
+        if (active) setLocalImages(Object.fromEntries(entries));
+      })
+      .catch(() => {
+        if (active) setLocalImages({});
+      });
+    return () => {
+      active = false;
+    };
+  }, [cards, localImagesVersion]);
 
   const filtered = cards
     .filter((c: LoyaltyCard) =>
@@ -283,13 +311,25 @@ function LoyaltyPage() {
               <div
                 className="relative aspect-[1.6/1] overflow-hidden rounded-xl border border-border p-4 shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md"
                 style={{
-                  background: c.color
+                  background: localImages[c.id]?.front
+                    ? undefined
+                    : c.color
                     ? `linear-gradient(135deg, ${c.color}, ${c.color}cc)`
                     : "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))",
                   color: "white",
                 }}
               >
-                <div className="flex h-full flex-col justify-between">
+                {localImages[c.id]?.front && (
+                  <>
+                    <img
+                      src={localImages[c.id].front!}
+                      alt={`Anverso de la tarjeta ${c.merchant}`}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-black/40" />
+                  </>
+                )}
+                <div className="relative flex h-full flex-col justify-between">
                   <div className="flex items-start justify-between gap-2">
                     <button
                       type="button"
@@ -343,7 +383,7 @@ function LoyaltyPage() {
                     variant="secondary"
                     className="h-8 bg-white/90 px-2 text-xs text-foreground hover:bg-white"
                     onClick={() => handleUseCard(c)}
-                    disabled={!c.barcode}
+                    disabled={!c.barcode && !localImages[c.id]?.front && !localImages[c.id]?.back}
                   >
                     <Maximize2 className="mr-1 h-3.5 w-3.5" />
                     Usar
@@ -363,6 +403,7 @@ function LoyaltyPage() {
           qc.invalidateQueries({ queryKey: ["loyalty-cards"] });
           setDialogOpen(false);
         }}
+        onLocalImagesChange={() => setLocalImagesVersion((version) => version + 1)}
       />
 
       <ViewCardDialog
@@ -381,7 +422,12 @@ function LoyaltyPage() {
         onToggleFavorite={handleToggleFavorite}
       />
 
-      <FullscreenCodeDialog card={fullscreenCard} onClose={() => setFullscreenCard(null)} />
+      <FullscreenCodeDialog
+        card={fullscreenCard}
+        frontImage={fullscreenCard ? localImages[fullscreenCard.id]?.front ?? null : null}
+        backImage={fullscreenCard ? localImages[fullscreenCard.id]?.back ?? null : null}
+        onClose={() => setFullscreenCard(null)}
+      />
 
       <SuggestMerchantDialog open={suggestOpen} onOpenChange={setSuggestOpen} />
     </div>
@@ -486,9 +532,25 @@ function ViewCardDialog({
   );
 }
 
-function FullscreenCodeDialog({ card, onClose }: { card: LoyaltyCard | null; onClose: () => void }) {
+function FullscreenCodeDialog({
+  card,
+  frontImage,
+  backImage,
+  onClose,
+}: {
+  card: LoyaltyCard | null;
+  frontImage: string | null;
+  backImage: string | null;
+  onClose: () => void;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wakeLockRef = useRef<any>(null);
+  const [side, setSide] = useState<"front" | "back" | "code">("code");
+
+  useEffect(() => {
+    if (!card) return;
+    setSide(frontImage ? "front" : backImage ? "back" : "code");
+  }, [card, frontImage, backImage]);
 
   useEffect(() => {
     if (!card) return;
@@ -538,7 +600,30 @@ function FullscreenCodeDialog({ card, onClose }: { card: LoyaltyCard | null; onC
                 Cerrar
               </Button>
             </div>
-            <div className="flex min-h-[55vh] items-center justify-center rounded-lg border bg-white p-4">
+            {(frontImage || backImage) && (
+              <div className="mb-4 flex flex-wrap justify-center gap-2">
+                <Button type="button" variant={side === "front" ? "default" : "outline"} onClick={() => setSide("front")} disabled={!frontImage}>
+                  Anverso
+                </Button>
+                <Button type="button" variant={side === "back" ? "default" : "outline"} onClick={() => setSide("back")} disabled={!backImage}>
+                  Reverso
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setSide(side === "front" ? "back" : "front")} disabled={!frontImage || !backImage}>
+                  <RotateCw className="mr-2 h-4 w-4" /> Voltear tarjeta
+                </Button>
+                {card.barcode && <Button type="button" variant={side === "code" ? "default" : "outline"} onClick={() => setSide("code")}>Código</Button>}
+              </div>
+            )}
+            {side !== "code" && (side === "front" ? frontImage : backImage) && (
+              <div className="mb-4 flex max-h-[45vh] min-h-[32vh] items-center justify-center overflow-hidden rounded-lg border bg-slate-100 p-2">
+                <img
+                  src={side === "front" ? frontImage! : backImage!}
+                  alt={`${side === "front" ? "Anverso" : "Reverso"} de ${card.merchant}`}
+                  className="max-h-[42vh] max-w-full rounded object-contain"
+                />
+              </div>
+            )}
+            <div className={cn("flex items-center justify-center rounded-lg border bg-white p-4", side === "code" ? "min-h-[55vh]" : "min-h-[22vh]")}>
               {card.barcode ? (
                 <BarcodeDisplay value={card.barcode} format={card.barcode_format} className="w-full [&_canvas]:!h-auto [&_canvas]:!max-w-[80vw] [&_canvas]:!w-[min(520px,80vw)] [&_svg]:!h-auto [&_svg]:!max-h-[50vh] [&_svg]:!w-full" />
               ) : (
@@ -563,11 +648,13 @@ function CardDialog({
   onOpenChange,
   editing,
   onSaved,
+  onLocalImagesChange,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   editing: LoyaltyCard | null;
   onSaved: () => void;
+  onLocalImagesChange: () => void;
 }) {
   const doUpsert = useServerFn(upsertLoyaltyCard);
   const doScan = useServerFn(scanLoyaltyCard);
@@ -610,9 +697,23 @@ function CardDialog({
       const url = await getLocalImageURL(editing.id, side);
       if (side === "front") setLocalFront(url);
       else setLocalBack(url);
+      onLocalImagesChange();
       toast.success("Foto guardada solo en este dispositivo");
     } catch (e: any) {
       toast.error(e.message || "No se pudo guardar la foto");
+    }
+  };
+
+  const handleLocalRemove = async (side: "front" | "back") => {
+    if (!editing?.id) return;
+    try {
+      await deleteLocalImage(editing.id, side);
+      if (side === "front") setLocalFront(null);
+      else setLocalBack(null);
+      onLocalImagesChange();
+      toast.success(`Foto de ${side === "front" ? "anverso" : "reverso"} eliminada de este dispositivo`);
+    } catch (e: any) {
+      toast.error(e.message || "No se pudo eliminar la foto local");
     }
   };
 
@@ -912,6 +1013,12 @@ function CardDialog({
                 )}
               </button>
             </div>
+            {(localFront || localBack) && (
+              <div className="flex flex-wrap gap-2">
+                {localFront && <Button type="button" variant="ghost" size="sm" onClick={() => handleLocalRemove("front")}>Quitar anverso</Button>}
+                {localBack && <Button type="button" variant="ghost" size="sm" onClick={() => handleLocalRemove("back")}>Quitar reverso</Button>}
+              </div>
+            )}
             {!editing?.id && (
               <p className="text-xs text-muted-foreground">
                 Guarda primero la tarjeta para poder añadir fotos locales.

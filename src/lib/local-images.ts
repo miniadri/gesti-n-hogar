@@ -64,3 +64,18 @@ export async function deleteLocalImages(cardId: string): Promise<void> {
   });
   db.close();
 }
+
+/** Remove one side of a locally stored loyalty card photo. */
+export async function deleteLocalImage(
+  cardId: string,
+  side: "front" | "back" | "logo",
+): Promise<void> {
+  const db = await openDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).delete(key(cardId, side));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
