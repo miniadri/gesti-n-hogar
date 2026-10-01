@@ -86,7 +86,6 @@ export type Database = {
         Row: {
           amount: number
           category_id: string | null
-          card_color: string | null
           created_at: string
           household_id: string
           id: string
@@ -137,7 +136,6 @@ export type Database = {
           category: string | null
           created_at: string
           created_by: string
-          currency: string
           description: string | null
           end_at: string | null
           external_id: string | null
@@ -398,10 +396,8 @@ export type Database = {
         Insert: {
           amount: number
           category_id?: string | null
-          card_color?: string | null
           created_at?: string
           created_by: string
-          currency?: string
           date?: string
           description?: string | null
           household_id: string
@@ -415,10 +411,8 @@ export type Database = {
         Update: {
           amount?: number
           category_id?: string | null
-          card_color?: string | null
           created_at?: string
           created_by?: string
-          currency?: string
           date?: string
           description?: string | null
           household_id?: string
@@ -2352,7 +2346,6 @@ export type Database = {
           store_product_url: string | null
           unit: string | null
           updated_at: string
-          notes: string | null
         }
         Insert: {
           category?: string | null
@@ -2374,7 +2367,6 @@ export type Database = {
           store_product_url?: string | null
           unit?: string | null
           updated_at?: string
-          notes: string | null
         }
         Update: {
           category?: string | null
@@ -2396,7 +2388,6 @@ export type Database = {
           store_product_url?: string | null
           unit?: string | null
           updated_at?: string
-          notes: string | null
         }
         Relationships: [
           {
@@ -3276,14 +3267,6 @@ export type Database = {
         Returns: boolean
       }
       can_view_wishlist_claim: { Args: { _item_id: string }; Returns: boolean }
-      claim_medication_intake_reminder: {
-        Args: { _intake_id: string; _minimum_interval_minutes?: number }
-        Returns: {
-          id: string
-          last_reminder_sent_at: string
-          reminder_count: number
-        }[]
-      }
       cleanup_household_activity_retention: { Args: never; Returns: number }
       current_household: { Args: never; Returns: string }
       get_household_contributions: {
