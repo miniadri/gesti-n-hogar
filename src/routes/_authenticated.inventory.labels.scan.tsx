@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/inventory/labels/scan")({
 });
 
 function ScanInventoryLabelPage() {
-  const { code: initialCode } = Route.useSearch();
+  const { code: searchCode } = Route.useSearch(); const initialCode = searchCode ?? "";
   const navigate = useNavigate();
   const qc = useQueryClient();
   const doGet = useServerFn(getInventoryLabel);
