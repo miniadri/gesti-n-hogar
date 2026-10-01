@@ -9,93 +9,73 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated.calendar'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
-import { Route as AuthenticatedDevicesRouteImport } from './routes/_authenticated.devices'
-import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated.finances'
-import { Route as AuthenticatedKioskRouteImport } from './routes/_authenticated.kiosk'
-import { Route as AuthenticatedLoyaltyRouteImport } from './routes/_authenticated.loyalty'
-import { Route as AuthenticatedMedicationsRouteImport } from './routes/_authenticated.medications'
-import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated.tasks'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
-import { Route as AuthenticatedCalendarScheduleRouteImport } from './routes/_authenticated.calendar.schedule'
-import { Route as AuthenticatedInventoryIndexRouteImport } from './routes/_authenticated.inventory.index'
-import { Route as AuthenticatedInventoryKitchenRouteImport } from './routes/_authenticated.inventory.kitchen'
-import { Route as AuthenticatedInventoryLabelsRouteImport } from './routes/_authenticated.inventory.labels'
-import { Route as AuthenticatedInventoryScanAddRouteImport } from './routes/_authenticated.inventory.scan-add'
-import { Route as AuthenticatedRecipesIndexRouteImport } from './routes/_authenticated.recipes.index'
-import { Route as AuthenticatedRecipesRecipeIdRouteImport } from './routes/_authenticated.recipes.$recipeId'
-import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_authenticated.recipes.discover'
-import { Route as AuthenticatedRecipesPlannerRouteImport } from './routes/_authenticated.recipes.planner'
-import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
-import { Route as AuthenticatedSettingsActivityRouteImport } from './routes/_authenticated.settings.activity'
-import { Route as AuthenticatedSettingsAppliancesRouteImport } from './routes/_authenticated.settings.appliances'
-import { Route as AuthenticatedSettingsDiagnosticsRouteImport } from './routes/_authenticated.settings.diagnostics'
-import { Route as AuthenticatedSettingsEmergencyRouteImport } from './routes/_authenticated.settings.emergency'
-import { Route as AuthenticatedSettingsExperimentalRouteImport } from './routes/_authenticated.settings.experimental'
-import { Route as AuthenticatedSettingsFamilyRouteImport } from './routes/_authenticated.settings.family'
-import { Route as AuthenticatedSettingsGoogleCalendarRouteImport } from './routes/_authenticated.settings.google-calendar'
-import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes/_authenticated.settings.home-assistant'
-import { Route as AuthenticatedSettingsLocalizationRouteImport } from './routes/_authenticated.settings.localization'
-import { Route as AuthenticatedSettingsNavigationRouteImport } from './routes/_authenticated.settings.navigation'
-import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated.settings.notifications'
+import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated.tasks'
+import { Route as AuthenticatedMedicationsRouteImport } from './routes/_authenticated.medications'
+import { Route as AuthenticatedLoyaltyRouteImport } from './routes/_authenticated.loyalty'
+import { Route as AuthenticatedKioskRouteImport } from './routes/_authenticated.kiosk'
+import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated.finances'
+import { Route as AuthenticatedDevicesRouteImport } from './routes/_authenticated.devices'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated.calendar'
 import { Route as AuthenticatedShoppingIndexRouteImport } from './routes/_authenticated.shopping.index'
-import { Route as AuthenticatedShoppingScanAddRouteImport } from './routes/_authenticated.shopping.scan-add'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
+import { Route as AuthenticatedRecipesIndexRouteImport } from './routes/_authenticated.recipes.index'
+import { Route as AuthenticatedInventoryIndexRouteImport } from './routes/_authenticated.inventory.index'
 import { Route as AuthenticatedShoppingScanTicketRouteImport } from './routes/_authenticated.shopping.scan-ticket'
-import { Route as AuthenticatedInventoryLabelsScanRouteImport } from './routes/_authenticated.inventory.labels.scan'
-import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google/callback'
-import { Route as ApiPublicHooksGoogleCalendarSyncRouteImport } from './routes/api/public/hooks/google-calendar-sync'
-import { Route as ApiPublicHooksMedicationRemindersRouteImport } from './routes/api/public/hooks/medication-reminders'
-import { Route as ApiPublicHooksMercadonaPricesRouteImport } from './routes/api/public/hooks/mercadona-prices'
-import { Route as ApiPublicHooksPushSchedulerRouteImport } from './routes/api/public/hooks/push-scheduler'
-import { Route as ApiPublicHooksSosRemindersRouteImport } from './routes/api/public/hooks/sos-reminders'
+import { Route as AuthenticatedShoppingScanAddRouteImport } from './routes/_authenticated.shopping.scan-add'
+import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated.settings.notifications'
+import { Route as AuthenticatedSettingsNavigationRouteImport } from './routes/_authenticated.settings.navigation'
+import { Route as AuthenticatedSettingsLocalizationRouteImport } from './routes/_authenticated.settings.localization'
+import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes/_authenticated.settings.home-assistant'
+import { Route as AuthenticatedSettingsGoogleCalendarRouteImport } from './routes/_authenticated.settings.google-calendar'
+import { Route as AuthenticatedSettingsFamilyRouteImport } from './routes/_authenticated.settings.family'
+import { Route as AuthenticatedSettingsExperimentalRouteImport } from './routes/_authenticated.settings.experimental'
+import { Route as AuthenticatedSettingsEmergencyRouteImport } from './routes/_authenticated.settings.emergency'
+import { Route as AuthenticatedSettingsDiagnosticsRouteImport } from './routes/_authenticated.settings.diagnostics'
+import { Route as AuthenticatedSettingsAppliancesRouteImport } from './routes/_authenticated.settings.appliances'
+import { Route as AuthenticatedSettingsActivityRouteImport } from './routes/_authenticated.settings.activity'
+import { Route as AuthenticatedRecipesPlannerRouteImport } from './routes/_authenticated.recipes.planner'
+import { Route as AuthenticatedRecipesDiscoverRouteImport } from './routes/_authenticated.recipes.discover'
+import { Route as AuthenticatedRecipesRecipeIdRouteImport } from './routes/_authenticated.recipes.$recipeId'
+import { Route as AuthenticatedInventoryScanAddRouteImport } from './routes/_authenticated.inventory.scan-add'
+import { Route as AuthenticatedInventoryLabelsRouteImport } from './routes/_authenticated.inventory.labels'
+import { Route as AuthenticatedInventoryKitchenRouteImport } from './routes/_authenticated.inventory.kitchen'
+import { Route as AuthenticatedCalendarScheduleRouteImport } from './routes/_authenticated.calendar.schedule'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
+import { Route as ApiPublicHooksSosRemindersRouteImport } from './routes/api/public/hooks/sos-reminders'
+import { Route as ApiPublicHooksPushSchedulerRouteImport } from './routes/api/public/hooks/push-scheduler'
+import { Route as ApiPublicHooksMercadonaPricesRouteImport } from './routes/api/public/hooks/mercadona-prices'
+import { Route as ApiPublicHooksMedicationRemindersRouteImport } from './routes/api/public/hooks/medication-reminders'
+import { Route as ApiPublicHooksGoogleCalendarSyncRouteImport } from './routes/api/public/hooks/google-calendar-sync'
+import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google/callback'
+import { Route as AuthenticatedInventoryLabelsScanRouteImport } from './routes/_authenticated.inventory.labels.scan'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
-  getParentRoute: () => AuthenticatedRoute,
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthRoute,
 } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedDevicesRoute = AuthenticatedDevicesRouteImport.update({
-  id: '/devices',
-  path: '/devices',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedFinancesRoute = AuthenticatedFinancesRouteImport.update({
-  id: '/finances',
-  path: '/finances',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedKioskRoute = AuthenticatedKioskRouteImport.update({
-  id: '/kiosk',
-  path: '/kiosk',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedLoyaltyRoute = AuthenticatedLoyaltyRouteImport.update({
-  id: '/loyalty',
-  path: '/loyalty',
+const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedMedicationsRoute =
@@ -104,68 +84,40 @@ const AuthenticatedMedicationsRoute =
     path: '/medications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
-  id: '/tasks',
-  path: '/tasks',
+const AuthenticatedLoyaltyRoute = AuthenticatedLoyaltyRouteImport.update({
+  id: '/loyalty',
+  path: '/loyalty',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthCallbackRoute = AuthCallbackRouteImport.update({
-  id: '/callback',
-  path: '/callback',
-  getParentRoute: () => AuthRoute,
+const AuthenticatedKioskRoute = AuthenticatedKioskRouteImport.update({
+  id: '/kiosk',
+  path: '/kiosk',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedCalendarScheduleRoute =
-  AuthenticatedCalendarScheduleRouteImport.update({
-    id: '/schedule',
-    path: '/schedule',
-    getParentRoute: () => AuthenticatedCalendarRoute,
-  } as any)
-const AuthenticatedInventoryIndexRoute =
-  AuthenticatedInventoryIndexRouteImport.update({
-    id: '/inventory/',
-    path: '/inventory/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedInventoryKitchenRoute =
-  AuthenticatedInventoryKitchenRouteImport.update({
-    id: '/inventory/kitchen',
-    path: '/inventory/kitchen',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedInventoryLabelsRoute =
-  AuthenticatedInventoryLabelsRouteImport.update({
-    id: '/inventory/labels',
-    path: '/inventory/labels',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedInventoryScanAddRoute =
-  AuthenticatedInventoryScanAddRouteImport.update({
-    id: '/inventory/scan-add',
-    path: '/inventory/scan-add',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedRecipesIndexRoute =
-  AuthenticatedRecipesIndexRouteImport.update({
-    id: '/recipes/',
-    path: '/recipes/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedRecipesRecipeIdRoute =
-  AuthenticatedRecipesRecipeIdRouteImport.update({
-    id: '/recipes/$recipeId',
-    path: '/recipes/$recipeId',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedRecipesDiscoverRoute =
-  AuthenticatedRecipesDiscoverRouteImport.update({
-    id: '/recipes/discover',
-    path: '/recipes/discover',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedRecipesPlannerRoute =
-  AuthenticatedRecipesPlannerRouteImport.update({
-    id: '/recipes/planner',
-    path: '/recipes/planner',
+const AuthenticatedFinancesRoute = AuthenticatedFinancesRouteImport.update({
+  id: '/finances',
+  path: '/finances',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDevicesRoute = AuthenticatedDevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedShoppingIndexRoute =
+  AuthenticatedShoppingIndexRouteImport.update({
+    id: '/shopping/',
+    path: '/shopping/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSettingsIndexRoute =
@@ -174,82 +126,16 @@ const AuthenticatedSettingsIndexRoute =
     path: '/settings/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedSettingsActivityRoute =
-  AuthenticatedSettingsActivityRouteImport.update({
-    id: '/settings/activity',
-    path: '/settings/activity',
+const AuthenticatedRecipesIndexRoute =
+  AuthenticatedRecipesIndexRouteImport.update({
+    id: '/recipes/',
+    path: '/recipes/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedSettingsAppliancesRoute =
-  AuthenticatedSettingsAppliancesRouteImport.update({
-    id: '/settings/appliances',
-    path: '/settings/appliances',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSettingsDiagnosticsRoute =
-  AuthenticatedSettingsDiagnosticsRouteImport.update({
-    id: '/settings/diagnostics',
-    path: '/settings/diagnostics',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSettingsEmergencyRoute =
-  AuthenticatedSettingsEmergencyRouteImport.update({
-    id: '/settings/emergency',
-    path: '/settings/emergency',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSettingsExperimentalRoute =
-  AuthenticatedSettingsExperimentalRouteImport.update({
-    id: '/settings/experimental',
-    path: '/settings/experimental',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSettingsFamilyRoute =
-  AuthenticatedSettingsFamilyRouteImport.update({
-    id: '/settings/family',
-    path: '/settings/family',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSettingsGoogleCalendarRoute =
-  AuthenticatedSettingsGoogleCalendarRouteImport.update({
-    id: '/settings/google-calendar',
-    path: '/settings/google-calendar',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSettingsHomeAssistantRoute =
-  AuthenticatedSettingsHomeAssistantRouteImport.update({
-    id: '/settings/home-assistant',
-    path: '/settings/home-assistant',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSettingsLocalizationRoute =
-  AuthenticatedSettingsLocalizationRouteImport.update({
-    id: '/settings/localization',
-    path: '/settings/localization',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSettingsNavigationRoute =
-  AuthenticatedSettingsNavigationRouteImport.update({
-    id: '/settings/navigation',
-    path: '/settings/navigation',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSettingsNotificationsRoute =
-  AuthenticatedSettingsNotificationsRouteImport.update({
-    id: '/settings/notifications',
-    path: '/settings/notifications',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedShoppingIndexRoute =
-  AuthenticatedShoppingIndexRouteImport.update({
-    id: '/shopping/',
-    path: '/shopping/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedShoppingScanAddRoute =
-  AuthenticatedShoppingScanAddRouteImport.update({
-    id: '/shopping/scan-add',
-    path: '/shopping/scan-add',
+const AuthenticatedInventoryIndexRoute =
+  AuthenticatedInventoryIndexRouteImport.update({
+    id: '/inventory/',
+    path: '/inventory/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedShoppingScanTicketRoute =
@@ -258,39 +144,124 @@ const AuthenticatedShoppingScanTicketRoute =
     path: '/shopping/scan-ticket',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedInventoryLabelsScanRoute =
-  AuthenticatedInventoryLabelsScanRouteImport.update({
-    id: '/scan',
-    path: '/scan',
-    getParentRoute: () => AuthenticatedInventoryLabelsRoute,
+const AuthenticatedShoppingScanAddRoute =
+  AuthenticatedShoppingScanAddRouteImport.update({
+    id: '/shopping/scan-add',
+    path: '/shopping/scan-add',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
-  id: '/api/auth/google/callback',
-  path: '/api/auth/google/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicHooksGoogleCalendarSyncRoute =
-  ApiPublicHooksGoogleCalendarSyncRouteImport.update({
-    id: '/api/public/hooks/google-calendar-sync',
-    path: '/api/public/hooks/google-calendar-sync',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedSettingsNotificationsRoute =
+  AuthenticatedSettingsNotificationsRouteImport.update({
+    id: '/settings/notifications',
+    path: '/settings/notifications',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const ApiPublicHooksMedicationRemindersRoute =
-  ApiPublicHooksMedicationRemindersRouteImport.update({
-    id: '/api/public/hooks/medication-reminders',
-    path: '/api/public/hooks/medication-reminders',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedSettingsNavigationRoute =
+  AuthenticatedSettingsNavigationRouteImport.update({
+    id: '/settings/navigation',
+    path: '/settings/navigation',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const ApiPublicHooksMercadonaPricesRoute =
-  ApiPublicHooksMercadonaPricesRouteImport.update({
-    id: '/api/public/hooks/mercadona-prices',
-    path: '/api/public/hooks/mercadona-prices',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedSettingsLocalizationRoute =
+  AuthenticatedSettingsLocalizationRouteImport.update({
+    id: '/settings/localization',
+    path: '/settings/localization',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
-const ApiPublicHooksPushSchedulerRoute =
-  ApiPublicHooksPushSchedulerRouteImport.update({
-    id: '/api/public/hooks/push-scheduler',
-    path: '/api/public/hooks/push-scheduler',
+const AuthenticatedSettingsHomeAssistantRoute =
+  AuthenticatedSettingsHomeAssistantRouteImport.update({
+    id: '/settings/home-assistant',
+    path: '/settings/home-assistant',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsGoogleCalendarRoute =
+  AuthenticatedSettingsGoogleCalendarRouteImport.update({
+    id: '/settings/google-calendar',
+    path: '/settings/google-calendar',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsFamilyRoute =
+  AuthenticatedSettingsFamilyRouteImport.update({
+    id: '/settings/family',
+    path: '/settings/family',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsExperimentalRoute =
+  AuthenticatedSettingsExperimentalRouteImport.update({
+    id: '/settings/experimental',
+    path: '/settings/experimental',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsEmergencyRoute =
+  AuthenticatedSettingsEmergencyRouteImport.update({
+    id: '/settings/emergency',
+    path: '/settings/emergency',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsDiagnosticsRoute =
+  AuthenticatedSettingsDiagnosticsRouteImport.update({
+    id: '/settings/diagnostics',
+    path: '/settings/diagnostics',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsAppliancesRoute =
+  AuthenticatedSettingsAppliancesRouteImport.update({
+    id: '/settings/appliances',
+    path: '/settings/appliances',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsActivityRoute =
+  AuthenticatedSettingsActivityRouteImport.update({
+    id: '/settings/activity',
+    path: '/settings/activity',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedRecipesPlannerRoute =
+  AuthenticatedRecipesPlannerRouteImport.update({
+    id: '/recipes/planner',
+    path: '/recipes/planner',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedRecipesDiscoverRoute =
+  AuthenticatedRecipesDiscoverRouteImport.update({
+    id: '/recipes/discover',
+    path: '/recipes/discover',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedRecipesRecipeIdRoute =
+  AuthenticatedRecipesRecipeIdRouteImport.update({
+    id: '/recipes/$recipeId',
+    path: '/recipes/$recipeId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedInventoryScanAddRoute =
+  AuthenticatedInventoryScanAddRouteImport.update({
+    id: '/inventory/scan-add',
+    path: '/inventory/scan-add',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedInventoryLabelsRoute =
+  AuthenticatedInventoryLabelsRouteImport.update({
+    id: '/inventory/labels',
+    path: '/inventory/labels',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedInventoryKitchenRoute =
+  AuthenticatedInventoryKitchenRouteImport.update({
+    id: '/inventory/kitchen',
+    path: '/inventory/kitchen',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCalendarScheduleRoute =
+  AuthenticatedCalendarScheduleRouteImport.update({
+    id: '/schedule',
+    path: '/schedule',
+    getParentRoute: () => AuthenticatedCalendarRoute,
+  } as any)
+const ApiPublicTelegramWebhookRoute =
+  ApiPublicTelegramWebhookRouteImport.update({
+    id: '/api/public/telegram/webhook',
+    path: '/api/public/telegram/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicHooksSosRemindersRoute =
@@ -299,11 +270,40 @@ const ApiPublicHooksSosRemindersRoute =
     path: '/api/public/hooks/sos-reminders',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicTelegramWebhookRoute =
-  ApiPublicTelegramWebhookRouteImport.update({
-    id: '/api/public/telegram/webhook',
-    path: '/api/public/telegram/webhook',
+const ApiPublicHooksPushSchedulerRoute =
+  ApiPublicHooksPushSchedulerRouteImport.update({
+    id: '/api/public/hooks/push-scheduler',
+    path: '/api/public/hooks/push-scheduler',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksMercadonaPricesRoute =
+  ApiPublicHooksMercadonaPricesRouteImport.update({
+    id: '/api/public/hooks/mercadona-prices',
+    path: '/api/public/hooks/mercadona-prices',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksMedicationRemindersRoute =
+  ApiPublicHooksMedicationRemindersRouteImport.update({
+    id: '/api/public/hooks/medication-reminders',
+    path: '/api/public/hooks/medication-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksGoogleCalendarSyncRoute =
+  ApiPublicHooksGoogleCalendarSyncRouteImport.update({
+    id: '/api/public/hooks/google-calendar-sync',
+    path: '/api/public/hooks/google-calendar-sync',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
+  id: '/api/auth/google/callback',
+  path: '/api/auth/google/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedInventoryLabelsScanRoute =
+  AuthenticatedInventoryLabelsScanRouteImport.update({
+    id: '/scan',
+    path: '/scan',
+    getParentRoute: () => AuthenticatedInventoryLabelsRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -597,11 +597,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -611,53 +611,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/calendar': {
-      id: '/_authenticated/calendar'
-      path: '/calendar'
-      fullPath: '/calendar'
-      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/devices': {
-      id: '/_authenticated/devices'
-      path: '/devices'
-      fullPath: '/devices'
-      preLoaderRoute: typeof AuthenticatedDevicesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/finances': {
-      id: '/_authenticated/finances'
-      path: '/finances'
-      fullPath: '/finances'
-      preLoaderRoute: typeof AuthenticatedFinancesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/kiosk': {
-      id: '/_authenticated/kiosk'
-      path: '/kiosk'
-      fullPath: '/kiosk'
-      preLoaderRoute: typeof AuthenticatedKioskRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/loyalty': {
-      id: '/_authenticated/loyalty'
-      path: '/loyalty'
-      fullPath: '/loyalty'
-      preLoaderRoute: typeof AuthenticatedLoyaltyRouteImport
+    '/_authenticated/tasks': {
+      id: '/_authenticated/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof AuthenticatedTasksRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/medications': {
@@ -667,165 +639,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMedicationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/tasks': {
-      id: '/_authenticated/tasks'
-      path: '/tasks'
-      fullPath: '/tasks'
-      preLoaderRoute: typeof AuthenticatedTasksRouteImport
+    '/_authenticated/loyalty': {
+      id: '/_authenticated/loyalty'
+      path: '/loyalty'
+      fullPath: '/loyalty'
+      preLoaderRoute: typeof AuthenticatedLoyaltyRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/auth/callback': {
-      id: '/auth/callback'
-      path: '/callback'
-      fullPath: '/auth/callback'
-      preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof AuthRoute
-    }
-    '/_authenticated/calendar/schedule': {
-      id: '/_authenticated/calendar/schedule'
-      path: '/schedule'
-      fullPath: '/calendar/schedule'
-      preLoaderRoute: typeof AuthenticatedCalendarScheduleRouteImport
-      parentRoute: typeof AuthenticatedCalendarRoute
-    }
-    '/_authenticated/inventory/': {
-      id: '/_authenticated/inventory/'
-      path: '/inventory'
-      fullPath: '/inventory/'
-      preLoaderRoute: typeof AuthenticatedInventoryIndexRouteImport
+    '/_authenticated/kiosk': {
+      id: '/_authenticated/kiosk'
+      path: '/kiosk'
+      fullPath: '/kiosk'
+      preLoaderRoute: typeof AuthenticatedKioskRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/inventory/kitchen': {
-      id: '/_authenticated/inventory/kitchen'
-      path: '/inventory/kitchen'
-      fullPath: '/inventory/kitchen'
-      preLoaderRoute: typeof AuthenticatedInventoryKitchenRouteImport
+    '/_authenticated/finances': {
+      id: '/_authenticated/finances'
+      path: '/finances'
+      fullPath: '/finances'
+      preLoaderRoute: typeof AuthenticatedFinancesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/inventory/labels': {
-      id: '/_authenticated/inventory/labels'
-      path: '/inventory/labels'
-      fullPath: '/inventory/labels'
-      preLoaderRoute: typeof AuthenticatedInventoryLabelsRouteImport
+    '/_authenticated/devices': {
+      id: '/_authenticated/devices'
+      path: '/devices'
+      fullPath: '/devices'
+      preLoaderRoute: typeof AuthenticatedDevicesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/inventory/scan-add': {
-      id: '/_authenticated/inventory/scan-add'
-      path: '/inventory/scan-add'
-      fullPath: '/inventory/scan-add'
-      preLoaderRoute: typeof AuthenticatedInventoryScanAddRouteImport
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/recipes/': {
-      id: '/_authenticated/recipes/'
-      path: '/recipes'
-      fullPath: '/recipes/'
-      preLoaderRoute: typeof AuthenticatedRecipesIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/recipes/$recipeId': {
-      id: '/_authenticated/recipes/$recipeId'
-      path: '/recipes/$recipeId'
-      fullPath: '/recipes/$recipeId'
-      preLoaderRoute: typeof AuthenticatedRecipesRecipeIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/recipes/discover': {
-      id: '/_authenticated/recipes/discover'
-      path: '/recipes/discover'
-      fullPath: '/recipes/discover'
-      preLoaderRoute: typeof AuthenticatedRecipesDiscoverRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/recipes/planner': {
-      id: '/_authenticated/recipes/planner'
-      path: '/recipes/planner'
-      fullPath: '/recipes/planner'
-      preLoaderRoute: typeof AuthenticatedRecipesPlannerRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/': {
-      id: '/_authenticated/settings/'
-      path: '/settings'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/activity': {
-      id: '/_authenticated/settings/activity'
-      path: '/settings/activity'
-      fullPath: '/settings/activity'
-      preLoaderRoute: typeof AuthenticatedSettingsActivityRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/appliances': {
-      id: '/_authenticated/settings/appliances'
-      path: '/settings/appliances'
-      fullPath: '/settings/appliances'
-      preLoaderRoute: typeof AuthenticatedSettingsAppliancesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/diagnostics': {
-      id: '/_authenticated/settings/diagnostics'
-      path: '/settings/diagnostics'
-      fullPath: '/settings/diagnostics'
-      preLoaderRoute: typeof AuthenticatedSettingsDiagnosticsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/emergency': {
-      id: '/_authenticated/settings/emergency'
-      path: '/settings/emergency'
-      fullPath: '/settings/emergency'
-      preLoaderRoute: typeof AuthenticatedSettingsEmergencyRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/experimental': {
-      id: '/_authenticated/settings/experimental'
-      path: '/settings/experimental'
-      fullPath: '/settings/experimental'
-      preLoaderRoute: typeof AuthenticatedSettingsExperimentalRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/family': {
-      id: '/_authenticated/settings/family'
-      path: '/settings/family'
-      fullPath: '/settings/family'
-      preLoaderRoute: typeof AuthenticatedSettingsFamilyRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/google-calendar': {
-      id: '/_authenticated/settings/google-calendar'
-      path: '/settings/google-calendar'
-      fullPath: '/settings/google-calendar'
-      preLoaderRoute: typeof AuthenticatedSettingsGoogleCalendarRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/home-assistant': {
-      id: '/_authenticated/settings/home-assistant'
-      path: '/settings/home-assistant'
-      fullPath: '/settings/home-assistant'
-      preLoaderRoute: typeof AuthenticatedSettingsHomeAssistantRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/localization': {
-      id: '/_authenticated/settings/localization'
-      path: '/settings/localization'
-      fullPath: '/settings/localization'
-      preLoaderRoute: typeof AuthenticatedSettingsLocalizationRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/navigation': {
-      id: '/_authenticated/settings/navigation'
-      path: '/settings/navigation'
-      fullPath: '/settings/navigation'
-      preLoaderRoute: typeof AuthenticatedSettingsNavigationRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/notifications': {
-      id: '/_authenticated/settings/notifications'
-      path: '/settings/notifications'
-      fullPath: '/settings/notifications'
-      preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/shopping/': {
@@ -835,11 +688,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShoppingIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/shopping/scan-add': {
-      id: '/_authenticated/shopping/scan-add'
-      path: '/shopping/scan-add'
-      fullPath: '/shopping/scan-add'
-      preLoaderRoute: typeof AuthenticatedShoppingScanAddRouteImport
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/recipes/': {
+      id: '/_authenticated/recipes/'
+      path: '/recipes'
+      fullPath: '/recipes/'
+      preLoaderRoute: typeof AuthenticatedRecipesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inventory/': {
+      id: '/_authenticated/inventory/'
+      path: '/inventory'
+      fullPath: '/inventory/'
+      preLoaderRoute: typeof AuthenticatedInventoryIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/shopping/scan-ticket': {
@@ -849,46 +716,144 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShoppingScanTicketRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/inventory/labels/scan': {
-      id: '/_authenticated/inventory/labels/scan'
-      path: '/scan'
-      fullPath: '/inventory/labels/scan'
-      preLoaderRoute: typeof AuthenticatedInventoryLabelsScanRouteImport
-      parentRoute: typeof AuthenticatedInventoryLabelsRoute
+    '/_authenticated/shopping/scan-add': {
+      id: '/_authenticated/shopping/scan-add'
+      path: '/shopping/scan-add'
+      fullPath: '/shopping/scan-add'
+      preLoaderRoute: typeof AuthenticatedShoppingScanAddRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/api/auth/google/callback': {
-      id: '/api/auth/google/callback'
-      path: '/api/auth/google/callback'
-      fullPath: '/api/auth/google/callback'
-      preLoaderRoute: typeof ApiAuthGoogleCallbackRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/settings/notifications': {
+      id: '/_authenticated/settings/notifications'
+      path: '/settings/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/api/public/hooks/google-calendar-sync': {
-      id: '/api/public/hooks/google-calendar-sync'
-      path: '/api/public/hooks/google-calendar-sync'
-      fullPath: '/api/public/hooks/google-calendar-sync'
-      preLoaderRoute: typeof ApiPublicHooksGoogleCalendarSyncRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/settings/navigation': {
+      id: '/_authenticated/settings/navigation'
+      path: '/settings/navigation'
+      fullPath: '/settings/navigation'
+      preLoaderRoute: typeof AuthenticatedSettingsNavigationRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/api/public/hooks/medication-reminders': {
-      id: '/api/public/hooks/medication-reminders'
-      path: '/api/public/hooks/medication-reminders'
-      fullPath: '/api/public/hooks/medication-reminders'
-      preLoaderRoute: typeof ApiPublicHooksMedicationRemindersRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/settings/localization': {
+      id: '/_authenticated/settings/localization'
+      path: '/settings/localization'
+      fullPath: '/settings/localization'
+      preLoaderRoute: typeof AuthenticatedSettingsLocalizationRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/api/public/hooks/mercadona-prices': {
-      id: '/api/public/hooks/mercadona-prices'
-      path: '/api/public/hooks/mercadona-prices'
-      fullPath: '/api/public/hooks/mercadona-prices'
-      preLoaderRoute: typeof ApiPublicHooksMercadonaPricesRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/settings/home-assistant': {
+      id: '/_authenticated/settings/home-assistant'
+      path: '/settings/home-assistant'
+      fullPath: '/settings/home-assistant'
+      preLoaderRoute: typeof AuthenticatedSettingsHomeAssistantRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/api/public/hooks/push-scheduler': {
-      id: '/api/public/hooks/push-scheduler'
-      path: '/api/public/hooks/push-scheduler'
-      fullPath: '/api/public/hooks/push-scheduler'
-      preLoaderRoute: typeof ApiPublicHooksPushSchedulerRouteImport
+    '/_authenticated/settings/google-calendar': {
+      id: '/_authenticated/settings/google-calendar'
+      path: '/settings/google-calendar'
+      fullPath: '/settings/google-calendar'
+      preLoaderRoute: typeof AuthenticatedSettingsGoogleCalendarRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/family': {
+      id: '/_authenticated/settings/family'
+      path: '/settings/family'
+      fullPath: '/settings/family'
+      preLoaderRoute: typeof AuthenticatedSettingsFamilyRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/experimental': {
+      id: '/_authenticated/settings/experimental'
+      path: '/settings/experimental'
+      fullPath: '/settings/experimental'
+      preLoaderRoute: typeof AuthenticatedSettingsExperimentalRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/emergency': {
+      id: '/_authenticated/settings/emergency'
+      path: '/settings/emergency'
+      fullPath: '/settings/emergency'
+      preLoaderRoute: typeof AuthenticatedSettingsEmergencyRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/diagnostics': {
+      id: '/_authenticated/settings/diagnostics'
+      path: '/settings/diagnostics'
+      fullPath: '/settings/diagnostics'
+      preLoaderRoute: typeof AuthenticatedSettingsDiagnosticsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/appliances': {
+      id: '/_authenticated/settings/appliances'
+      path: '/settings/appliances'
+      fullPath: '/settings/appliances'
+      preLoaderRoute: typeof AuthenticatedSettingsAppliancesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/activity': {
+      id: '/_authenticated/settings/activity'
+      path: '/settings/activity'
+      fullPath: '/settings/activity'
+      preLoaderRoute: typeof AuthenticatedSettingsActivityRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/recipes/planner': {
+      id: '/_authenticated/recipes/planner'
+      path: '/recipes/planner'
+      fullPath: '/recipes/planner'
+      preLoaderRoute: typeof AuthenticatedRecipesPlannerRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/recipes/discover': {
+      id: '/_authenticated/recipes/discover'
+      path: '/recipes/discover'
+      fullPath: '/recipes/discover'
+      preLoaderRoute: typeof AuthenticatedRecipesDiscoverRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/recipes/$recipeId': {
+      id: '/_authenticated/recipes/$recipeId'
+      path: '/recipes/$recipeId'
+      fullPath: '/recipes/$recipeId'
+      preLoaderRoute: typeof AuthenticatedRecipesRecipeIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inventory/scan-add': {
+      id: '/_authenticated/inventory/scan-add'
+      path: '/inventory/scan-add'
+      fullPath: '/inventory/scan-add'
+      preLoaderRoute: typeof AuthenticatedInventoryScanAddRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inventory/labels': {
+      id: '/_authenticated/inventory/labels'
+      path: '/inventory/labels'
+      fullPath: '/inventory/labels'
+      preLoaderRoute: typeof AuthenticatedInventoryLabelsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inventory/kitchen': {
+      id: '/_authenticated/inventory/kitchen'
+      path: '/inventory/kitchen'
+      fullPath: '/inventory/kitchen'
+      preLoaderRoute: typeof AuthenticatedInventoryKitchenRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/calendar/schedule': {
+      id: '/_authenticated/calendar/schedule'
+      path: '/schedule'
+      fullPath: '/calendar/schedule'
+      preLoaderRoute: typeof AuthenticatedCalendarScheduleRouteImport
+      parentRoute: typeof AuthenticatedCalendarRoute
+    }
+    '/api/public/telegram/webhook': {
+      id: '/api/public/telegram/webhook'
+      path: '/api/public/telegram/webhook'
+      fullPath: '/api/public/telegram/webhook'
+      preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/sos-reminders': {
@@ -898,12 +863,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksSosRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/telegram/webhook': {
-      id: '/api/public/telegram/webhook'
-      path: '/api/public/telegram/webhook'
-      fullPath: '/api/public/telegram/webhook'
-      preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
+    '/api/public/hooks/push-scheduler': {
+      id: '/api/public/hooks/push-scheduler'
+      path: '/api/public/hooks/push-scheduler'
+      fullPath: '/api/public/hooks/push-scheduler'
+      preLoaderRoute: typeof ApiPublicHooksPushSchedulerRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/mercadona-prices': {
+      id: '/api/public/hooks/mercadona-prices'
+      path: '/api/public/hooks/mercadona-prices'
+      fullPath: '/api/public/hooks/mercadona-prices'
+      preLoaderRoute: typeof ApiPublicHooksMercadonaPricesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/medication-reminders': {
+      id: '/api/public/hooks/medication-reminders'
+      path: '/api/public/hooks/medication-reminders'
+      fullPath: '/api/public/hooks/medication-reminders'
+      preLoaderRoute: typeof ApiPublicHooksMedicationRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/google-calendar-sync': {
+      id: '/api/public/hooks/google-calendar-sync'
+      path: '/api/public/hooks/google-calendar-sync'
+      fullPath: '/api/public/hooks/google-calendar-sync'
+      preLoaderRoute: typeof ApiPublicHooksGoogleCalendarSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/google/callback': {
+      id: '/api/auth/google/callback'
+      path: '/api/auth/google/callback'
+      fullPath: '/api/auth/google/callback'
+      preLoaderRoute: typeof ApiAuthGoogleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/inventory/labels/scan': {
+      id: '/_authenticated/inventory/labels/scan'
+      path: '/scan'
+      fullPath: '/inventory/labels/scan'
+      preLoaderRoute: typeof AuthenticatedInventoryLabelsScanRouteImport
+      parentRoute: typeof AuthenticatedInventoryLabelsRoute
     }
   }
 }
