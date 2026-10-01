@@ -380,9 +380,11 @@ export type Database = {
       expenses: {
         Row: {
           amount: number
+          card_color: string | null
           category_id: string | null
           created_at: string
           created_by: string
+          currency: string
           date: string
           description: string | null
           household_id: string
@@ -395,9 +397,11 @@ export type Database = {
         }
         Insert: {
           amount: number
+          card_color?: string | null
           category_id?: string | null
           created_at?: string
           created_by: string
+          currency?: string
           date?: string
           description?: string | null
           household_id: string
@@ -410,9 +414,11 @@ export type Database = {
         }
         Update: {
           amount?: number
+          card_color?: string | null
           category_id?: string | null
           created_at?: string
           created_by?: string
+          currency?: string
           date?: string
           description?: string | null
           household_id?: string
@@ -765,6 +771,77 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_label_counters: {
+        Row: {
+          household_id: string
+          label_type: string
+          last_number: number
+        }
+        Insert: {
+          household_id: string
+          label_type: string
+          last_number?: number
+        }
+        Update: {
+          household_id?: string
+          label_type?: string
+          last_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_label_counters_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_labels: {
+        Row: {
+          code: string
+          created_at: string
+          household_id: string
+          id: string
+          inventory_item_id: string | null
+          label_type: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          household_id: string
+          id?: string
+          inventory_item_id?: string | null
+          label_type: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          inventory_item_id?: string | null
+          label_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_labels_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_labels_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
             referencedColumns: ["id"]
           },
         ]
@@ -3271,6 +3348,24 @@ export type Database = {
       }
       can_view_wishlist_claim: { Args: { _item_id: string }; Returns: boolean }
       cleanup_household_activity_retention: { Args: never; Returns: number }
+      create_inventory_label_batch: {
+        Args: { p_count: number; p_label_type: string }
+        Returns: {
+          code: string
+          created_at: string
+          household_id: string
+          id: string
+          inventory_item_id: string | null
+          label_type: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "inventory_labels"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       current_household: { Args: never; Returns: string }
       get_household_contributions: {
         Args: { _household_id: string }

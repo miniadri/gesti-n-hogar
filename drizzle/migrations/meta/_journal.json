@@ -8,6 +8,13 @@
       "when": 1790850021408,
       "tag": "0000_add_household_history_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790850143228,
+      "tag": "0001_add_inventory_qr_labels_and_expense_cards",
+      "breakpoints": true
     }
   ]
 }
