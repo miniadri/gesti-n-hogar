@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790850021408,
+      "tag": "0000_add_household_history_visibility",
+      "breakpoints": true
+    }
+  ]
+}
