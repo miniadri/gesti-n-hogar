@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   addDays,
+  addMonths,
   addWeeks,
   differenceInCalendarDays,
   differenceInCalendarMonths,
@@ -65,6 +66,7 @@ import {
   adjustedHours,
   crossesMidnight,
   dayOvertime,
+  scheduleRangeDates,
   slotEndDate,
   slotHours,
 } from "@/lib/schedule-calc";
@@ -526,9 +528,19 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
     const overrides = daySlots.filter((s) => s.date === dateStr);
     const status = statusByDate.get(dateStr);
     if (status && ["vacation", "holiday", "sick", "off"].includes(status.state)) return [];
-    if (overrides.length > 0 || status?.use_day_override) return overrides;
+    if (overrides.length > 0 || status?.use_day_override) return overrides.some((s) => s.slot_kind === "off") ? [] : overrides;
     if (!settings.use_template) return [];
-    return template.filter((s) => s.day_of_week === dayOfWeek);
+    const matching = template.filter((s) => s.day_of_week === dayOfWeek);
+    return matching.some((s) => s.slot_kind === "off") ? [] : matching;
+  }
+
+  function isTemplateDayOff(date: Date): boolean {
+    const key = format(date, "yyyy-MM-dd");
+    const status = statusByDate.get(key);
+    if (status?.state && status.state !== "normal") return false;
+    const overrides = daySlots.filter((s) => s.date === key);
+    if (overrides.length > 0 || status?.use_day_override) return overrides.some((s) => s.slot_kind === "off");
+    return settings.use_template && template.some((s) => s.day_of_week === (date.getDay() + 6) % 7 && s.slot_kind === "off");
   }
 
   function isDaySlot(s: Slot) {
@@ -733,8 +745,9 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
               const overtime = member.is_child ? 0 : dayOvertime(dayHours, adjustment, settings.target_hours_per_day);
               const hasOverride = daySlots.some((s) => s.date === dateStr) || status?.use_day_override;
               const nextDay = addDays(day, 1);
+              const templateOff = isTemplateDayOff(day);
               const statusBannerColor =
-                status?.state === "off"
+                status?.state === "off" || templateOff
                   ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
                   : status?.state === "vacation"
                     ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
@@ -756,9 +769,9 @@ function MemberSchedule({ member, onChanged }: { member: Member; onChanged: () =
                   </CardHeader>
                   <CardContent className="space-y-2 px-3 pb-3 sm:px-4">
 
-                    {status?.state && status.state !== "normal" && (
+                    {(status?.state && status.state !== "normal" || templateOff) && (
                       <div className={`-mx-3 -mt-2 mb-2 w-[calc(100%+1.5rem)] px-3 py-2 text-center text-sm font-semibold sm:-mx-4 sm:w-[calc(100%+2rem)] sm:px-4 ${statusBannerColor}`}>
-                        {stateLabel(status.state)}
+                        {templateOff ? "Libre" : stateLabel(status!.state)}
                       </div>
                     )}
                     {items.length === 0 ? (
@@ -959,6 +972,10 @@ function TemplateEditor({
   const [rangeStart, setRangeStart] = useState(format(new Date(), "yyyy-MM-dd"));
   const [rangeEnd, setRangeEnd] = useState(format(addWeeks(new Date(), 2), "yyyy-MM-dd"));
   const [rangeDays, setRangeDays] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [selectionMode, setSelectionMode] = useState<"pattern" | "calendar">("pattern");
+  const [weekInterval, setWeekInterval] = useState(1);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [rangeSlotKind, setRangeSlotKind] = useState<Slot["slot_kind"]>(member.is_child ? "extracurricular" : "work");
   const [rangeSlotStart, setRangeSlotStart] = useState("09:00");
   const [rangeSlotEnd, setRangeSlotEnd] = useState("10:00");
@@ -972,6 +989,18 @@ function TemplateEditor({
         ? Array.from(new Set([...current, day])).sort((a, b) => a - b)
         : current.filter((d) => d !== day),
     );
+  };
+  const monthStart = startOfWeek(startOfMonth(calendarMonth), { weekStartsOn: 1 });
+  const monthEnd = endOfWeek(endOfMonth(calendarMonth), { weekStartsOn: 1 });
+  const calendarWeeks = Array.from({ length: differenceInCalendarDays(monthEnd, monthStart) / 7 + 1 }, (_, week) =>
+    Array.from({ length: 7 }, (_, day) => addDays(monthStart, week * 7 + day)));
+  const validDates = selectedDates.filter((date) => date >= rangeStart && date <= rangeEnd);
+  const previewCount = scheduleRangeDates(rangeStart, rangeEnd, rangeDays, weekInterval, selectionMode === "calendar" ? validDates : undefined).length;
+  const toggleDates = (dates: string[]) => {
+    const valid = dates.filter((date) => date >= rangeStart && date <= rangeEnd);
+    setSelectedDates((current) => valid.every((date) => current.includes(date))
+      ? current.filter((date) => !valid.includes(date))
+      : Array.from(new Set([...current, ...valid])).sort());
   };
 
   return (
@@ -1049,11 +1078,11 @@ function TemplateEditor({
             </div>
             <div className="grid gap-1.5">
               <Label>Entrada</Label>
-              <Input type="time" value={rangeSlotStart} onChange={(e) => setRangeSlotStart(e.target.value)} />
+              <Input type="time" disabled={rangeSlotKind === "off"} value={rangeSlotStart} onChange={(e) => setRangeSlotStart(e.target.value)} />
             </div>
             <div className="grid gap-1.5">
               <Label>Salida</Label>
-              <Input type="time" value={rangeSlotEnd} onChange={(e) => setRangeSlotEnd(e.target.value)} />
+              <Input type="time" disabled={rangeSlotKind === "off"} value={rangeSlotEnd} onChange={(e) => setRangeSlotEnd(e.target.value)} />
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
@@ -1080,6 +1109,39 @@ function TemplateEditor({
               </div>
             </div>
           </div>
+          <div className="space-y-2 rounded border p-2">
+            <Label>Seleccionar días del periodo</Label>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant={selectionMode === "pattern" ? "default" : "outline"} onClick={() => setSelectionMode("pattern")}>Por fechas y días</Button>
+              <Button type="button" size="sm" variant={selectionMode === "calendar" ? "default" : "outline"} onClick={() => setSelectionMode("calendar")}>En calendario</Button>
+            </div>
+            {selectionMode === "pattern" ? (
+              <label className="flex items-center gap-2 text-sm">Repetir cada
+                <Input className="w-20" type="number" min={1} max={52} value={weekInterval} onChange={(event) => setWeekInterval(Math.min(52, Math.max(1, Number(event.target.value) || 1)))} /> semana(s), desde la primera semana del periodo.
+              </label>
+            ) : (
+              <div className="max-w-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <Button type="button" size="icon" variant="outline" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))} aria-label="Mes anterior"><ChevronLeft className="h-4 w-4" /></Button>
+                  <strong className="capitalize">{format(calendarMonth, "LLLL yyyy", { locale: es })}</strong>
+                  <Button type="button" size="icon" variant="outline" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))} aria-label="Mes siguiente"><ChevronRight className="h-4 w-4" /></Button>
+                </div>
+                <div className="grid grid-cols-8 gap-1 text-center text-xs">
+                  <span>Semana</span>{DAY_LABELS.map((day) => <span key={day}>{day}</span>)}
+                  {calendarWeeks.map((week) => {
+                    const dates = week.map((day) => format(day, "yyyy-MM-dd"));
+                    return <div key={dates[0]} className="contents">
+                      <Button type="button" size="sm" variant="outline" className="h-8 px-1 text-xs" disabled={!week.some((day, index) => day.getMonth() === calendarMonth.getMonth() && dates[index] >= rangeStart && dates[index] <= rangeEnd)} onClick={() => toggleDates(dates.filter((_, index) => week[index].getMonth() === calendarMonth.getMonth()))} aria-label={`Seleccionar semana del ${fmtDateDisplay(dates[0])}`}>✓</Button>
+                      {week.map((day, index) => <Button key={dates[index]} type="button" size="sm" className="h-8 px-0 text-xs" variant={selectedDates.includes(dates[index]) ? "default" : "outline"} disabled={dates[index] < rangeStart || dates[index] > rangeEnd || day.getMonth() !== calendarMonth.getMonth()} onClick={() => toggleDates([dates[index]])}>{format(day, "d")}</Button>)}
+                    </div>;
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">Puedes marcar días sueltos o semanas enteras; cambia de mes para continuar.</p>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">{previewCount} día(s) seleccionados para crear.</p>
+            {rangeSlotKind === "off" && <p className="text-xs text-muted-foreground">Libre marca el día completo en verde, sin horario ni avisos de turno.</p>}
+          </div>
           <div className="grid gap-1.5">
             <Label>Notas opcionales</Label>
             <Textarea rows={2} value={rangeNotes} onChange={(e) => setRangeNotes(e.target.value)} />
@@ -1101,7 +1163,7 @@ function TemplateEditor({
               size="sm"
               onClick={async () => {
                 try {
-                  if (rangeDays.length === 0) {
+                  if (rangeStart > rangeEnd || !previewCount || (selectionMode === "pattern" && rangeDays.length === 0)) {
                     toast.error("Elige al menos un día");
                     return;
                   }
@@ -1110,7 +1172,9 @@ function TemplateEditor({
                       member_id: member.id,
                       start_date: rangeStart,
                       end_date: rangeEnd,
-                      weekdays: rangeDays,
+                      weekdays: selectionMode === "calendar" ? [0, 1, 2, 3, 4, 5, 6] : rangeDays,
+                      week_interval: weekInterval,
+                      selected_dates: selectionMode === "calendar" ? validDates : undefined,
                       start_time: rangeSlotStart,
                       end_time: rangeSlotEnd,
                       slot_kind: rangeSlotKind,
@@ -1152,7 +1216,7 @@ function TemplateEditor({
                     className={`flex items-center justify-between gap-2 rounded border px-2 py-1 text-xs ${kindColor(s.slot_kind)}`}
                   >
                     <button className="min-w-0 flex-1 text-left" onClick={() => onEdit(s, dow)} title="Editar">
-                      <div className="font-medium">{fmtTime(s.start_time)}–{fmtTime(s.end_time)}</div>
+                      <div className="font-medium">{s.slot_kind === "off" ? "Libre · día completo" : `${fmtTime(s.start_time)}–${fmtTime(s.end_time)}`}</div>
                       {s.label && <div className="opacity-80">{s.label}</div>}
                     </button>
                     <button

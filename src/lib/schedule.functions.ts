@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { scheduleRangeDates } from "@/lib/schedule-calc";
 
 const SlotKind = z.enum(["work", "subject", "extracurricular", "break", "off"]);
 const DayState = z.enum(["normal", "vacation", "holiday", "sick", "off"]);
@@ -374,6 +375,8 @@ const CreateRangeSlotsInput = z.object({
   start_date: z.string(),
   end_date: z.string(),
   weekdays: z.array(z.number().int().min(0).max(6)).min(1),
+  week_interval: z.number().int().min(1).max(52).default(1),
+  selected_dates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(370).optional(),
   start_time: TimeStr,
   end_time: TimeStr,
   slot_kind: SlotKind.default("work"),
@@ -389,13 +392,28 @@ export const createRangeSlots = createServerFn({ method: "POST" })
     const { data: householdId } = await context.supabase.rpc("current_household");
     if (!householdId) throw new Error("No household");
     if (data.end_date < data.start_date) throw new Error("La fecha final no puede ser anterior a la inicial");
-    if (data.start_time === data.end_time) throw new Error("La entrada y salida no pueden coincidir");
+    if (data.slot_kind !== "off" && data.start_time === data.end_time) throw new Error("La entrada y salida no pueden coincidir");
+    if (data.selected_dates?.some((date) => date < data.start_date || date > data.end_date)) throw new Error("Hay fechas fuera del periodo");
 
-    const dates = datesInRange(data.start_date, data.end_date).filter((date) =>
-      data.weekdays.includes(dayOfWeek(date)),
-    );
+    if (datesInRange(data.start_date, data.end_date).length > 370) throw new Error("El rango es demasiado largo");
+    const dates = scheduleRangeDates(data.start_date, data.end_date, data.weekdays, data.week_interval, data.selected_dates);
     if (dates.length === 0) return { inserted: 0, dates: 0, deleted: 0 };
-    if (dates.length > 370) throw new Error("El rango es demasiado largo");
+
+    if (data.slot_kind === "off") {
+      const { data: current, error: currentError } = await context.supabase.from("schedule_day_status")
+        .select("date, overtime_hours, use_day_override, notes")
+        .eq("member_id", data.member_id).in("date", dates);
+      if (currentError) throw currentError;
+      const byDate = new Map((current ?? []).map((row) => [row.date, row]));
+      const { error } = await context.supabase.from("schedule_day_status").upsert(dates.map((date) => ({
+        member_id: data.member_id, household_id: householdId, date, state: "off" as const,
+        overtime_hours: byDate.get(date)?.overtime_hours ?? 0,
+        use_day_override: byDate.get(date)?.use_day_override ?? false,
+        notes: data.notes ?? byDate.get(date)?.notes ?? null,
+      })), { onConflict: "member_id,date" });
+      if (error) throw error;
+      return { inserted: dates.length, dates: dates.length, deleted: 0 };
+    }
 
     let deleted = 0;
     if (data.conflict_mode === "replace_days") {

@@ -363,11 +363,13 @@ function resolveSlotsForMemberDate({
 }) {
   const status = statuses.find((row) => row.member_id === memberId && row.date === date);
   if (status && ["vacation", "holiday", "sick", "off"].includes(status.state)) return [];
+  if (daySlots.some((slot) => slot.member_id === memberId && slot.date === date && slot.slot_kind === "off")) return [];
   const overrides = daySlots.filter((slot) => slot.member_id === memberId && slot.date === date && WORK_SLOT_KINDS.has(slot.slot_kind));
   if (overrides.length > 0 || status?.use_day_override) {
     return overrides.map((slot) => ({ ...slot, source: "day" }));
   }
   if (!useTemplate) return [];
+  if (templateSlots.some((slot) => slot.member_id === memberId && slot.day_of_week === dayOfWeek(date) && slot.slot_kind === "off")) return [];
   return templateSlots
     .filter((slot) => slot.member_id === memberId && slot.day_of_week === dayOfWeek(date) && WORK_SLOT_KINDS.has(slot.slot_kind))
     .map((slot) => ({ ...slot, source: "template" }));

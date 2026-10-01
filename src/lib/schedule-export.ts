@@ -120,7 +120,13 @@ export function buildScheduleExportReport(
     const memberDays: ScheduleExportDay[] = [];
 
     for (const date of datesInRange(options.from, options.to)) {
-      const status = statuses.get(date);
+      const storedStatus = statuses.get(date);
+      const daySlots = entry.days.filter((s) => s.date === date);
+      const templateSlots = entry.template.filter((s) => s.day_of_week === dayOfWeek(date));
+      const templateOff = !storedStatus || storedStatus.state === "normal"
+        ? (daySlots.length > 0 || storedStatus?.use_day_override ? daySlots : settings.use_template ? templateSlots : []).some((s) => s.slot_kind === "off")
+        : false;
+      const status = templateOff ? { ...storedStatus, date, state: "off" as const, overtime_hours: 0, use_day_override: false, notes: storedStatus?.notes ?? null } : storedStatus;
       const slots = resolveSlots(date, entry.template, entry.days, status, settings.use_template)
         .filter((s) => options.includeBreaks || s.slot_kind !== "break");
       const countedSlots = slots.filter((s) =>
@@ -169,7 +175,7 @@ export function buildScheduleExportReport(
       vacationDays: statusCounts.vacation,
       holidayDays: statusCounts.holiday,
       sickDays: statusCounts.sick,
-      offDays: statusCounts.off,
+      offDays: memberDays.filter((day) => day.status === "Libre").length,
       daysWithNotes: memberDays.filter((day) => day.notes.trim().length > 0).length,
     });
 
@@ -332,9 +338,10 @@ function resolveSlots(
 ): ScheduleExportSlot[] {
   const overrides = daySlots.filter((s) => s.date === date);
   if (status && ["vacation", "holiday", "sick", "off"].includes(status.state)) return [];
-  if (overrides.length > 0 || status?.use_day_override) return overrides;
+  if (overrides.length > 0 || status?.use_day_override) return overrides.some((s) => s.slot_kind === "off") ? [] : overrides;
   if (!useTemplate) return [];
-  return template.filter((s) => s.day_of_week === dayOfWeek(date));
+  const slots = template.filter((s) => s.day_of_week === dayOfWeek(date));
+  return slots.some((s) => s.slot_kind === "off") ? [] : slots;
 }
 
 function defaultSettings(member: ScheduleExportMember): ScheduleExportSettings {

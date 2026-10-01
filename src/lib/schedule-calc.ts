@@ -5,6 +5,22 @@
 
 export type TimeSlot = { start_time: string; end_time: string };
 
+export function scheduleRangeDates(from: string, to: string, weekdays: number[], weekInterval = 1, selectedDates?: string[]): string[] {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start > end) return [];
+  const selected = selectedDates ? new Set(selectedDates) : null;
+  const monday = new Date(start);
+  monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay() + 6) % 7);
+  const dates: string[] = [];
+  for (const date = new Date(start); date <= end && dates.length <= 370; date.setUTCDate(date.getUTCDate() + 1)) {
+    const key = date.toISOString().slice(0, 10);
+    const week = Math.floor((date.getTime() - monday.getTime()) / (7 * 86400000));
+    if (selected ? selected.has(key) : week % weekInterval === 0 && weekdays.includes((date.getUTCDay() + 6) % 7)) dates.push(key);
+  }
+  return dates;
+}
+
 export const COUNTED_SLOT_KINDS = ["work", "subject", "extracurricular"] as const;
 export type CountedSlotKind = (typeof COUNTED_SLOT_KINDS)[number];
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adjustedHours,
+  scheduleRangeDates,
   crossesMidnight,
   dayOvertime,
   slotEndDate,
@@ -9,6 +10,18 @@ import {
   timeToMinutes,
   vacationBalance,
 } from "@/lib/schedule-calc";
+
+describe("scheduleRangeDates", () => {
+  it("keeps the original weekday selection by default", () => {
+    expect(scheduleRangeDates("2026-10-05", "2026-10-18", [0])).toEqual(["2026-10-05", "2026-10-12"]);
+  });
+  it("repeats every second week from the first Monday", () => {
+    expect(scheduleRangeDates("2026-10-06", "2026-10-27", [1], 2)).toEqual(["2026-10-06", "2026-10-20"]);
+  });
+  it("applies only selected calendar days", () => {
+    expect(scheduleRangeDates("2026-10-05", "2026-10-11", [0], 1, ["2026-10-08", "2026-10-10"])).toEqual(["2026-10-08", "2026-10-10"]);
+  });
+});
 
 describe("slotHours", () => {
   it("counts a normal shift", () => {
