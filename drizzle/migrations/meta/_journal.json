@@ -15,6 +15,13 @@
       "when": 1790850143228,
       "tag": "0001_add_inventory_qr_labels_and_expense_cards",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790850183903,
+      "tag": "0002_add_shopping_notes",
+      "breakpoints": true
     }
   ]
 }

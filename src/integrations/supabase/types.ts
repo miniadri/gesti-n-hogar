@@ -2416,6 +2416,7 @@ export type Database = {
           manual_price: number | null
           mercadona_id: string | null
           name: string
+          notes: string | null
           ocr_price: number | null
           priority: string
           quantity: number
@@ -2437,6 +2438,7 @@ export type Database = {
           manual_price?: number | null
           mercadona_id?: string | null
           name: string
+          notes?: string | null
           ocr_price?: number | null
           priority?: string
           quantity?: number
@@ -2458,6 +2460,7 @@ export type Database = {
           manual_price?: number | null
           mercadona_id?: string | null
           name?: string
+          notes?: string | null
           ocr_price?: number | null
           priority?: string
           quantity?: number
