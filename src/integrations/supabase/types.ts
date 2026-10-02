@@ -86,7 +86,6 @@ export type Database = {
         Row: {
           amount: number
           category_id: string | null
-          card_color: string | null
           created_at: string
           household_id: string
           id: string
@@ -137,7 +136,6 @@ export type Database = {
           category: string | null
           created_at: string
           created_by: string
-          currency: string
           description: string | null
           end_at: string | null
           external_id: string | null
@@ -382,9 +380,11 @@ export type Database = {
       expenses: {
         Row: {
           amount: number
+          card_color: string | null
           category_id: string | null
           created_at: string
           created_by: string
+          currency: string
           date: string
           description: string | null
           household_id: string
@@ -397,8 +397,8 @@ export type Database = {
         }
         Insert: {
           amount: number
-          category_id?: string | null
           card_color?: string | null
+          category_id?: string | null
           created_at?: string
           created_by: string
           currency?: string
@@ -414,8 +414,8 @@ export type Database = {
         }
         Update: {
           amount?: number
-          category_id?: string | null
           card_color?: string | null
+          category_id?: string | null
           created_at?: string
           created_by?: string
           currency?: string
@@ -678,6 +678,7 @@ export type Database = {
           created_at: string
           created_by: string
           critical_threshold_percent: number
+          history_visible_to_all: boolean
           id: string
           name: string
           updated_at: string
@@ -686,6 +687,7 @@ export type Database = {
           created_at?: string
           created_by: string
           critical_threshold_percent?: number
+          history_visible_to_all?: boolean
           id?: string
           name: string
           updated_at?: string
@@ -694,6 +696,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           critical_threshold_percent?: number
+          history_visible_to_all?: boolean
           id?: string
           name?: string
           updated_at?: string
@@ -768,6 +771,77 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_label_counters: {
+        Row: {
+          household_id: string
+          label_type: string
+          last_number: number
+        }
+        Insert: {
+          household_id: string
+          label_type: string
+          last_number?: number
+        }
+        Update: {
+          household_id?: string
+          label_type?: string
+          last_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_label_counters_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_labels: {
+        Row: {
+          code: string
+          created_at: string
+          household_id: string
+          id: string
+          inventory_item_id: string | null
+          label_type: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          household_id: string
+          id?: string
+          inventory_item_id?: string | null
+          label_type: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          inventory_item_id?: string | null
+          label_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_labels_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_labels_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
             referencedColumns: ["id"]
           },
         ]
@@ -2342,6 +2416,7 @@ export type Database = {
           manual_price: number | null
           mercadona_id: string | null
           name: string
+          notes: string | null
           ocr_price: number | null
           priority: string
           quantity: number
@@ -2352,7 +2427,6 @@ export type Database = {
           store_product_url: string | null
           unit: string | null
           updated_at: string
-          notes: string | null
         }
         Insert: {
           category?: string | null
@@ -2364,6 +2438,7 @@ export type Database = {
           manual_price?: number | null
           mercadona_id?: string | null
           name: string
+          notes?: string | null
           ocr_price?: number | null
           priority?: string
           quantity?: number
@@ -2374,7 +2449,6 @@ export type Database = {
           store_product_url?: string | null
           unit?: string | null
           updated_at?: string
-          notes: string | null
         }
         Update: {
           category?: string | null
@@ -2386,6 +2460,7 @@ export type Database = {
           manual_price?: number | null
           mercadona_id?: string | null
           name?: string
+          notes?: string | null
           ocr_price?: number | null
           priority?: string
           quantity?: number
@@ -2396,7 +2471,6 @@ export type Database = {
           store_product_url?: string | null
           unit?: string | null
           updated_at?: string
-          notes: string | null
         }
         Relationships: [
           {
@@ -3276,15 +3350,25 @@ export type Database = {
         Returns: boolean
       }
       can_view_wishlist_claim: { Args: { _item_id: string }; Returns: boolean }
-      claim_medication_intake_reminder: {
-        Args: { _intake_id: string; _minimum_interval_minutes?: number }
-        Returns: {
-          id: string
-          last_reminder_sent_at: string
-          reminder_count: number
-        }[]
-      }
       cleanup_household_activity_retention: { Args: never; Returns: number }
+      create_inventory_label_batch: {
+        Args: { p_count: number; p_label_type: string }
+        Returns: {
+          code: string
+          created_at: string
+          household_id: string
+          id: string
+          inventory_item_id: string | null
+          label_type: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "inventory_labels"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       current_household: { Args: never; Returns: string }
       get_household_contributions: {
         Args: { _household_id: string }

@@ -8,10 +8,10 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-function base64ToBytes(value: string): Uint8Array {
+function base64ToBytes(value: string): Uint8Array<ArrayBuffer> {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(normalized + "=".repeat((4 - (normalized.length % 4)) % 4));
-  return Uint8Array.from(raw, (character) => character.charCodeAt(0));
+  const bytes = new Uint8Array(new ArrayBuffer(raw.length)); for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i); return bytes;
 }
 
 export async function sha256Base64(value: Blob): Promise<string> {
