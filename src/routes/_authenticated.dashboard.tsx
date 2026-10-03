@@ -377,7 +377,7 @@ function DashboardPage() {
         visible: data.shoppingCount > 0 || data.events.length > 0 || totalExpenses > 0,
         size: "full",
         node: (
-          <div className="grid auto-rows-fr items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-[minmax(0,1fr)] auto-rows-fr items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <SummaryCard
               title="Por comprar"
               value={data.shoppingCount}
@@ -439,7 +439,7 @@ function DashboardPage() {
                 <Link to="/recipes/planner">Ver planner</Link>
               </Button>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="min-w-0 space-y-2">
               {prepAhead.map((s: any) => (
                 <div key={s.id} className="rounded-lg border border-border bg-card p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -458,7 +458,7 @@ function DashboardPage() {
         visible: nextIntakes.length > 0,
         size: "full",
         node: (
-          <Card className="border-primary/30">
+          <Card className="min-w-0 border-primary/30">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Pill className="h-4 w-4 text-primary" />
@@ -471,7 +471,7 @@ function DashboardPage() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="min-w-0 space-y-2">
               {nextIntakes.map((intake: any) => {
                 const when = new Date(intake.scheduled_for);
                 const overdue = when.getTime() < nowMs;
@@ -482,36 +482,36 @@ function DashboardPage() {
                   <div
                     key={intake.id}
                     className={cn(
-                      "flex items-center justify-between gap-3 rounded-lg border bg-card p-3",
+                      "flex min-w-0 flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:items-center sm:justify-between",
                       overdue && "border-amber-500/50 bg-amber-500/5",
                     )}
                   >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words font-medium [overflow-wrap:anywhere]">
                         {memberName} · {intake.medication.name}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="break-words text-xs text-muted-foreground">
                         {intake.medication.dose_amount} {intake.medication.unit} ·{" "}
                         {dayLabel} · {when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         {overdue && " · vencida"}
                       </p>
                       {!actionsAvailable && (
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="mt-1 break-words text-xs text-muted-foreground">
                           Las opciones de esta toma se activarán una hora antes de la hora programada.
                         </p>
                       )}
                     </div>
                     {actionsAvailable && (
-                      <div className="flex shrink-0 gap-1">
-                        <Button size="sm" variant="outline" title="Posponer 10 min" onClick={() => handleSnooze(intake, 10)}>
-                          <Clock3 className="h-4 w-4" />
+                      <div className="grid w-full grid-cols-3 gap-1 sm:flex sm:w-auto sm:shrink-0">
+                        <Button size="sm" variant="outline" className="min-w-0 px-1 text-xs sm:px-3" title="Posponer 10 min" aria-label="Posponer 10 minutos" onClick={() => handleSnooze(intake, 10)}>
+                          <Clock3 className="h-4 w-4" /><span className="ml-1 sm:sr-only">+10 min</span>
                         </Button>
                         <>
-                          <Button size="sm" variant="outline" title="Omitir toma" onClick={() => setRecordConfirmation({ intake, status: "skipped" })}>
-                            <X className="h-4 w-4" />
+                          <Button size="sm" variant="outline" className="min-w-0 px-1 text-xs sm:px-3" title="Omitir toma" aria-label="Omitir toma" onClick={() => setRecordConfirmation({ intake, status: "skipped" })}>
+                            <X className="h-4 w-4" /><span className="ml-1 sm:sr-only">Omitir</span>
                           </Button>
-                          <Button size="sm" title="Confirmar toma" onClick={() => setRecordConfirmation({ intake, status: "taken" })}>
-                            <Check className="h-4 w-4" />
+                          <Button size="sm" className="min-w-0 px-1 text-xs sm:px-3" title="Confirmar toma" aria-label="Confirmar toma" onClick={() => setRecordConfirmation({ intake, status: "taken" })}>
+                            <Check className="h-4 w-4" /><span className="ml-1 sm:sr-only">Tomada</span>
                           </Button>
                         </>
                       </div>
@@ -598,7 +598,7 @@ function DashboardPage() {
         visible: pharmacyToBuy.length > 0,
         size: "half",
         node: (
-          <Card className="border-primary/30">
+          <Card className="min-w-0 border-primary/30">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="flex items-center gap-2 text-base uppercase tracking-wide">
                 <Pill className="h-4 w-4 text-primary" />
@@ -612,9 +612,9 @@ function DashboardPage() {
             <CardContent>
               <div className="flex flex-wrap gap-2">
                 {pharmacyToBuy.slice(0, 8).map((m: any) => (
-                  <span key={m.id} className="inline-flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 text-xs">
-                    <Pill className="h-3 w-3" />
-                    {m.name}
+                  <span key={m.id} className="inline-flex max-w-full min-w-0 items-start gap-1 rounded-full border bg-secondary px-3 py-1 text-xs">
+                    <Pill className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span className="min-w-0 break-words [overflow-wrap:anywhere]">{m.name}</span>
                   </span>
                 ))}
               </div>
@@ -649,7 +649,7 @@ function DashboardPage() {
                       <Link
                         key={i.id}
                         to="/inventory"
-                        className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs hover:bg-accent"
+                        className="inline-flex max-w-full min-w-0 flex-wrap items-center gap-1 break-words rounded-full border bg-card px-3 py-1 text-xs hover:bg-accent [overflow-wrap:anywhere]"
                       >
                         {i.name}
                         <span className="text-muted-foreground">
@@ -670,7 +670,7 @@ function DashboardPage() {
                       <Link
                         key={m.id}
                         to="/inventory"
-                        className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs hover:bg-accent"
+                        className="inline-flex max-w-full min-w-0 flex-wrap items-center gap-1 break-words rounded-full border bg-card px-3 py-1 text-xs hover:bg-accent [overflow-wrap:anywhere]"
                       >
                         <Pill className="h-3 w-3" />
                         {m.name}
@@ -837,7 +837,7 @@ function DashboardPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Ajustar dashboard</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="min-w-0 space-y-2">
             {sectionPrefs.order.map((key) => {
               const hidden = sectionPrefs.hidden.includes(key);
               const liveSection = dashboardSections.find((section) => section.key === key);
@@ -849,7 +849,7 @@ function DashboardPage() {
                       {hidden ? "Oculto por usuario" : liveSection ? "Visible ahora" : "Se mostrará cuando tenga contenido"}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-1">
+                  <div className="grid w-full grid-cols-3 gap-1 sm:flex sm:w-auto sm:shrink-0">
                     <Button variant="outline" size="icon" onClick={() => moveSection(key, -1)} title="Subir">
                       <ArrowUp className="h-4 w-4" />
                     </Button>
@@ -868,11 +868,12 @@ function DashboardPage() {
       )}
 
       {dashboardSections.length > 0 && (
-        <div className="grid gap-4 lg:grid-cols-6">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-6">
           {dashboardSections.map((section) => (
             <div
               key={section.key}
               className={cn(
+                "min-w-0",
                 section.size === "full" && "lg:col-span-6",
                 section.size === "half" && "lg:col-span-3",
                 section.size === "third" && "lg:col-span-2",

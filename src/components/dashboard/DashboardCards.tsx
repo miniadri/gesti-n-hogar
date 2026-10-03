@@ -15,15 +15,15 @@ export function EventGroup({ label, events }: { label: string; events: any[] }) 
         {events.slice(0, 5).map((event) => {
           const start = new Date(event.start_at);
           return (
-            <div key={event.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{event.title}</p>
-                <p className="text-xs text-muted-foreground">
+            <div key={event.id} className="flex min-w-0 items-start justify-between gap-3 rounded-lg border p-3">
+              <div className="min-w-0 flex-1">
+                <p className="break-words text-sm font-medium [overflow-wrap:anywhere]">{event.title}</p>
+                <p className="break-words text-xs text-muted-foreground">
                   {start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   {event.category ? ` · ${event.category}` : ""}
                 </p>
               </div>
-              <Badge variant="outline">{event.source === "google" ? "Google" : "App"}</Badge>
+              <Badge variant="outline" className="shrink-0">{event.source === "google" ? "Google" : "App"}</Badge>
             </div>
           );
         })}
@@ -78,7 +78,7 @@ export function ScheduleTodayTomorrowCard({ days }: { days: any[] }) {
                           ? `00:00-${formatTime(slot.end_time)}`
                           : `${formatTime(slot.start_time)}-${formatTime(slot.end_time)}`}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="break-words text-xs text-muted-foreground">
                         {slot.memberName}
                         {" · "}
                         {slot.carried
