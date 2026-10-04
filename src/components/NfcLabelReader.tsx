@@ -16,7 +16,7 @@ function decodeRecord(record: any): string | null {
   if (record?.recordType !== "url" && record?.recordType !== "text" && record?.recordType !== "absolute-url") return null;
   if (typeof record?.data === "string") return record.data;
   if (record?.data instanceof DataView) {
-    return new TextDecoder(record.encoding || "utf-8").decode(record.data.buffer, record.data.byteOffset, record.data.byteLength);
+    return new TextDecoder(record.encoding || "utf-8").decode(new Uint8Array(record.data.buffer, record.data.byteOffset, record.data.byteLength));
   }
   return null;
 }

@@ -17,13 +17,13 @@ import { listInventory } from "@/lib/inventory.functions";
 import { normalizeInventoryLabelCode } from "@/lib/inventory-labels";
 
 export const Route = createFileRoute("/_authenticated/inventory/labels/scan")({
-  validateSearch: (search: Record<string, unknown>) => ({ code: typeof search.code === "string" ? search.code : "" }),
+  validateSearch: (search: Record<string, unknown>) => ({ code: typeof search.code === "string" && search.code ? search.code : undefined }) as { code?: string },
   head: () => ({ meta: [{ title: "Leer etiqueta - HomeSync" }] }),
   component: ScanInventoryLabelPage,
 });
 
 function ScanInventoryLabelPage() {
-  const { code: initialCode } = Route.useSearch();
+  const { code: searchCode } = Route.useSearch(); const initialCode = searchCode ?? "";
   const navigate = useNavigate();
   const qc = useQueryClient();
   const doGet = useServerFn(getInventoryLabel);
