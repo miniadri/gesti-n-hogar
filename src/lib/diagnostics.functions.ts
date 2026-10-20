@@ -239,8 +239,8 @@ export const getDiagnostics = createServerFn({ method: "GET" })
       homeAssistantConfigured
         ? check("ha_secret", "Home Assistant", true, "Conexión guardada en el hogar", "")
         : check("ha_secret", "Home Assistant", hasEnv("HA_TOKEN_SECRET"), "Cifrado de token configurado", "No configurado"),
-      hasEnv("CRON_BEARER")
-        ? check("cron", "Cron interno", true, "Secreto configurado", "")
+      hasEnv("CRON_BEARER") && hasEnv("SOS_REMINDER_CRON_BEARER")
+        ? check("cron", "Cron interno", true, "Secretos de cron configurados", "")
         : warningCheck("cron", "Cron interno", "No verificable desde diagnóstico; revisar solo si fallan tareas automáticas"),
     ];
 
@@ -530,7 +530,7 @@ export const runDiagnosticTest = createServerFn({ method: "POST" })
       }
     }
 
-    const cronConfigured = hasEnv("CRON_BEARER");
+    const cronConfigured = hasEnv("CRON_BEARER") && hasEnv("SOS_REMINDER_CRON_BEARER");
     const latestSosReminder = await maybeLatest<any>(
       context.supabase
         .from("sos_events")
@@ -548,8 +548,8 @@ export const runDiagnosticTest = createServerFn({ method: "POST" })
       "Cron interno",
       cronConfigured
         ? latestSosReminder
-          ? `CRON_BEARER visible. Último recordatorio SOS: ${new Date(latestSosReminder.last_reminder_sent_at).toLocaleString("es-ES")}.`
-          : "CRON_BEARER visible. Sin evidencia reciente de recordatorios SOS."
-        : "CRON_BEARER no está visible en este runtime.",
+          ? `Secretos de cron visibles. Último recordatorio SOS: ${new Date(latestSosReminder.last_reminder_sent_at).toLocaleString("es-ES")}.`
+          : "Secretos de cron visibles. Sin evidencia reciente de recordatorios SOS."
+        : "Falta CRON_BEARER o SOS_REMINDER_CRON_BEARER en este runtime.",
     );
   });

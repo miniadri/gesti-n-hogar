@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { randomBytes } from "node:crypto";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const InviteInput = z.object({
@@ -42,6 +43,18 @@ export async function getHouseholdHistoryAccess(supabase: any, householdId: stri
   return { isAdmin, historyVisibleToAll, canViewHistory: isAdmin || historyVisibleToAll };
 }
 
+export async function assertHouseholdAdmin(supabase: any, householdId: string, userId: string) {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("household_id", householdId)
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Solo un administrador del hogar puede realizar esta acción");
+}
+
 export const updateHousehold = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => UpdateHouseholdInput.parse(input))
@@ -67,7 +80,7 @@ export const updateHistoryVisibility = createServerFn({ method: "POST" })
     const { isAdmin } = await getHouseholdHistoryAccess(context.supabase, householdId, context.userId);
     if (!isAdmin) throw new Error("Solo un administrador puede cambiar la visibilidad de los historiales");
     const { data: household, error } = await context.supabase
-      .from("households").update({ history_visible_to_all: data.history_visible_to_all }).eq("id", householdId)
+      .from("households").update({ history_visible_to_all: data.history_visible_to_all } as any).eq("id", householdId)
       .select("history_visible_to_all").single();
     if (error) throw error;
     return household;
@@ -192,8 +205,7 @@ export const listInvites = createServerFn({ method: "GET" })
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
 
-    const { canViewHistory } = await getHouseholdHistoryAccess(context.supabase, householdId, context.userId);
-    if (!canViewHistory) return [];
+    await assertHouseholdAdmin(context.supabase, householdId, context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
@@ -210,10 +222,14 @@ export const deleteInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    await assertHouseholdAdmin(context.supabase, householdId, context.userId);
     const { error } = await context.supabase
       .from("household_invites")
       .delete()
-      .eq("id", data.id);
+      .eq("id", data.id)
+      .eq("household_id", householdId);
     if (error) throw error;
     return { ok: true };
   });
@@ -224,8 +240,9 @@ export const createInvite = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    await assertHouseholdAdmin(context.supabase, householdId, context.userId);
 
-    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const code = `HS-${randomBytes(18).toString("base64url").toUpperCase()}`;
     const { data: invite, error } = await context.supabase
       .from("household_invites")
       .insert({
@@ -252,20 +269,30 @@ export const joinHousehold = createServerFn({ method: "POST" })
       .from("household_invites")
       .select("*, household:household_id(*)")
       .eq("code", code)
+      .is("used_at", null)
+      .gt("expires_at", new Date().toISOString())
       .maybeSingle();
     if (inviteError || !invite) throw new Error("Código inválido");
-    if (invite.used_at) throw new Error("Este código ya ha sido usado");
-    if (new Date(invite.expires_at) <= new Date()) throw new Error("Este código ha caducado");
+
+    const { data: claimedInvite, error: claimError } = await supabaseAdmin
+      .from("household_invites")
+      .update({ used_at: new Date().toISOString(), used_by: context.userId })
+      .eq("id", invite.id)
+      .is("used_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .select("*, household:household_id(*)")
+      .maybeSingle();
+    if (claimError || !claimedInvite) throw new Error("Este código ya ha sido usado o ha caducado");
 
 
     // Already a member? no-op.
     const { data: existing } = await supabaseAdmin
       .from("household_members")
       .select("id")
-      .eq("household_id", invite.household_id)
+      .eq("household_id", claimedInvite.household_id)
       .eq("user_id", context.userId)
       .maybeSingle();
-    if (existing) return { ok: true, household: invite.household, alreadyMember: true };
+    if (existing) return { ok: true, household: claimedInvite.household, alreadyMember: true };
 
     const { data: profile } = await context.supabase
       .from("profiles")
@@ -292,24 +319,19 @@ export const joinHousehold = createServerFn({ method: "POST" })
     }
 
     await supabaseAdmin.from("household_members").insert({
-      household_id: invite.household_id,
+      household_id: claimedInvite.household_id,
       user_id: context.userId,
       display_name: profile?.full_name || "Miembro",
-      is_child: invite.role === "child",
+      is_child: claimedInvite.role === "child",
     });
 
     await supabaseAdmin.from("user_roles").insert({
       user_id: context.userId,
-      role: invite.role,
-      household_id: invite.household_id,
+      role: claimedInvite.role,
+      household_id: claimedInvite.household_id,
     });
 
-    await supabaseAdmin
-      .from("household_invites")
-      .update({ used_at: new Date().toISOString(), used_by: context.userId })
-      .eq("id", invite.id);
-
-    return { ok: true, household: invite.household };
+    return { ok: true, household: claimedInvite.household };
   });
 
 

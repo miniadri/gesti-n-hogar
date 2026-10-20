@@ -320,6 +320,16 @@ export const updateMedication = createServerFn({ method: "POST" })
 
     const { id, schedules, expiry_month, expiry_year, ...medPayload } = data;
 
+    const { data: previousMedication, error: previousMedicationError } = await context.supabase
+      .from("medications")
+      .select("id, name, household_id")
+      .eq("id", id)
+      .eq("household_id", householdId.data)
+      .single();
+    if (previousMedicationError || !previousMedication) {
+      throw previousMedicationError || new Error("Medication not found");
+    }
+
     const { error } = await context.supabase
       .from("medications")
       .update(medPayload)
@@ -334,7 +344,7 @@ export const updateMedication = createServerFn({ method: "POST" })
         .from("medicines")
         .select("id")
         .eq("household_id", householdId.data)
-        .ilike("name", medRow.name)
+        .eq("name", previousMedication.name)
         .maybeSingle();
       if (existingMedicine) {
         await context.supabase

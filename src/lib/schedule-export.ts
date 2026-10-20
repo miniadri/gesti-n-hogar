@@ -4,6 +4,7 @@ import {
   slotHours,
   sumCountedHours,
 } from "@/lib/schedule-calc";
+import { csvSafeCell } from "./security-input";
 
 export type ScheduleExportMember = {
   id: string;
@@ -422,7 +423,7 @@ function hours(value: number) {
 }
 
 function csvRow(values: Array<string | number>) {
-  return values.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(";");
+  return values.map((value) => `"${String(csvSafeCell(value)).replace(/"/g, '""')}"`).join(";");
 }
 
 function escapeHtml(value: string) {

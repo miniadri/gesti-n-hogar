@@ -4,11 +4,42 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { logHouseholdActivity } from "./activity.functions";
+import { requireSupabasePublicEnv } from "@/integrations/supabase/env.server";
 
 const ScanTicketInput = z.object({
-  imageUrl: z.string().url(),
+  imageUrl: z.string().url().max(2048),
   receiptId: z.string().uuid(),
 });
+
+const MAX_RECEIPT_IMAGE_BYTES = 8 * 1024 * 1024;
+const ALLOWED_RECEIPT_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+
+function assertAllowedReceiptImageUrl(imageUrl: string) {
+  const parsed = new URL(imageUrl);
+  if (parsed.protocol !== "https:") throw new Error("El ticket debe estar almacenado en una URL HTTPS segura");
+  const configuredHosts = (process.env.RECEIPT_IMAGE_ALLOWED_HOSTS ?? "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+  const supabaseHost = new URL(requireSupabasePublicEnv().url).host.toLowerCase();
+  const allowedHosts = new Set([supabaseHost, ...configuredHosts]);
+  if (!allowedHosts.has(parsed.host.toLowerCase())) {
+    throw new Error("La imagen del ticket no pertenece a un almacenamiento autorizado");
+  }
+}
+
+async function fetchReceiptMedia(imageUrl: string) {
+  assertAllowedReceiptImageUrl(imageUrl);
+  const response = await fetch(imageUrl, { redirect: "error" });
+  if (!response.ok) throw new Error(`No se pudo descargar el ticket para OCR (${response.status})`);
+  const contentType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "";
+  if (!ALLOWED_RECEIPT_TYPES.has(contentType)) throw new Error("El archivo del ticket no es una imagen o PDF permitido");
+  const contentLength = Number(response.headers.get("content-length") ?? 0);
+  if (contentLength > MAX_RECEIPT_IMAGE_BYTES) throw new Error("El ticket supera el tamaño máximo permitido");
+  const data = await response.arrayBuffer();
+  if (data.byteLength > MAX_RECEIPT_IMAGE_BYTES) throw new Error("El ticket supera el tamaño máximo permitido");
+  return { contentType, data };
+}
 
 const ReceiptSchema = z.object({
   store: z.string().nullable(),
@@ -94,13 +125,9 @@ async function scanWithGemini(imageUrl: string): Promise<Receipt> {
     throw new Error("Falta configurar GEMINI_API_KEY en Cloudflare para escanear tickets fuera de Lovable.");
   }
 
-  const mediaResponse = await fetch(imageUrl);
-  if (!mediaResponse.ok) {
-    throw new Error(`No se pudo descargar el ticket para OCR (${mediaResponse.status})`);
-  }
-
-  const contentType = mediaResponse.headers.get("content-type")?.split(";")[0]?.trim() || "image/jpeg";
-  const data = arrayBufferToBase64(await mediaResponse.arrayBuffer());
+  const media = await fetchReceiptMedia(imageUrl);
+  const contentType = media.contentType;
+  const data = arrayBufferToBase64(media.data);
   const configuredModel = process.env.GEMINI_OCR_MODEL?.trim();
   const models = Array.from(new Set([configuredModel, "gemini-3.6-flash", "gemini-3-flash-preview"].filter(Boolean)));
   let response: Response | null = null;
@@ -192,6 +219,7 @@ async function scanWithLovableGateway(imageUrl: string): Promise<Receipt> {
 }
 
 async function scanReceiptImage(imageUrl: string): Promise<Receipt> {
+  assertAllowedReceiptImageUrl(imageUrl);
   if (getGeminiApiKey()) return scanWithGemini(imageUrl);
   return scanWithLovableGateway(imageUrl);
 }

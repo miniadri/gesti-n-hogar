@@ -30,5 +30,6 @@ export const Route = createFileRoute("/api/auth/google/callback")({
 });
 
 function redirectToSettings(origin: string, query: string) {
-  return Response.redirect(`${origin}/settings/google-calendar?${query}`, 302);
+  const safeOrigin = new URL(origin).origin;
+  return Response.redirect(`${safeOrigin}/settings/google-calendar?${query}`, 302);
 }

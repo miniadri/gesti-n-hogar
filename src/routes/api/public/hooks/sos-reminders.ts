@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
+import { timingSafeEqual } from "node:crypto";
 import { requireSupabaseAdminEnv } from "@/integrations/supabase/env.server";
 import { dispatchSosNotifications } from "@/lib/notify.server";
 
@@ -15,9 +16,12 @@ export const Route = createFileRoute("/api/public/hooks/sos-reminders")({
     handlers: {
       POST: async ({ request }) => {
         const bearer = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-        const expected = process.env.CRON_BEARER ?? "";
-        if (!expected || bearer !== expected) {
-          return new Response("Unauthorized", { status: 401 });
+        const expected = process.env.SOS_REMINDER_CRON_BEARER ?? "";
+        const supplied = Buffer.from(bearer);
+        const configured = Buffer.from(expected);
+        const authorized = configured.length > 0 && supplied.length === configured.length && timingSafeEqual(supplied, configured);
+        if (!authorized) {
+          return new Response("Unauthorized", { status: 401, headers: { "cache-control": "no-store" } });
         }
 
         const { url, serviceRoleKey } = requireSupabaseAdminEnv();

@@ -56,6 +56,34 @@ export function isDirectGoogleOAuthConfigured() {
   return getGoogleOAuthConfig().configured;
 }
 
+function allowedGoogleAppOrigins() {
+  return new Set(
+    (process.env.APP_ALLOWED_ORIGINS ?? "https://gestion-hogar.pages.dev")
+      .split(",")
+      .map((origin) => origin.trim().replace(/\/$/, ""))
+      .filter(Boolean),
+  );
+}
+
+export function assertAllowedGoogleAppOrigin(rawOrigin: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawOrigin);
+  } catch {
+    throw new Error("Origen de retorno de Google no válido");
+  }
+  const normalized = parsed.origin;
+  const isLocal = parsed.protocol === "http:" && (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1");
+  if (!isLocal && !allowedGoogleAppOrigins().has(normalized)) {
+    throw new Error("Origen de retorno de Google no autorizado");
+  }
+  return normalized;
+}
+
+export function createGoogleReturnUrl(rawOrigin: string) {
+  return `${assertAllowedGoogleAppOrigin(rawOrigin)}/settings/google-calendar`;
+}
+
 function stateSecret() {
   const raw = process.env.GOOGLE_OAUTH_STATE_SECRET || process.env.APP_USER_CONNECTION_KEY_SECRET;
   if (!raw) throw new Error("GOOGLE_OAUTH_STATE_SECRET or APP_USER_CONNECTION_KEY_SECRET is not set");
@@ -90,7 +118,9 @@ function decodeState(state: string): { userId: string; returnTo: string } {
   if (!parsed.userId || !parsed.returnTo || Date.now() > Number(parsed.exp || 0)) {
     throw new Error("Estado OAuth caducado");
   }
-  return { userId: parsed.userId, returnTo: parsed.returnTo };
+  const expectedReturnTo = createGoogleReturnUrl(new URL(parsed.returnTo).origin);
+  if (parsed.returnTo !== expectedReturnTo) throw new Error("Destino OAuth no autorizado");
+  return { userId: parsed.userId, returnTo: expectedReturnTo };
 }
 
 export function createGoogleAuthorizationUrl(userId: string, targetOrigin: string) {
@@ -99,7 +129,7 @@ export function createGoogleAuthorizationUrl(userId: string, targetOrigin: strin
     throw new Error("Google Calendar no está configurado. Faltan GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET o GOOGLE_REDIRECT_URI.");
   }
 
-  const returnTo = `${targetOrigin}/settings/google-calendar`;
+  const returnTo = createGoogleReturnUrl(targetOrigin);
   const params = new URLSearchParams({
     client_id: cfg.clientId,
     redirect_uri: cfg.redirectUri,

@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.90",
+    title: "Endurecimiento de seguridad",
+    date: "2026-10-04",
+    highlights: [
+      "Las invitaciones usan tokens aleatorios de un solo uso y quedan limitadas a administradores del hogar correcto.",
+      "Se endurecen SOS, OCR de tickets, OAuth de Google, exportaciones CSV, sincronización de medicaciones y fotos temporales.",
+      "Se retiran los secretos del repositorio y se añade una migración Supabase de políticas por hogar.",
+    ],
+  },
+  {
     version: "v0.87",
     title: "Fotos compartidas sin almacenamiento permanente",
     highlights: [

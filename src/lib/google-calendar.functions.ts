@@ -21,12 +21,14 @@ import {
   extractStartISO,
   extractEndISO,
   revokeDirectGoogleConnection,
+  assertAllowedGoogleAppOrigin,
+  createGoogleReturnUrl,
 } from "./google-calendar.server";
 
 // -------- OAuth start --------
 export const startGoogleCalendarConnect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((targetOrigin: string) => z.string().url().parse(targetOrigin))
+  .inputValidator((targetOrigin: string) => z.string().url().transform(assertAllowedGoogleAppOrigin).parse(targetOrigin))
   .handler(async ({ data: targetOrigin, context }) => {
     const clientKey = process.env.GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY;
     if (isDirectGoogleOAuthConfigured()) {
@@ -49,7 +51,7 @@ export const startGoogleCalendarConnect = createServerFn({ method: "POST" })
       connectorId: GOOGLE_CALENDAR_CONNECTOR,
       appUserId: context.userId,
       clientAPIKey: clientKey,
-      returnUrl: `${targetOrigin}/settings/google-calendar`,
+      returnUrl: createGoogleReturnUrl(targetOrigin),
       responseMode: "web_message",
       webMessageTargetOrigin: targetOrigin,
       connectionAPIKey: existing ?? undefined,

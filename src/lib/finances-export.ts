@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { csvSafeCell } from "./security-input";
 
 type Expense = {
   id: string;
@@ -34,14 +35,14 @@ export function exportExpensesCSV(expenses: Expense[], categories: Category[]) {
   const header = ["Fecha", "Descripción", "Categoría", "Importe (€)", "Recurrente", "Recurrencia"];
   const rows = expenses.map((e) => [
     fmtDate(e.date),
-    (e.description || "").replace(/"/g, '""'),
-    catName(e.category_id, categories).replace(/"/g, '""'),
+    csvSafeCell(e.description || ""),
+    csvSafeCell(catName(e.category_id, categories)),
     Number(e.amount).toFixed(2),
     e.is_subscription ? "Sí" : "No",
     e.recurrence || "",
   ]);
   const csv = [header, ...rows]
-    .map((r) => r.map((c) => `"${c}"`).join(","))
+    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
     .join("\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   download(blob, `gastos_${new Date().toISOString().split("T")[0]}.csv`);
