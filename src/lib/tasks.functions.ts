@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { normalizeTaskMembers } from "./family-features";
 
 const ChecklistItem = z.object({
   text: z.string().min(1).max(200),
@@ -11,6 +12,8 @@ const TaskInput = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
   assigned_to: z.string().uuid().optional().nullable(),
+  assigned_member_ids: z.array(z.string().uuid()).max(100).optional(),
+  completion_mode: z.enum(["any", "all"]).default("any"),
   assign_random: z.boolean().optional(),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
   category: z.string().optional(),
@@ -27,6 +30,8 @@ const UpdateTaskInput = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().optional(),
   assigned_to: z.string().uuid().optional().nullable(),
+  assigned_member_ids: z.array(z.string().uuid()).max(100).optional(),
+  completion_mode: z.enum(["any", "all"]).optional(),
   priority: z.enum(["low", "medium", "high"]).optional(),
   category: z.string().optional(),
   due_date: z.string().datetime().optional().nullable(),
@@ -64,24 +69,35 @@ export const createTask = createServerFn({ method: "POST" })
     if (!householdId) throw new Error("No household");
 
     let assigned_to = data.assigned_to ?? null;
+    const { data: eligible, error: eligibleError } = await context.supabase
+      .from("household_members")
+      .select("id, is_child, display_name")
+      .eq("household_id", householdId)
+      .neq("display_name", "Kiosko cocina");
+    if (eligibleError) throw eligibleError;
+    const eligibleIds = (eligible ?? [])
+      .filter((member) => data.child_allowed || !member.is_child)
+      .map((member) => member.id);
     if (data.assign_random) {
-      let q = context.supabase
-        .from("household_members")
-        .select("id, is_child")
-        .eq("household_id", householdId);
-      if (!data.child_allowed) q = q.eq("is_child", false);
-      const { data: members } = await q;
-      if (members && members.length > 0) {
-        assigned_to = members[Math.floor(Math.random() * members.length)].id;
-      }
+      if (!eligibleIds.length) throw new Error("No hay responsables disponibles");
+      assigned_to = eligibleIds[Math.floor(Math.random() * eligibleIds.length)];
     }
+    const assignedIds = normalizeTaskMembers(
+      data.assign_random
+        ? [assigned_to!]
+        : (data.assigned_member_ids ?? (assigned_to ? [assigned_to] : [])),
+      eligibleIds,
+    );
+    if (data.completion_mode === "all" && !assignedIds.length)
+      throw new Error("Selecciona responsables");
 
     const { assign_random: _ar, ...rest } = data;
     const { data: task, error } = await context.supabase
       .from("tasks")
       .insert({
         ...rest,
-        assigned_to,
+        assigned_to: assignedIds.length === 1 ? assignedIds[0] : null,
+        assigned_member_ids: assignedIds,
         household_id: householdId,
         created_by: context.userId,
       })
@@ -96,6 +112,16 @@ export const updateTask = createServerFn({ method: "POST" })
   .inputValidator((input) => UpdateTaskInput.parse(input))
   .handler(async ({ data, context }) => {
     const { id, ...rest } = data;
+    if (rest.status === "done") {
+      if (Object.keys(rest).length !== 1)
+        throw new Error("Completa la tarea por separado de su edición");
+      const { data: completed, error } = await (context.supabase as any).rpc(
+        "complete_household_task",
+        { _task_id: id },
+      );
+      if (error) throw error;
+      return completed;
+    }
     const { data: task, error } = await context.supabase
       .from("tasks")
       .update(rest)
@@ -104,28 +130,23 @@ export const updateTask = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
 
-    // If completing a recurring task, spawn the next occurrence.
-    if (rest.status === "done" && task && (task as any).recurrence_days) {
-      const days = (task as any).recurrence_days as number;
-      const base = (task as any).due_date ? new Date((task as any).due_date) : new Date();
-      const nextDue = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
-      await context.supabase.from("tasks").insert({
-        household_id: (task as any).household_id,
-        created_by: context.userId,
-        title: (task as any).title,
-        description: (task as any).description,
-        assigned_to: (task as any).assigned_to,
-        priority: (task as any).priority,
-        category: (task as any).category,
-        due_date: nextDue.toISOString(),
-        recurrence_days: days,
-        child_allowed: (task as any).child_allowed,
-        checklist: (task as any).checklist,
-        photo_path: (task as any).photo_path,
-        status: "pending",
-      });
-    }
+    return task;
+  });
 
+export const completeTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({ id: z.string().uuid(), member_id: z.string().uuid().optional() })
+      .strict()
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: task, error } = await (context.supabase as any).rpc("complete_household_task", {
+      _task_id: data.id,
+      _member_id: data.member_id ?? null,
+    });
+    if (error) throw new Error(error.message);
     return task;
   });
 

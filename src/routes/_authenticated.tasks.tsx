@@ -2,7 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Plus, Check, Trash2, Calendar, Repeat, ListChecks, Image as ImageIcon, X, Gift } from "lucide-react";
+import {
+  Plus,
+  Check,
+  Trash2,
+  Calendar,
+  Repeat,
+  ListChecks,
+  Image as ImageIcon,
+  X,
+  Gift,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +38,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { WishlistPanel } from "@/components/wishlist/WishlistPanel";
 import { useServerFn } from "@tanstack/react-start";
-import { listTasks, createTask, updateTask, deleteTask, restoreTask, getTaskPhotoUrl } from "@/lib/tasks.functions";
+import {
+  listTasks,
+  createTask,
+  updateTask,
+  completeTask,
+  deleteTask,
+  restoreTask,
+  getTaskPhotoUrl,
+} from "@/lib/tasks.functions";
 import { undoableToast } from "@/hooks/use-undoable";
 import { getHousehold } from "@/lib/household.functions";
 import { supabase } from "@/integrations/supabase/client-app";
@@ -67,7 +85,14 @@ function TasksPage() {
   const queryClient = useQueryClient();
   const { data: tasks } = useSuspenseQuery(tasksQueryOptions);
   const { data: household } = useSuspenseQuery(householdQueryOptions);
-  const members = (household?.household_members ?? []) as Array<{ id: string; display_name: string; is_child: boolean }>;
+  const members = (household?.household_members ?? []).filter(
+    (member) => member.display_name !== "Kiosko cocina",
+  );
+  const { user } = Route.useRouteContext();
+  const ownMember = members.find((member) => member.user_id === user.id);
+  const isAdmin = household?.user_roles?.some(
+    (role) => role.user_id === user.id && role.role === "admin",
+  );
 
   const [tab, setTab] = useState<"tasks" | "wishlist">("tasks");
   const [open, setOpen] = useState(false);
@@ -75,7 +100,9 @@ function TasksPage() {
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
   const [assignMode, setAssignMode] = useState<"none" | "manual" | "random">("none");
-  const [assignedTo, setAssignedTo] = useState<string>("");
+  const [assignedMembers, setAssignedMembers] = useState<string[]>([]);
+  const [completionMode, setCompletionMode] = useState<"any" | "all">("any");
+  const [completing, setCompleting] = useState<string | null>(null);
   const [childAllowed, setChildAllowed] = useState(false);
   const [recurrenceOn, setRecurrenceOn] = useState(false);
   const [recurrenceDays, setRecurrenceDays] = useState<number>(7);
@@ -86,16 +113,24 @@ function TasksPage() {
 
   const doCreate = useServerFn(createTask);
   const doUpdate = useServerFn(updateTask);
+  const doComplete = useServerFn(completeTask);
   const doDelete = useServerFn(deleteTask);
   const doRestore = useServerFn(restoreTask);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
   const resetForm = () => {
-    setTitle(""); setDueDate(""); setPriority("medium");
-    setAssignMode("none"); setAssignedTo(""); setChildAllowed(false);
-    setRecurrenceOn(false); setRecurrenceDays(7);
-    setTaskType("text"); setChecklist([{ text: "", done: false }]);
+    setTitle("");
+    setDueDate("");
+    setPriority("medium");
+    setAssignMode("none");
+    setChildAllowed(false);
+    setAssignedMembers([]);
+    setCompletionMode("any");
+    setRecurrenceOn(false);
+    setRecurrenceDays(7);
+    setTaskType("text");
+    setChecklist([{ text: "", done: false }]);
     setPhotoFile(null);
   };
 
@@ -126,7 +161,8 @@ function TasksPage() {
           title: title.trim(),
           priority: priority as any,
           due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
-          assigned_to: assignMode === "manual" && assignedTo ? assignedTo : null,
+          assigned_member_ids: assignMode === "manual" ? assignedMembers : undefined,
+          completion_mode: assignMode === "manual" ? completionMode : "any",
           assign_random: assignMode === "random",
           child_allowed: childAllowed,
           recurrence_days: recurrenceOn ? recurrenceDays : null,
@@ -147,6 +183,19 @@ function TasksPage() {
 
   const pending = tasks.filter((t: any) => t.status !== "done" && t.status !== "cancelled");
   const done = tasks.filter((t: any) => t.status === "done");
+
+  const complete = async (taskId: string, memberId?: string) => {
+    setCompleting(taskId);
+    try {
+      await doComplete({ data: { id: taskId, member_id: memberId } });
+      await refresh();
+      toast.success("Participación registrada");
+    } catch (error: any) {
+      toast.error(error.message || "No se pudo completar");
+    } finally {
+      setCompleting(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -176,67 +225,92 @@ function TasksPage() {
         </TabsContent>
 
         <TabsContent value="tasks" className="mt-6 space-y-6">
-      <div className="space-y-3">
-
-        {pending.length === 0 && (
-          <p className="text-sm text-muted-foreground">No hay tareas pendientes.</p>
-        )}
-        {pending.map((task: any) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onToggle={async () => {
-              await doUpdate({ data: { id: task.id, status: "done" } });
-              refresh();
-            }}
-            onChecklistChange={async (next) => {
-              await doUpdate({ data: { id: task.id, checklist: next } });
-              refresh();
-            }}
-            onDelete={async () => {
-              const snapshot = { ...task };
-              await doDelete({ data: { id: task.id } });
-              refresh();
-              undoableToast({
-                message: `Tarea "${task.title}" eliminada`,
-                undo: async () => {
-                  await doRestore({ data: { row: snapshot } });
+          <div className="space-y-3">
+            {pending.length === 0 && (
+              <p className="text-sm text-muted-foreground">No hay tareas pendientes.</p>
+            )}
+            {pending.map((task: any) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                members={members}
+                ownMemberId={ownMember?.id}
+                childActor={!!ownMember?.is_child}
+                isAdmin={!!isAdmin}
+                completing={completing === task.id}
+                onCompleteMember={(memberId) => complete(task.id, memberId)}
+                onToggle={async () => {
+                  await complete(task.id);
+                }}
+                onChecklistChange={async (next) => {
+                  await doUpdate({ data: { id: task.id, checklist: next } });
                   refresh();
-                },
-              });
-            }}
-          />
-        ))}
-      </div>
+                }}
+                onDelete={async () => {
+                  if (
+                    task.completed_member_ids?.length &&
+                    !window.confirm(
+                      "Esta tarea tiene participaciones registradas. ¿Eliminarla definitivamente, sin deshacer?",
+                    )
+                  )
+                    return;
+                  const snapshot = { ...task };
+                  await doDelete({ data: { id: task.id } });
+                  refresh();
+                  if (task.completed_member_ids?.length) {
+                    toast.success("Tarea eliminada");
+                    return;
+                  }
+                  undoableToast({
+                    message: `Tarea "${task.title}" eliminada`,
+                    undo: async () => {
+                      await doRestore({ data: { row: snapshot } });
+                      refresh();
+                    },
+                  });
+                }}
+              />
+            ))}
+          </div>
 
-      {done.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">Completadas</h3>
-          {done.map((task: any) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              done
-              onDelete={async () => {
-                const snapshot = { ...task };
-                await doDelete({ data: { id: task.id } });
-                refresh();
-                undoableToast({
-                  message: `Tarea "${task.title}" eliminada`,
-                  undo: async () => {
-                    await doRestore({ data: { row: snapshot } });
+          {done.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground">Completadas</h3>
+              {done.map((task: any) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  members={members}
+                  done
+                  onDelete={async () => {
+                    if (
+                      task.completed_member_ids?.length &&
+                      !window.confirm(
+                        "Esta tarea tiene participaciones registradas. ¿Eliminarla definitivamente, sin deshacer?",
+                      )
+                    )
+                      return;
+                    const snapshot = { ...task };
+                    await doDelete({ data: { id: task.id } });
                     refresh();
-                  },
-                });
-              }}
-            />
-          ))}
-        </div>
-      )}
+                    if (task.completed_member_ids?.length) {
+                      toast.success("Tarea eliminada");
+                      return;
+                    }
+                    undoableToast({
+                      message: `Tarea "${task.title}" eliminada`,
+                      undo: async () => {
+                        await doRestore({ data: { row: snapshot } });
+                        refresh();
+                      },
+                    });
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
-
-
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -253,7 +327,9 @@ function TasksPage() {
             <div className="space-y-2">
               <Label>Tipo</Label>
               <Select value={taskType} onValueChange={(v) => setTaskType(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="text">Texto simple</SelectItem>
                   <SelectItem value="checklist">Lista de casillas</SelectItem>
@@ -263,7 +339,9 @@ function TasksPage() {
 
             {taskType === "checklist" && (
               <div className="space-y-2">
-                <Label className="flex items-center gap-2"><ListChecks className="h-4 w-4" /> Elementos</Label>
+                <Label className="flex items-center gap-2">
+                  <ListChecks className="h-4 w-4" /> Elementos
+                </Label>
                 <div className="space-y-2">
                   {checklist.map((item, i) => (
                     <div key={i} className="flex gap-2">
@@ -276,14 +354,22 @@ function TasksPage() {
                           setChecklist(next);
                         }}
                       />
-                      <Button type="button" variant="ghost" size="icon"
-                        onClick={() => setChecklist(checklist.filter((_, idx) => idx !== i))}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setChecklist(checklist.filter((_, idx) => idx !== i))}
+                      >
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
-                  <Button type="button" variant="outline" size="sm"
-                    onClick={() => setChecklist([...checklist, { text: "", done: false }])}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setChecklist([...checklist, { text: "", done: false }])}
+                  >
                     <Plus className="mr-1 h-3 w-3" /> Añadir elemento
                   </Button>
                 </div>
@@ -294,29 +380,64 @@ function TasksPage() {
             <div className="space-y-2">
               <Label>Asignar a</Label>
               <Select value={assignMode} onValueChange={(v) => setAssignMode(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin asignar</SelectItem>
-                  <SelectItem value="manual">Elegir persona</SelectItem>
+                  <SelectItem value="manual">Elegir una o varias personas</SelectItem>
                   <SelectItem value="random">Al azar</SelectItem>
                 </SelectContent>
               </Select>
               {assignMode === "manual" && (
-                <Select value={assignedTo} onValueChange={setAssignedTo}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona miembro" /></SelectTrigger>
-                  <SelectContent>
-                    {members.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.display_name} {m.is_child ? "(infantil)" : ""}
-                      </SelectItem>
+                <div className="space-y-3 rounded-md border p-3">
+                  {members
+                    .filter((member) => childAllowed || !member.is_child)
+                    .map((member) => (
+                      <label key={member.id} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={assignedMembers.includes(member.id)}
+                          onCheckedChange={(checked) =>
+                            setAssignedMembers((previous) =>
+                              checked
+                                ? [...previous, member.id]
+                                : previous.filter((memberId) => memberId !== member.id),
+                            )
+                          }
+                        />
+                        {member.display_name} {member.is_child ? "(infantil)" : ""}
+                      </label>
                     ))}
-                  </SelectContent>
-                </Select>
+                  <Select
+                    value={completionMode}
+                    onValueChange={(value) => setCompletionMode(value as "any" | "all")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Basta con que complete uno</SelectItem>
+                      <SelectItem value="all">Deben completar todos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
               {(assignMode === "random" || assignMode === "manual") && (
                 <div className="flex items-center justify-between rounded-md border p-2">
                   <span className="text-sm">Puede realizarla un niño</span>
-                  <Switch checked={childAllowed} onCheckedChange={setChildAllowed} />
+                  <Switch
+                    checked={childAllowed}
+                    onCheckedChange={(allowed) => {
+                      setChildAllowed(allowed);
+                      if (!allowed)
+                        setAssignedMembers((previous) =>
+                          previous.filter(
+                            (memberId) =>
+                              !members.find((member) => member.id === memberId)?.is_child,
+                          ),
+                        );
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -325,10 +446,14 @@ function TasksPage() {
               <div className="space-y-2">
                 <Label>Prioridad</Label>
                 <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {priorities.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      <SelectItem key={p.value} value={p.value}>
+                        {p.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -342,14 +467,18 @@ function TasksPage() {
             {/* Recurrencia */}
             <div className="space-y-2 rounded-md border p-3">
               <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2"><Repeat className="h-4 w-4" /> Repetir en el tiempo</Label>
+                <Label className="flex items-center gap-2">
+                  <Repeat className="h-4 w-4" /> Repetir en el tiempo
+                </Label>
                 <Switch checked={recurrenceOn} onCheckedChange={setRecurrenceOn} />
               </div>
               {recurrenceOn && (
                 <div className="flex items-center gap-2 text-sm">
                   <span>Cada</span>
                   <Input
-                    type="number" min={1} max={365}
+                    type="number"
+                    min={1}
+                    max={365}
                     className="w-20"
                     value={recurrenceDays}
                     onChange={(e) => setRecurrenceDays(Math.max(1, Number(e.target.value) || 1))}
@@ -361,14 +490,27 @@ function TasksPage() {
 
             {/* Foto opcional */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Foto (opcional)</Label>
-              <Input type="file" accept="image/*"
-                onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
+              <Label className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4" /> Foto (opcional)
+              </Label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+              />
               {photoFile && <p className="text-xs text-muted-foreground">{photoFile.name}</p>}
             </div>
 
             <DialogFooter>
-              <Button type="submit" disabled={submitting || !title.trim()} className="w-full">
+              <Button
+                type="submit"
+                disabled={
+                  submitting ||
+                  !title.trim() ||
+                  (assignMode === "manual" && !assignedMembers.length)
+                }
+                className="w-full"
+              >
                 {submitting ? "Añadiendo..." : "Añadir tarea"}
               </Button>
             </DialogFooter>
@@ -385,19 +527,31 @@ function TaskCard({
   onDelete,
   onChecklistChange,
   done = false,
+  members = [],
+  ownMemberId,
+  isAdmin = false,
+  completing = false,
+  childActor = false,
+  onCompleteMember,
 }: {
   task: any;
   onToggle?: () => void;
   onDelete?: () => void;
   onChecklistChange?: (next: ChecklistItem[]) => void;
   done?: boolean;
+  members?: Array<{ id: string; display_name: string; is_child: boolean }>;
+  ownMemberId?: string;
+  isAdmin?: boolean;
+  completing?: boolean;
+  childActor?: boolean;
+  onCompleteMember?: (memberId: string) => void;
 }) {
   const priorityColor =
     task.priority === "high"
       ? "bg-destructive/10 text-destructive"
       : task.priority === "medium"
-      ? "bg-chart-3/20 text-chart-3"
-      : "bg-muted text-muted-foreground";
+        ? "bg-chart-3/20 text-chart-3"
+        : "bg-muted text-muted-foreground";
 
   const doGetPhoto = useServerFn(getTaskPhotoUrl);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -410,14 +564,23 @@ function TaskCard({
   }, [task.photo_path]);
 
   const checklist: ChecklistItem[] | null = Array.isArray(task.checklist) ? task.checklist : null;
+  const assignedIds: string[] =
+    task.assigned_member_ids ?? (task.assigned_to ? [task.assigned_to] : []);
+  const completedIds: string[] = task.completed_member_ids ?? [];
+  const canComplete =
+    (!childActor || task.child_allowed) &&
+    (!assignedIds.length || (!!ownMemberId && assignedIds.includes(ownMemberId))) &&
+    !completedIds.includes(ownMemberId ?? "");
 
   return (
     <Card className={cn("transition-opacity", done && "opacity-60")}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          {onToggle && (
+          {onToggle && canComplete && (
             <button
               onClick={onToggle}
+              disabled={completing}
+              aria-label="Completar mi parte de la tarea"
               className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 border-muted-foreground/30 transition-colors hover:border-primary"
             >
               <Check className="h-3.5 w-3.5 opacity-0 hover:opacity-100" />
@@ -426,9 +589,20 @@ function TaskCard({
           <div className="min-w-0 flex-1">
             <p className={cn("font-medium", done && "line-through")}>{task.title}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              {task.assignee && (
-                <span>👤 {task.assignee.display_name}</span>
+              {assignedIds.length > 1 && (
+                <span>
+                  {task.completion_mode === "all" ? "Todos completan" : "Cualquiera completa"} ·{" "}
+                  {completedIds.length}/{assignedIds.length}
+                </span>
               )}
+              {assignedIds.map((memberId) => (
+                <span key={memberId}>
+                  {completedIds.includes(memberId) ? "✓ " : "👤 "}
+                  {members.find((member) => member.id === memberId)?.display_name ??
+                    (task.assignee?.id === memberId ? task.assignee.display_name : "Miembro")}
+                </span>
+              ))}
+              {task.assignee && <span className="sr-only">{task.assignee.display_name}</span>}
               {task.due_date && (
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
@@ -443,6 +617,34 @@ function TaskCard({
               {task.child_allowed && <Badge variant="outline">Apto niños</Badge>}
               {task.category && <Badge variant="outline">{task.category}</Badge>}
             </div>
+            {!done && assignedIds.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {isAdmin &&
+                  members
+                    .filter(
+                      (member) =>
+                        member.is_child &&
+                        assignedIds.includes(member.id) &&
+                        !completedIds.includes(member.id),
+                    )
+                    .map((member) => (
+                      <Button
+                        key={member.id}
+                        variant="outline"
+                        size="sm"
+                        disabled={completing}
+                        onClick={() => onCompleteMember?.(member.id)}
+                      >
+                        Confirmar por {member.display_name}
+                      </Button>
+                    ))}
+                {ownMemberId && completedIds.includes(ownMemberId) && (
+                  <p className="text-xs text-muted-foreground">
+                    Tu parte está completada; faltan otros responsables.
+                  </p>
+                )}
+              </div>
+            )}
 
             {checklist && checklist.length > 0 && (
               <ul className="mt-3 space-y-1">
@@ -459,7 +661,9 @@ function TaskCard({
                         onChecklistChange(next);
                       }}
                     />
-                    <span className={cn(c.done && "line-through text-muted-foreground")}>{c.text}</span>
+                    <span className={cn(c.done && "line-through text-muted-foreground")}>
+                      {c.text}
+                    </span>
                   </li>
                 ))}
               </ul>

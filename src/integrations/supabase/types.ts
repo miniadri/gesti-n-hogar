@@ -2981,6 +2981,10 @@ export type Database = {
       }
       tasks: {
         Row: {
+          assigned_member_ids: string[]
+          completed_member_ids: string[]
+          completion_mode: string
+          recurrence_parent_id: string | null
           assigned_to: string | null
           category: string | null
           checklist: Json | null
@@ -3002,6 +3006,10 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          assigned_member_ids?: string[]
+          completed_member_ids?: string[]
+          completion_mode?: string
+          recurrence_parent_id?: string | null
           category?: string | null
           checklist?: Json | null
           child_allowed?: boolean
@@ -3022,6 +3030,10 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          assigned_member_ids?: string[]
+          completed_member_ids?: string[]
+          completion_mode?: string
+          recurrence_parent_id?: string | null
           category?: string | null
           checklist?: Json | null
           child_allowed?: boolean

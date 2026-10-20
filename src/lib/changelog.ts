@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.91",
+    title: "Ciclo personal, preferencias y tareas compartidas",
+    date: "2026-10-19",
+    highlights: [
+      "Salud incorpora un registro menstrual local con inicio, fin, intensidad, observaciones, calendario y estimación orientativa.",
+      "Compartir fechas y recibir un Push personal requieren autorización separada; síntomas y notas permanecen locales.",
+      "Familia permite editar preferencias propias y decidir quién consulta cada bloque.",
+      "Tareas admite varios responsables, completar por cualquiera o por todos y recurrencias sin duplicación por concurrencia.",
+    ],
+  },
+  {
     version: "v0.90",
     title: "Endurecimiento de seguridad",
     date: "2026-10-04",

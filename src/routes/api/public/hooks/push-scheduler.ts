@@ -38,15 +38,17 @@ export const Route = createFileRoute("/api/public/hooks/push-scheduler")({
         // --- Tasks ---
         const { data: tasks } = await supabase
           .from("tasks")
-          .select("id, title, household_id, assigned_to, due_date")
-          .eq("status", "pending")
+          .select("id, title, household_id, assigned_to, assigned_member_ids, completed_member_ids, due_date")
+          .in("status", ["pending", "in_progress"])
           .is("notified_at", null)
           .not("due_date", "is", null)
           .gte("due_date", windowStart)
           .lte("due_date", windowEnd);
 
         for (const task of tasks ?? []) {
-          const userIds = await resolveUserIds(supabase, task.household_id, task.assigned_to);
+          const userIds = task.assigned_member_ids?.length
+            ? (await supabase.from("household_members").select("user_id").eq("household_id", task.household_id).in("id", task.assigned_member_ids.filter((memberId: string) => !task.completed_member_ids.includes(memberId))).not("user_id", "is", null)).data?.map((member: any) => member.user_id) ?? []
+            : await resolveUserIds(supabase, task.household_id, task.assigned_to);
           const ok = await sendTo(supabase, userIds, {
             title: "Tarea próxima",
             body: task.title,
@@ -140,6 +142,7 @@ export const Route = createFileRoute("/api/public/hooks/push-scheduler")({
         }
 
         sent += await sendScheduleNotifications(supabase, now);
+        sent += await sendPersonalCycleReminders(supabase, now);
 
         return new Response(JSON.stringify({ ok: true, sent }), {
           headers: { "content-type": "application/json" },
@@ -175,6 +178,7 @@ async function sendTo(
   supabase: any,
   userIds: string[],
   payload: { title: string; body: string; url: string },
+  includeTelegram = true,
 ): Promise<boolean> {
   if (userIds.length === 0) return false;
   const { data: subs } = await supabase
@@ -196,8 +200,34 @@ async function sendTo(
       }
     }
   }
-  const telegramSent = await sendTelegramToUsers(supabase, userIds, `<b>${payload.title}</b>\n${payload.body}`);
+  const telegramSent = includeTelegram ? await sendTelegramToUsers(supabase, userIds, `<b>${payload.title}</b>\n${payload.body}`) : 0;
   return any || telegramSent > 0;
+}
+
+async function sendPersonalCycleReminders(supabase: any, now: Date): Promise<number> {
+  const { data: candidates, error } = await supabase.from("personal_cycle_reminders").select("*")
+    .is("notified_at", null).lt("attempts", 3).lte("due_at", now.toISOString())
+    .gte("due_at", new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString())
+    .or(`last_attempt_at.is.null,last_attempt_at.lte.${new Date(now.getTime() - 60 * 60 * 1000).toISOString()}`)
+    .limit(100);
+  if (error) return 0;
+  let sent = 0;
+  for (const item of candidates ?? []) {
+    const { data: owner } = await supabase.from("household_members").select("id").eq("household_id", item.household_id).eq("user_id", item.owner_user_id).neq("display_name", "Kiosko cocina").maybeSingle();
+    if (!owner) continue;
+    const { data: claimed, error: claimError } = await supabase.from("personal_cycle_reminders")
+      .update({ notified_at: now.toISOString(), last_attempt_at: now.toISOString(), attempts: item.attempts + 1 })
+      .eq("household_id", item.household_id).eq("owner_user_id", item.owner_user_id).eq("due_at", item.due_at)
+      .eq("expected_date", item.expected_date)
+      .eq("attempts", item.attempts).is("notified_at", null).select("owner_user_id").maybeSingle();
+    if (claimError || !claimed) continue;
+    let delivered = false;
+    try { delivered = await sendTo(supabase, [item.owner_user_id], { title: "Recordatorio personal", body: "Tienes un recordatorio personal pendiente. Abre HomeSync para consultarlo.", url: "/medications" }, false); }
+    catch { delivered = false; }
+    if (delivered) sent++;
+    else await supabase.from("personal_cycle_reminders").update({ notified_at: null }).eq("household_id", item.household_id).eq("owner_user_id", item.owner_user_id).eq("due_at", item.due_at).eq("expected_date", item.expected_date).eq("notified_at", now.toISOString()).eq("attempts", item.attempts + 1);
+  }
+  return sent;
 }
 
 const WORK_SLOT_KINDS = new Set(["work", "subject", "extracurricular"]);

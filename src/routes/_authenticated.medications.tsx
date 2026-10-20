@@ -30,6 +30,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
+import { CyclePanel } from "@/components/health/CyclePanel";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -371,10 +372,11 @@ function MedicationsPage() {
       )}
 
       <Tabs defaultValue="active">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="active">Medicación activa</TabsTrigger>
           <TabsTrigger value="history">{t("medications.history")}</TabsTrigger>
           <TabsTrigger value="stock">{t("medications.lowStock")}</TabsTrigger>
+          <TabsTrigger value="cycle">Ciclo menstrual</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="space-y-4">
@@ -453,6 +455,7 @@ function MedicationsPage() {
           )}
         </TabsContent>
 
+        <TabsContent value="cycle"><CyclePanel /></TabsContent>
       </Tabs>
 
       <MedicationDialog

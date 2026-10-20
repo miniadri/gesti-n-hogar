@@ -22,6 +22,7 @@ import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { useServerFn } from "@tanstack/react-start";
 import { getHousehold, createInvite, joinHousehold, createChildMember, updateHousehold, updateHistoryVisibility, renameMember, listInvites, deleteInvite } from "@/lib/household.functions";
 import { toast } from "sonner";
+import { PreferencesPanel } from "@/components/family/PreferencesPanel";
 
 const householdQueryOptions = queryOptions({
   queryKey: ["household"],
@@ -213,6 +214,8 @@ function FamilySettingsPage() {
         <h2 className="text-2xl font-bold tracking-tight">Familia</h2>
         <p className="text-muted-foreground">Gestiona los miembros de tu hogar</p>
       </div>
+
+      <PreferencesPanel />
 
       <Card>
         <CardHeader>
