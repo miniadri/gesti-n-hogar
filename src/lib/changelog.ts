@@ -6,6 +6,19 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+ {
+    version: "v0.92",
+    title: "Gestión Lista de la compra e inventario",
+    date: "2026-11-06",
+    highlights: [
+      "Comparación por EAN y ubicación.",
+      "Coincidencia por nombre normalizado y aproximada, con confirmación antes de fusionar.",
+      "Sumar stock, reemplazar stock o solo marcar comprado.",
+      "Poner a cero el stock alimentario desde Ajustes > Familia, solo para admins.",
+      "Vaciar el inventario alimentario y liberar etiquetas QR/NFC, solo para admins.",
+      "Las acciones no afectan a medicación y no se ejecutan sin confirmación.",
+    ],
+  },
   {
     version: "v0.91",
     title: "Ciclo personal, preferencias y tareas compartidas",
