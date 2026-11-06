@@ -16,6 +16,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Restauraciones de medicación e inventario con lista blanca de campos.",
       "Reserva atómica de recordatorios SOS antes del envío.",
     ],
+  },
  {
     version: "v0.92",
     title: "Gestión Lista de la compra e inventario",
