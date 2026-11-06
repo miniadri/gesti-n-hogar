@@ -396,7 +396,9 @@ export const restoreInventoryItem = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
-    const payload: Record<string, any> = { ...data.row, household_id: householdId };
+    const allowed = ["id", "name", "category", "quantity", "unit", "min_stock", "location", "expiry_date", "last_price", "ean", "mercadona_id", "image_url"];
+    const payload: Record<string, any> = Object.fromEntries(allowed.filter((key) => key in data.row).map((key) => [key, data.row[key]]));
+    payload.household_id = householdId;
     delete payload.updated_at;
     const { data: row, error } = await context.supabase
       .from("inventory_items")

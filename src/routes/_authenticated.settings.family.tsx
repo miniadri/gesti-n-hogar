@@ -21,8 +21,8 @@ import { BarcodeDisplay } from "@/components/BarcodeDisplay";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { useServerFn } from "@tanstack/react-start";
 import { getHousehold, createInvite, joinHousehold, createChildMember, updateHousehold, updateHistoryVisibility, renameMember, listInvites, deleteInvite } from "@/lib/household.functions";
+import { resetFoodInventoryStock, clearFoodInventory } from "@/lib/inventory.functions";
 import { toast } from "sonner";
-import { PreferencesPanel } from "@/components/family/PreferencesPanel";
 
 const householdQueryOptions = queryOptions({
   queryKey: ["household"],
@@ -73,12 +73,29 @@ function FamilySettingsPage() {
   const doUpdateHistoryVisibility = useServerFn(updateHistoryVisibility);
   const doRenameMember = useServerFn(renameMember);
   const doDeleteInvite = useServerFn(deleteInvite);
+  const doResetFoodStock = useServerFn(resetFoodInventoryStock);
+  const doClearFoodInventory = useServerFn(clearFoodInventory);
 
 
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [memberName, setMemberName] = useState("");
   const [savingMember, setSavingMember] = useState(false);
   const [savingHistoryVisibility, setSavingHistoryVisibility] = useState(false);
+  const [inventoryAction, setInventoryAction] = useState<"zero" | "clear" | null>(null);
+
+  const runInventoryAction = async () => {
+    if (!inventoryAction) return;
+    try {
+      if (inventoryAction === "zero") await doResetFoodStock();
+      else await doClearFoodInventory();
+      toast.success(inventoryAction === "zero" ? "Stock puesto a cero" : "Inventario alimentario vaciado");
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo completar la acción");
+    } finally {
+      setInventoryAction(null);
+    }
+  };
 
   const startEditMember = (m: any) => {
     setEditingMemberId(m.id);
@@ -215,8 +232,6 @@ function FamilySettingsPage() {
         <p className="text-muted-foreground">Gestiona los miembros de tu hogar</p>
       </div>
 
-      <PreferencesPanel />
-
       <Card>
         <CardHeader>
           {editingName ? (
@@ -313,6 +328,44 @@ function FamilySettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {data.isAdmin && (
+        <Card className="border-amber-500/40">
+          <CardHeader>
+            <CardTitle className="text-base">Mantenimiento del inventario alimentario</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Estas acciones solo afectan al inventario de alimentos del hogar. No modifican medicación ni el historial.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button variant="outline" onClick={() => setInventoryAction("zero")}>
+                Poner stock a cero
+              </Button>
+              <Button variant="destructive" onClick={() => setInventoryAction("clear")}>
+                Vaciar inventario alimentario
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={Boolean(inventoryAction)} onOpenChange={(open) => !open && setInventoryAction(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Confirmar mantenimiento</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {inventoryAction === "zero"
+              ? "Se conservarán nombres, productos, etiquetas e historial, pero todas las cantidades pasarán a 0."
+              : "Se eliminarán los productos y lotes del inventario y se liberarán sus etiquetas QR/NFC. El historial se conservará."}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInventoryAction(null)}>Cancelar</Button>
+            <Button variant={inventoryAction === "clear" ? "destructive" : "default"} onClick={runInventoryAction}>
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>

@@ -94,7 +94,7 @@ import { listHouseholdActivity } from "@/lib/activity.functions";
 import { ActivityList } from "@/components/ActivityList";
 import { undoableToast } from "@/hooks/use-undoable";
 import { listMedicines, updateMedicine } from "@/lib/medicines.functions";
-import { createInventoryItem, listInventory } from "@/lib/inventory.functions";
+import { createInventoryItem, listInventory, updateInventoryItem } from "@/lib/inventory.functions";
 import { INVENTORY_LOCATIONS, suggestLocation } from "@/lib/inventory-locations";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -330,6 +330,7 @@ function ShoppingPage() {
                   item={item}
                   stores={data.stores}
                   lists={data.lists}
+                  inventory={data.inventory}
                   onChange={refresh}
                   quotes={data.prices[normalizeKey(item.name)] ?? []}
                 />
@@ -580,12 +581,14 @@ function ShoppingItemCard({
   item,
   stores,
   lists,
+  inventory = [],
   onChange,
   quotes = [],
 }: {
   item: any;
   stores: any[];
   lists: any[];
+  inventory?: any[];
   onChange: () => void;
   quotes?: PriceQuote[];
 }) {
@@ -593,10 +596,12 @@ function ShoppingItemCard({
   const doDelete = useServerFn(deleteShoppingItem);
   const doRestore = useServerFn(restoreShoppingItem);
   const doCreateInv = useServerFn(createInventoryItem);
+  const doUpdateInv = useServerFn(updateInventoryItem);
   const [checked, setChecked] = useState(item.checked);
   const [locationOpen, setLocationOpen] = useState(false);
   const [location, setLocation] = useState<string>(suggestLocation(item.category));
   const [savingInv, setSavingInv] = useState(false);
+  const [stockConflict, setStockConflict] = useState<any | null>(null);
   const doUpdatePriority = useServerFn(updateShoppingItemPriority);
   const [priority, setPriority] = useState<ShoppingPriority>(normalizePriority(item.priority));
   const [editOpen, setEditOpen] = useState(false);
@@ -619,6 +624,19 @@ function ShoppingItemCard({
     setSavingInv(true);
     try {
       if (opts.addToInventory) {
+        const normalized = normalizeKey(item.name);
+        const candidates = (inventory as any[]).filter((candidate) => {
+          if (candidate.location !== location) return false;
+          const sameEan = item.ean && candidate.ean && item.ean === candidate.ean;
+          const sameName = normalizeKey(candidate.name) === normalized;
+          const similarName = normalized.length > 3 && (normalized.includes(normalizeKey(candidate.name)) || normalizeKey(candidate.name).includes(normalized));
+          return sameEan || sameName || similarName;
+        });
+        if (candidates.length && !stockConflict) {
+          setStockConflict(candidates[0]);
+          setSavingInv(false);
+          return;
+        }
         await doCreateInv({
           data: {
             name: item.name,
@@ -627,6 +645,7 @@ function ShoppingItemCard({
             category: item.category || undefined,
             quantity: Number(item.quantity) || 1,
             unit: item.unit || undefined,
+            ean: item.ean || undefined,
             location,
           },
         });
@@ -634,6 +653,7 @@ function ShoppingItemCard({
       await doToggle({ data: { id: item.id, checked: true } });
       setChecked(true);
       setLocationOpen(false);
+      setStockConflict(null);
       onChange();
       if (opts.addToInventory) toast.success("Añadido al inventario");
     } catch {
@@ -826,6 +846,13 @@ function ShoppingItemCard({
                 ))}
               </SelectContent>
             </Select>
+            {stockConflict && (
+              <div className="rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm dark:bg-amber-950/20">
+                <p className="font-medium">Ya hay stock parecido en {location}</p>
+                <p className="text-muted-foreground">{stockConflict.name}: {stockConflict.quantity} {stockConflict.unit || "ud."}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Elige si quieres sumar la compra o reemplazar la cantidad existente.</p>
+              </div>
+            )}
           </div>
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button
@@ -835,6 +862,40 @@ function ShoppingItemCard({
             >
               Añadir al inventario
             </Button>
+            {stockConflict && (
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  setSavingInv(true);
+                  try {
+                    await doCreateInv({ data: { name: item.name, quantity: Number(item.quantity) || 1, unit: item.unit || undefined, ean: item.ean || undefined, location } });
+                    await doToggle({ data: { id: item.id, checked: true } });
+                    setChecked(true); setLocationOpen(false); setStockConflict(null); onChange();
+                  } catch { toast.error("No se pudo sumar el stock"); } finally { setSavingInv(false); }
+                }}
+                disabled={savingInv}
+                className="w-full"
+              >
+                Sumar al stock existente
+              </Button>
+            )}
+            {stockConflict && (
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  setSavingInv(true);
+                  try {
+                    await doUpdateInv({ data: { id: stockConflict.id, quantity: Number(item.quantity) || 1 } });
+                    await doToggle({ data: { id: item.id, checked: true } });
+                    setChecked(true); setLocationOpen(false); setStockConflict(null); onChange();
+                  } catch { toast.error("No se pudo reemplazar el stock"); } finally { setSavingInv(false); }
+                }}
+                disabled={savingInv}
+                className="w-full"
+              >
+                Reemplazar stock existente
+              </Button>
+            )}
             <Button
               variant="ghost"
               onClick={() => confirmCheck({ addToInventory: false })}
