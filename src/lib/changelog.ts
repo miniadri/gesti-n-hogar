@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
  {
+    version: "v0.93",
+    title: "Gestión Lista de la compra e inventario",
+    date: "2026-11-06",
+    highlights: [
+      "**Correcciones de seguridad**",
+      "Autorización administrativa limitada al hogar objetivo.",
+      "Restauraciones de medicación e inventario con lista blanca de campos.",
+      "Reserva atómica de recordatorios SOS antes del envío.",
+    ],
+ {
     version: "v0.92",
     title: "Gestión Lista de la compra e inventario",
     date: "2026-11-06",
