@@ -13,6 +13,10 @@ function normalizeName(s: string): string {
     .trim();
 }
 
+function sameInventoryLocation(left?: string | null, right?: string | null): boolean {
+  return (left ?? "").trim().toLocaleLowerCase() === (right ?? "").trim().toLocaleLowerCase();
+}
+
 async function ensureProductForInventoryItem(
   supabase: any,
   userId: string,
@@ -101,6 +105,7 @@ export const createInventoryItem = createServerFn({ method: "POST" })
         .select("*")
         .eq("household_id", householdId)
         .eq("ean", inventoryData.ean)
+        .eq("location", inventoryData.location ?? "")
         .limit(1)
         .maybeSingle();
       existing = byEan;
@@ -110,11 +115,11 @@ export const createInventoryItem = createServerFn({ method: "POST" })
         .from("inventory_items")
         .select("*")
         .eq("household_id", householdId)
-        .ilike("name", inventoryData.name)
-        .is("ean", null)
-        .limit(1)
-        .maybeSingle();
-      existing = byName;
+        .limit(100);
+      existing = (byName ?? []).find((candidate: any) =>
+        normalizeName(candidate.name) === normalizeName(inventoryData.name) &&
+        sameInventoryLocation(candidate.location, inventoryData.location),
+      ) ?? null;
     }
 
     if (existing) {
@@ -232,6 +237,56 @@ export const deleteInventoryItem = createServerFn({ method: "POST" })
       });
     }
     return { ok: true };
+  });
+
+async function requireInventoryAdmin(supabase: any, householdId: string, userId: string) {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("household_id", householdId)
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Solo un administrador del hogar puede realizar esta acción");
+}
+
+export const resetFoodInventoryStock = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    await requireInventoryAdmin(context.supabase, householdId, context.userId);
+    const { error } = await context.supabase
+      .from("inventory_items")
+      .update({ quantity: 0 })
+      .eq("household_id", householdId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const clearFoodInventory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    await requireInventoryAdmin(context.supabase, householdId, context.userId);
+    const { data: items, error: readError } = await context.supabase
+      .from("inventory_items")
+      .select("id")
+      .eq("household_id", householdId);
+    if (readError) throw readError;
+    const ids = (items ?? []).map((item: any) => item.id);
+    if (ids.length) {
+      const { error: labelError } = await context.supabase
+        .from("inventory_labels")
+        .update({ inventory_item_id: null })
+        .in("inventory_item_id", ids);
+      if (labelError) throw labelError;
+    }
+    const { error } = await context.supabase.from("inventory_items").delete().eq("household_id", householdId);
+    if (error) throw error;
+    return { ok: true, releasedLabels: ids.length };
   });
 
 const ImportReceiptInput = z.object({ receiptId: z.string().uuid() });
