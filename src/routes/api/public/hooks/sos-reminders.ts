@@ -74,20 +74,32 @@ export const Route = createFileRoute("/api/public/hooks/sos-reminders")({
           if (now - last < REMINDER_INTERVAL_MS) continue;
 
           const reminderNumber = (ev.reminder_count ?? 0) + 1;
+          // Reserve the reminder before dispatching. The conditional update is
+          // atomic, so concurrent cron invocations cannot both send it.
+          let reservation = supabase
+            .from("sos_events")
+            .update({
+              last_reminder_sent_at: new Date(now).toISOString(),
+              reminder_count: reminderNumber,
+            })
+            .eq("id", ev.id)
+            .is("acknowledged_at", null);
+          reservation = ev.last_reminder_sent_at
+            ? reservation.eq("last_reminder_sent_at", ev.last_reminder_sent_at)
+            : reservation.is("last_reminder_sent_at", null);
+          const { data: reserved, error: reservationError } = await reservation.select("id").maybeSingle();
+          if (reservationError) {
+            console.error("SOS reminder reservation failed", reservationError);
+            continue;
+          }
+          if (!reserved) continue;
+
           try {
             await dispatchSosNotifications(supabase, ev, reminderNumber);
             resent++;
           } catch (err) {
             console.error("SOS reminder dispatch failed", err);
           }
-
-          await supabase
-            .from("sos_events")
-            .update({
-              last_reminder_sent_at: new Date().toISOString(),
-              reminder_count: reminderNumber,
-            })
-            .eq("id", ev.id);
         }
 
         return new Response(JSON.stringify({ ok: true, resent }), {

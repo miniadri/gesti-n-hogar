@@ -28,8 +28,14 @@ async function requireHouseholdId(supabase: any): Promise<string> {
   return data as string;
 }
 
-async function requireAdmin(supabase: any, userId: string) {
-  const { data } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+async function requireAdmin(supabase: any, householdId: string, userId: string) {
+  const { data } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("household_id", householdId)
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
   if (!data) throw new Error("Solo un administrador del hogar puede gestionar esta conexión");
 }
 
@@ -71,7 +77,7 @@ export const saveHomeAssistantConnection = createServerFn({ method: "POST" })
   .inputValidator((input) => SaveInput.parse(input))
   .handler(async ({ data, context }) => {
     const householdId = await requireHouseholdId(context.supabase);
-    await requireAdmin(context.supabase, context.userId);
+    await requireAdmin(context.supabase, householdId, context.userId);
 
     const { haPing } = await import("./home-assistant.server");
     const { encryptToken } = await import("./ha-crypto.server");
@@ -123,7 +129,7 @@ export const deleteHomeAssistantConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const householdId = await requireHouseholdId(context.supabase);
-    await requireAdmin(context.supabase, context.userId);
+    await requireAdmin(context.supabase, householdId, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // Remove HA-sourced devices too.
     await supabaseAdmin

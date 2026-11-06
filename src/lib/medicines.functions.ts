@@ -154,7 +154,9 @@ export const restoreMedicine = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
-    const payload: Record<string, any> = { ...data.row, household_id: householdId };
+    const allowed = ["id", "name", "current_quantity", "total_quantity", "dose_amount", "dose_unit", "low_stock_threshold", "needs_purchase", "notes", "active"];
+    const payload: Record<string, any> = Object.fromEntries(allowed.filter((key) => key in data.row).map((key) => [key, data.row[key]]));
+    payload.household_id = householdId;
     delete payload.updated_at;
     const { data: row, error } = await context.supabase
       .from("medicines")

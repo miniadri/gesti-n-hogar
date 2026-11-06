@@ -92,10 +92,13 @@ export const createChildMember = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
+    const { data: isAdmin } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("household_id", householdId)
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
     if (!isAdmin) throw new Error("Solo un administrador del hogar puede crear miembros infantiles");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -161,11 +164,14 @@ export const renameMember = createServerFn({ method: "POST" })
     if (targetError) throw targetError;
     if (!target) throw new Error("Miembro no encontrado o sin acceso");
 
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin && target.user_id !== context.userId) {
+    const { data: adminRole } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("household_id", target.household_id)
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!adminRole && target.user_id !== context.userId) {
       throw new Error("Solo un administrador puede renombrar a otros miembros");
     }
 
