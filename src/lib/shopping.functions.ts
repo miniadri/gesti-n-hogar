@@ -321,7 +321,7 @@ export const createShoppingItem = createServerFn({ method: "POST" })
     const householdId = await getHouseholdIdForShoppingList(context.supabase, data.shopping_list_id);
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .insert({ ...data, notes: data.notes ?? null })
+      .insert(data)
       .select()
       .single();
     if (error) throw error;
@@ -346,8 +346,7 @@ export const updateShoppingItemPriority = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      // types.ts marca "notes" como obligatorio por error; no debemos sobrescribirlo
-      .update({ priority: data.priority } as any)
+      .update({ priority: data.priority })
       .eq("id", data.id)
       .select()
       .single();
@@ -365,7 +364,6 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
     let targetStoreId: string | null = null;
     if (patch.shopping_list_id) {
       const householdId = (await context.supabase.rpc("current_household")).data;
-      if (!householdId) throw new Error("No household");
       const { data: targetList, error: targetError } = await context.supabase
         .from("shopping_lists")
         .select("id, store_id, store:store_id(name, official_source)")
@@ -434,7 +432,7 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
     );
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update(payload as any)
+      .update(payload)
       .eq("id", id)
       .select("*, shopping_list:shopping_list_id(household_id)")
       .single();
@@ -535,7 +533,6 @@ export const addInventorySuggestionToShopping = createServerFn({ method: "POST" 
         quantity: targetQty,
         unit: invItem.unit ?? null,
         linked_inventory_item_id: invItem.id,
-        notes: null,
       })
       .select()
       .single();
@@ -575,7 +572,7 @@ export const addShoppingItemByName = createServerFn({ method: "POST" })
       const nextQuantity = Number(existing.quantity ?? 0) + data.quantity;
       const { data: item, error } = await context.supabase
         .from("shopping_list_items")
-        .update({ quantity: nextQuantity } as any)
+        .update({ quantity: nextQuantity })
         .eq("id", existing.id)
         .select()
         .single();
@@ -594,7 +591,7 @@ export const addShoppingItemByName = createServerFn({ method: "POST" })
 
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .insert({ shopping_list_id: listId, name: data.name, quantity: data.quantity, notes: null })
+      .insert({ shopping_list_id: listId, name: data.name, quantity: data.quantity })
       .select()
       .single();
     if (error) throw error;
@@ -712,7 +709,7 @@ export const toggleShoppingItem = createServerFn({ method: "POST" })
       .maybeSingle();
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update({ checked: data.checked } as any)
+      .update({ checked: data.checked })
       .eq("id", data.id)
       .select()
       .single();
@@ -764,8 +761,10 @@ export const restoreShoppingItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => RestoreShoppingItemInput.parse(input))
   .handler(async ({ data, context }) => {
-    const payload: Record<string, any> = { ...data.row };
-    delete payload.updated_at;
+    const allowed = ["id", "shopping_list_id", "name", "quantity", "unit", "is_purchased", "notes", "product_ean", "image_url", "store_product_source", "store_product_id", "store_product_url"];
+    const payload: Record<string, any> = Object.fromEntries(
+      allowed.filter((key) => key in data.row).map((key) => [key, data.row[key]]),
+    );
     const householdId = payload.shopping_list_id
       ? await getHouseholdIdForShoppingList(context.supabase, payload.shopping_list_id)
       : null;

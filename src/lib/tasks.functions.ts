@@ -100,6 +100,7 @@ export const updateTask = createServerFn({ method: "POST" })
       .from("tasks")
       .update(rest)
       .eq("id", id)
+      .eq("household_id", (await context.supabase.rpc("current_household")).data)
       .select()
       .single();
     if (error) throw error;
@@ -128,7 +129,7 @@ export const updateTask = createServerFn({ method: "POST" })
 
     return task;
   });
-  
+
 const CompleteTaskInput = z.object({
   id: z.string().uuid(),
 });
@@ -141,18 +142,19 @@ export const completeTask = createServerFn({ method: "POST" })
       .from("tasks")
       .update({ status: "done" })
       .eq("id", data.id)
+      .eq("household_id", (await context.supabase.rpc("current_household")).data)
       .select()
       .single();
-
     if (error) throw error;
     return task;
   });
-  
+
 export const deleteTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => DeleteTaskInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("tasks").delete().eq("id", data.id);
+    const { error } = await context.supabase.from("tasks").delete().eq("id", data.id)
+      .eq("household_id", (await context.supabase.rpc("current_household")).data);
     if (error) throw error;
     return { ok: true };
   });

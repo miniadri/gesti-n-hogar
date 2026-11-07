@@ -51,11 +51,19 @@ export const sendPushNotification = createServerFn({ method: "POST" })
         userIds: z.array(z.string().uuid()),
         title: z.string(),
         body: z.string(),
-        url: z.string().optional(),
+        url: z.string().regex(/^\/(?!\/)[^\r\n]*$/).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+    const { data: recipients } = await context.supabase
+      .from("household_members")
+      .select("user_id")
+      .eq("household_id", householdId)
+      .in("user_id", data.userIds);
+    const allowedUserIds = (recipients ?? []).map((row: { user_id: string | null }) => row.user_id).filter(Boolean) as string[];
     webPush.setVapidDetails(
       "mailto:admin@homesync.app",
       process.env.VAPID_PUBLIC_KEY!,
@@ -65,7 +73,7 @@ export const sendPushNotification = createServerFn({ method: "POST" })
     const { data: subs, error } = await context.supabase
       .from("push_subscriptions")
       .select("*")
-      .in("user_id", data.userIds);
+      .in("user_id", allowedUserIds);
     if (error) throw error;
 
     const results = [];
