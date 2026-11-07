@@ -49,6 +49,8 @@ export const upsertScheduleSettings = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: householdId } = await context.supabase.rpc("current_household");
     if (!householdId) throw new Error("No household");
+    const { data: member } = await context.supabase.from("household_members").select("id").eq("id", data.member_id).eq("household_id", householdId).maybeSingle();
+    if (!member) throw new Error("Miembro no pertenece al hogar actual");
     // fetch existing
     const { data: existing } = await context.supabase
       .from("schedule_settings")
@@ -144,6 +146,13 @@ export const upsertTemplateSlot = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: householdId } = await context.supabase.rpc("current_household");
     if (!householdId) throw new Error("No household");
+    const { data: member } = await context.supabase
+      .from("household_members")
+      .select("id")
+      .eq("id", data.member_id)
+      .eq("household_id", householdId)
+      .maybeSingle();
+    if (!member) throw new Error("Miembro no pertenece al hogar actual");
     const payload: any = {
       member_id: data.member_id,
       household_id: householdId,
@@ -214,6 +223,7 @@ export const upsertDaySlot = createServerFn({ method: "POST" })
         .from("schedule_day_slots")
         .update(payload)
         .eq("id", data.id)
+        .eq("household_id", householdId)
         .select()
         .single();
       if (error) throw error;
@@ -232,7 +242,7 @@ export const deleteDaySlot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("schedule_day_slots").delete().eq("id", data.id);
+      const { error } = await context.supabase.from("schedule_day_slots").delete().eq("id", data.id).eq("household_id", (await context.supabase.rpc("current_household")).data);
     if (error) throw error;
     return { ok: true };
   });

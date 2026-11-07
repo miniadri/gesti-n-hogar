@@ -120,6 +120,14 @@ export const ensureKioskMember = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    const { data: adminRole } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("household_id", householdId)
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!adminRole) throw new Error("Solo un administrador puede crear el miembro Kiosko");
 
     const { data: visibleMember, error: visibleError } = await context.supabase
       .from("household_members")

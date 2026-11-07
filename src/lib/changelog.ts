@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
  {
+    version: "v0.94",
+    title: "Correcciones de seguridad:",
+    date: "2026-11-06",
+    highlights: [
+      "Se limita la administración al hogar objetivo y se endurecen las restauraciones de datos.",
+      "Los recordatorios SOS se reservan antes del envío para evitar carreras concurrentes.",
+    ],
+  },
+ {
     version: "v0.93",
     title: "Gestión Lista de la compra e inventario",
     date: "2026-11-06",

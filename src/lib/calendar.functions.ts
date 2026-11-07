@@ -174,8 +174,9 @@ export const restoreEvent = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
-    const payload: Record<string, any> = { ...data.row, household_id: householdId };
-    delete payload.updated_at;
+    const allowed = ["id", "title", "description", "start_at", "end_at", "category", "attendees", "is_public", "source", "external_id", "google_calendar_id", "google_event_etag"];
+    const payload: Record<string, any> = Object.fromEntries(allowed.filter((key) => key in data.row).map((key) => [key, data.row[key]]));
+    payload.household_id = householdId;
     const { data: row, error } = await context.supabase
       .from("calendar_events")
       .upsert(payload, { onConflict: "id" })

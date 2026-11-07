@@ -22,6 +22,11 @@ const CategoryInput = z.object({
   icon: z.string().optional(),
 });
 
+const UpdateCategoryInput = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(100),
+});
+
 const BudgetInput = z.object({
   category_id: z.string().uuid().optional(),
   amount: z.number().positive(),
@@ -201,6 +206,41 @@ export const deleteCategory = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const updateCategory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => UpdateCategoryInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const householdId = await currentHouseholdId(context.supabase);
+    const { data: existing } = await context.supabase
+      .from("expense_categories")
+      .select("id, name")
+      .eq("household_id", householdId)
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!existing) throw new Error("No se encontró la categoría");
+
+    const { data: category, error } = await context.supabase
+      .from("expense_categories")
+      .update({ name: data.name.trim() })
+      .eq("household_id", householdId)
+      .eq("id", data.id)
+      .select()
+      .single();
+    if (error) throw error;
+
+    await logHouseholdActivity(context.supabase, householdId, context.userId, {
+      domain: "finance",
+      action: "updated",
+      title: `Categoría de gasto renombrada a "${category.name}"`,
+      details: `Nombre anterior: ${existing.name}`,
+      entityType: "expense_category",
+      entityId: category.id,
+      status: "ok",
+      metadata: { previous_name: existing.name, name: category.name },
+    });
+    return category;
+  });
+
 export const createBudget = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => BudgetInput.parse(input))
@@ -337,8 +377,9 @@ export const restoreExpense = createServerFn({ method: "POST" })
     });
     if (!isAdmin) throw new Error("Solo el administrador puede restaurar gastos");
     const householdId = await currentHouseholdId(context.supabase);
-    const payload: Record<string, any> = { ...data.row, household_id: householdId };
-    delete payload.updated_at;
+    const allowed = ["id", "amount", "description", "category_id", "paid_by", "date", "is_subscription", "recurrence", "currency", "card_color", "receipt_id"];
+    const payload: Record<string, any> = Object.fromEntries(allowed.filter((key) => key in data.row).map((key) => [key, data.row[key]]));
+    payload.household_id = householdId;
     const { data: row, error } = await context.supabase
       .from("expenses")
       .upsert(payload, { onConflict: "id" })

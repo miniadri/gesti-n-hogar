@@ -126,13 +126,12 @@ export const updateMedicine = createServerFn({ method: "POST" })
       notes: payload.notes,
     };
     if (Object.values(medicationPatch).some((value) => value !== undefined)) {
-      let query = context.supabase.from("medications").update(medicationPatch).eq("household_id", householdId);
-      if (previous?.name && previous.name !== item.name) {
-        query = query.or(`name.ilike.${previous.name},name.ilike.${item.name}`);
-      } else {
-        query = query.ilike("name", item.name);
-      }
-      await query;
+      const nameToMatch = previous?.name ?? item.name;
+      await context.supabase
+        .from("medications")
+        .update(medicationPatch)
+        .eq("household_id", householdId)
+        .eq("name", nameToMatch);
     }
     return item;
   });

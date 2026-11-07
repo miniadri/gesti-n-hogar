@@ -278,7 +278,7 @@ export const clearFoodInventory = createServerFn({ method: "POST" })
     if (readError) throw readError;
     const ids = (items ?? []).map((item: any) => item.id);
     if (ids.length) {
-      const { error: labelError } = await (context.supabase as any)
+      const { error: labelError } = await context.supabase
         .from("inventory_labels")
         .update({ inventory_item_id: null })
         .in("inventory_item_id", ids);
