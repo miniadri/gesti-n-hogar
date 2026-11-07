@@ -128,7 +128,26 @@ export const updateTask = createServerFn({ method: "POST" })
 
     return task;
   });
+  
+const CompleteTaskInput = z.object({
+  id: z.string().uuid(),
+});
 
+export const completeTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => CompleteTaskInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: task, error } = await context.supabase
+      .from("tasks")
+      .update({ status: "done" })
+      .eq("id", data.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return task;
+  });
+  
 export const deleteTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => DeleteTaskInput.parse(input))
