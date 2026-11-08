@@ -6,12 +6,22 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
-    {
-    version: "v0.97",
-    title: "Revisión profunda de seguridad",
+  {
+    version: "v0.98",
+    title: "Avisos del hogar",
     date: "2026-11-08",
     highlights: [
-      "Se solucionan otros errores de seguridad.",
+      "Avisos predefinidos y mensajes puntuales de hasta 140 caracteres.",
+      "Los avisos se muestran arriba del Dashboard y se pueden marcar como leídos.",
+      "Push y Telegram reciben únicamente un aviso fijo; el texto completo queda dentro de la app.",
+    ],
+  },
+     {
+    version: "v0.97 y v0.97b",
+    title: "Revisión profunda de seguridad (continuación)",
+    date: "2026-11-08",
+    highlights: [
+      "Se solucionan otros errores de seguridad críticos y avisos marcados por la política de Lovable.",
     ],
   },
   {

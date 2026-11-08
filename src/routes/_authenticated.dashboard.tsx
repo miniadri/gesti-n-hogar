@@ -46,6 +46,7 @@ import { listDevices, updateDevice } from "@/lib/devices.functions";
 import { callHomeAssistantService } from "@/lib/home-assistant.functions";
 import { cn } from "@/lib/utils";
 import { SosButton } from "@/components/SosButton";
+import { HouseholdNoticesCard, householdNoticesQuery } from "@/components/HouseholdNoticesCard";
 import {
   CalendarTodayTomorrowCard,
   ScheduleTodayTomorrowCard,
@@ -230,6 +231,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       context.queryClient.ensureQueryData(inventoryQO),
       context.queryClient.ensureQueryData(medicationsQO),
       context.queryClient.ensureQueryData(devicesQO),
+      context.queryClient.ensureQueryData(householdNoticesQuery),
     ]),
   head: () => ({
     meta: [{ title: "Dashboard - HomeSync" }],
@@ -245,6 +247,7 @@ function DashboardPage() {
   const { data: medicationsData } = useSuspenseQuery(medicationsQO);
   const medications = medicationsData.medications;
   const { data: devices } = useSuspenseQuery(devicesQO);
+  useSuspenseQuery(householdNoticesQuery);
   const queryClient = useQueryClient();
   const doSnooze = useServerFn(snoozeIntake);
   const doRecord = useServerFn(recordIntake);
@@ -831,6 +834,8 @@ function DashboardPage() {
         Las tarjetas sin información relevante se ocultan automáticamente. Si no has ocultado una tarjeta manualmente,
         volverá a aparecer cuando tenga algo importante que mostrar.
       </div>
+
+      <HouseholdNoticesCard />
 
       {customizing && (
         <Card>
