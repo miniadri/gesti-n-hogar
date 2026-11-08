@@ -396,15 +396,21 @@ function AddExpenseDialog({ open, onOpenChange, data, onAdded }: any) {
       uploadedPath = upload.path;
       const { data: signed, error: signedError } = await supabase.storage
         .from("receipts")
-        .createSignedUrl(uploadedPath, 3600);
+        .createSignedUrl(uploadedPath, 120);
       if (signedError) throw signedError;
 
       const { data: receipt, error: receiptError } = await supabase
         .from("receipts")
-        .insert({ household_id: householdId, image_url: signed.signedUrl, created_by: userId })
+        .insert({
+          household_id: householdId,
+          image_path: uploadedPath,
+          image_url: null,
+          created_by: userId,
+        })
         .select()
         .single();
       if (receiptError) throw receiptError;
+
 
       const scanResult = await doScan({ data: { imageUrl: signed.signedUrl, receiptId: receipt.id } });
       if (scanResult.receipt.total) setAmount(String(scanResult.receipt.total));

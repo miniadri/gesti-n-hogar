@@ -165,9 +165,23 @@ export const getTaskPhotoUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => SignedUrlInput.parse(input))
   .handler(async ({ data, context }) => {
+    const householdId = (await context.supabase.rpc("current_household")).data;
+    if (!householdId) throw new Error("No household");
+
+    const { data: task, error: taskErr } = await context.supabase
+      .from("tasks")
+      .select("id")
+      .eq("household_id", householdId)
+      .eq("photo_path", data.path)
+      .maybeSingle();
+
+    if (taskErr || !task) {
+      throw new Error("Foto no encontrada o no autorizada");
+    }
+
     const { data: signed, error } = await context.supabase.storage
       .from("task-photos")
-      .createSignedUrl(data.path, 60 * 60);
+      .createSignedUrl(data.path, 120);
     if (error) throw error;
     return signed;
   });
