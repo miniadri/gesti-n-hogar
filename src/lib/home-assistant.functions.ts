@@ -22,6 +22,29 @@ function maskUrl(url: string): string {
   }
 }
 
+function validatePublicHttpsUrl(rawUrl: string): void {
+  const u = new URL(rawUrl);
+  if (u.protocol !== "https:") {
+    throw new Error("Solo se permiten conexiones seguras HTTPS");
+  }
+  const host = u.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".home") ||
+    host === "127.0.0.1" ||
+    host === "0.0.0.0" ||
+    host === "::1" ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+    /^169\.254\./.test(host)
+  ) {
+    throw new Error("No se permiten URLs de red local o privadas.");
+  }
+}
+
 async function requireHouseholdId(supabase: any): Promise<string> {
   const { data } = await supabase.rpc("current_household");
   if (!data) throw new Error("No household");
@@ -78,6 +101,7 @@ export const saveHomeAssistantConnection = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = await requireHouseholdId(context.supabase);
     await requireAdmin(context.supabase, householdId, context.userId);
+    validatePublicHttpsUrl(data.base_url);
 
     const { haPing } = await import("./home-assistant.server");
     const { encryptToken } = await import("./ha-crypto.server");
@@ -260,11 +284,13 @@ export const callHomeAssistantService = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const token = decryptToken(row.token_ciphertext);
 
+    // Evitar que un payload anidado suplante o sobreescriba el entity_id ya validado
+    const servicePayload: Record<string, any> = { ...(data.data ?? {}) };
+    delete servicePayload.entity_id;
+    servicePayload.entity_id = data.entity_id;
+
     try {
-      await haCallService(row.base_url, token, domain, data.service, {
-        entity_id: data.entity_id,
-        ...(data.data ?? {}),
-      });
+      await haCallService(row.base_url, token, domain, data.service, servicePayload);
     } catch (err: any) {
       const raw = err?.message ?? String(err);
       let hint = raw;
