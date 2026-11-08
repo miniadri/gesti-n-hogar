@@ -6,6 +6,14 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+    {
+    version: "v0.97",
+    title: "Revisión profunda de seguridad",
+    date: "2026-11-08",
+    highlights: [
+      "Se solucionan otros errores de seguridad.",
+    ],
+  },
   {
     version: "v0.96",
     title: "Revisión profunda de seguridad",
