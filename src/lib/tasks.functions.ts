@@ -100,7 +100,7 @@ export const updateTask = createServerFn({ method: "POST" })
       .from("tasks")
       .update(rest)
       .eq("id", id)
-      .eq("household_id", (await context.supabase.rpc("current_household")).data)
+      .eq("household_id", (await context.supabase.rpc("current_household")).data as string)
       .select()
       .single();
     if (error) throw error;
@@ -142,7 +142,7 @@ export const completeTask = createServerFn({ method: "POST" })
       .from("tasks")
       .update({ status: "done" })
       .eq("id", data.id)
-      .eq("household_id", (await context.supabase.rpc("current_household")).data)
+      .eq("household_id", (await context.supabase.rpc("current_household")).data as string)
       .select()
       .single();
     if (error) throw error;
@@ -154,7 +154,7 @@ export const deleteTask = createServerFn({ method: "POST" })
   .inputValidator((input) => DeleteTaskInput.parse(input))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("tasks").delete().eq("id", data.id)
-      .eq("household_id", (await context.supabase.rpc("current_household")).data);
+      .eq("household_id", (await context.supabase.rpc("current_household")).data as string);
     if (error) throw error;
     return { ok: true };
   });

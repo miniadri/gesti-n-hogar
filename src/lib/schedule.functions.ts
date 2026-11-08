@@ -262,7 +262,7 @@ export const deleteDaySlot = createServerFn({ method: "POST" })
     const { data: row } = await context.supabase.from("schedule_day_slots").select("member_id").eq("id", data.id).maybeSingle();
     if (!row) throw new Error("Turno no encontrado");
     await assertScheduleAccess(context.supabase, row.member_id, context.userId);
-      const { error } = await context.supabase.from("schedule_day_slots").delete().eq("id", data.id).eq("household_id", (await context.supabase.rpc("current_household")).data);
+      const { error } = await context.supabase.from("schedule_day_slots").delete().eq("id", data.id).eq("household_id", (await context.supabase.rpc("current_household")).data as string);
     if (error) throw error;
     return { ok: true };
   });

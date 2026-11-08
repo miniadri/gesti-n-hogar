@@ -368,7 +368,7 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
         .from("shopping_lists")
         .select("id, store_id, store:store_id(name, official_source)")
         .eq("id", patch.shopping_list_id)
-        .eq("household_id", householdId)
+        .eq("household_id", householdId as string)
         .eq("is_archived", false)
         .maybeSingle();
       if (targetError) throw targetError;
@@ -432,7 +432,7 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
     );
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update(payload)
+      .update(payload as any)
       .eq("id", id)
       .select("*, shopping_list:shopping_list_id(household_id)")
       .single();
