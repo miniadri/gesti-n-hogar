@@ -303,7 +303,6 @@ export function buildSosMessage(event: SosEventInfo, reminderNumber: number): { 
       ? `${who} ha enviado un simulacro SOS. No es una emergencia real.`
       : `${who} ha pulsado el botón SOS.`,
     `Tipo: ${sosTypeLabel(event.sos_type)}`,
-    event.note ? `Nota: ${event.note}` : null,
     mapsLink ? `Ubicación: ${mapsLink}` : "Ubicación: no disponible",
     event.last_known_location_used ? "Ubicación: última ubicación conocida (no ubicación actual)." : null,
     directionsLink ? `Cómo llegar: ${directionsLink}` : null,
@@ -436,7 +435,6 @@ export async function dispatchSosCancellation(
   const title = "SOS cancelado";
   const body = [
     `${who} ha cancelado el aviso SOS.`,
-    event.note ? `Motivo: ${event.note}` : null,
     "Ya no se enviarán recordatorios automáticos de este aviso.",
   ].filter(Boolean).join("\n");
 
