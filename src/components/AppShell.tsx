@@ -39,6 +39,7 @@ import { SosAckBanner } from "@/components/SosAckBanner";
 import { KioskVoiceAssistant } from "@/components/KioskVoiceAssistant";
 import { ensureKioskMember } from "@/lib/household.functions";
 import { KIOSK_ACTIVE_KEY, kioskSearch } from "@/lib/kiosk";
+import { HouseholdNoticeComposer } from "@/components/HouseholdNoticesCard";
 
 
 type NavEntry = { key: NavKey; to: string; label: string; icon: React.ComponentType<{ className?: string }> };
@@ -351,6 +352,7 @@ function TopBar({
               <span className="sr-only">{t("common.notifications")}</span>
             </Button>
           </Link>
+          <HouseholdNoticeComposer />
 
         </div>
       </div>
