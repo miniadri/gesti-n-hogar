@@ -1,10 +1,5 @@
 -- Security follow-up for v0.96.
--- Run once after the v0.95 migration. This removes the original permissive
--- catalog policies; adding a stricter policy alone would still leave the old
--- policy effective because permissive policies are combined with OR.
-
--- The v0.95 trigger is the protection for is_child. Recreate it here too so
--- this migration is independently safe when v0.95 was not applied.
+-- Recrea el trigger de protección is_child
 CREATE OR REPLACE FUNCTION public.prevent_member_role_escalation()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -19,20 +14,19 @@ CREATE TRIGGER prevent_member_role_escalation BEFORE UPDATE OF is_child
 ON public.household_members FOR EACH ROW
 EXECUTE FUNCTION public.prevent_member_role_escalation();
 
--- Products: authenticated household members may read the global catalogue,
--- but only the service role may write it. The app's server code already uses
--- service_role for catalogue ingestion.
+-- Products: lectura solo para miembros de algún hogar, escritura solo service_role
 DROP POLICY IF EXISTS "Authenticated can read products" ON public.products;
 DROP POLICY IF EXISTS "Authenticated can insert products" ON public.products;
 DROP POLICY IF EXISTS "Authenticated can update products" ON public.products;
 DROP POLICY IF EXISTS "Users can insert products as themselves" ON public.products;
+DROP POLICY IF EXISTS "Household members can read products" ON public.products;
+
 CREATE POLICY "Household members can read products" ON public.products
   FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.household_members m WHERE m.user_id = auth.uid()));
 REVOKE INSERT, UPDATE, DELETE ON public.products FROM anon, authenticated;
 
--- Remove the old broad catalog policies, including policies from earlier
--- migrations whose names differ between environments.
+-- Eliminar políticas antiguas de catálogos
 DO $$
 DECLARE p record; t text;
 BEGIN
@@ -49,8 +43,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- Catalog data is readable only by signed-in members of at least one
--- household. Provider credentials and refresh queue are server-only.
+-- Nuevas políticas estrictas para catálogos
 CREATE POLICY "Household members read catalog terms" ON public.store_catalog_terms
   FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.household_members m WHERE m.user_id = auth.uid()));
 CREATE POLICY "Household members read catalog products" ON public.store_catalog_products
