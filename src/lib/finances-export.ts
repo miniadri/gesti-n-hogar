@@ -39,7 +39,7 @@ export function exportExpensesCSV(expenses: Expense[], categories: Category[]) {
     csvSafeCell(catName(e.category_id, categories)),
     Number(e.amount).toFixed(2),
     e.is_subscription ? "Sí" : "No",
-    e.recurrence || "",
+    csvSafeCell(e.recurrence || ""),
   ]);
   const csv = [header, ...rows]
     .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))

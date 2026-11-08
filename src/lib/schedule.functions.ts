@@ -7,6 +7,27 @@ const SlotKind = z.enum(["work", "subject", "extracurricular", "break", "off"]);
 const DayState = z.enum(["normal", "vacation", "holiday", "sick", "off"]);
 const TimeStr = z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/);
 
+async function assertScheduleAccess(supabase: any, memberId: string, userId: string) {
+  const { data: member, error } = await supabase
+    .from("household_members")
+    .select("household_id,user_id")
+    .eq("id", memberId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!member) throw new Error("Miembro no encontrado");
+  if (member.user_id !== userId) {
+    const { data: admin } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("household_id", member.household_id)
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!admin) throw new Error("Solo puedes modificar tu propio cuadrante o ser administrador del hogar");
+  }
+  return member.household_id as string;
+}
+
 /** List household members with their schedule settings (respecting sharing). */
 export const listScheduleMembers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -47,10 +68,7 @@ export const upsertScheduleSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => UpsertSettingsInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { data: householdId } = await context.supabase.rpc("current_household");
-    if (!householdId) throw new Error("No household");
-    const { data: member } = await context.supabase.from("household_members").select("id").eq("id", data.member_id).eq("household_id", householdId).maybeSingle();
-    if (!member) throw new Error("Miembro no pertenece al hogar actual");
+    const householdId = await assertScheduleAccess(context.supabase, data.member_id, context.userId);
     // fetch existing
     const { data: existing } = await context.supabase
       .from("schedule_settings")
@@ -99,6 +117,7 @@ export const getMemberSchedule = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => MemberRange.parse(input))
   .handler(async ({ data, context }) => {
+    await assertScheduleAccess(context.supabase, data.member_id, context.userId);
     const [settingsRes, templateRes, dayRes, statusRes] = await Promise.all([
       context.supabase.from("schedule_settings").select("*").eq("member_id", data.member_id).maybeSingle(),
       context.supabase.from("schedule_template_slots").select("*").eq("member_id", data.member_id).order("day_of_week").order("start_time"),
@@ -144,15 +163,11 @@ export const upsertTemplateSlot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => TemplateSlotInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { data: householdId } = await context.supabase.rpc("current_household");
-    if (!householdId) throw new Error("No household");
-    const { data: member } = await context.supabase
-      .from("household_members")
-      .select("id")
-      .eq("id", data.member_id)
-      .eq("household_id", householdId)
-      .maybeSingle();
-    if (!member) throw new Error("Miembro no pertenece al hogar actual");
+    const householdId = await assertScheduleAccess(context.supabase, data.member_id, context.userId);
+    if (data.id) {
+      const { data: row } = await context.supabase.from("schedule_template_slots").select("member_id").eq("id", data.id).maybeSingle();
+      if (!row || row.member_id !== data.member_id) throw new Error("Turno no encontrado");
+    }
     const payload: any = {
       member_id: data.member_id,
       household_id: householdId,
@@ -208,6 +223,8 @@ export const upsertDaySlot = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: householdId } = await context.supabase.rpc("current_household");
     if (!householdId) throw new Error("No household");
+    const targetHouseholdId = await assertScheduleAccess(context.supabase, data.member_id, context.userId);
+    if (targetHouseholdId !== householdId) throw new Error("El miembro pertenece a otro hogar");
     const payload: any = {
       member_id: data.member_id,
       household_id: householdId,
@@ -242,6 +259,9 @@ export const deleteDaySlot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
+    const { data: row } = await context.supabase.from("schedule_day_slots").select("member_id").eq("id", data.id).maybeSingle();
+    if (!row) throw new Error("Turno no encontrado");
+    await assertScheduleAccess(context.supabase, row.member_id, context.userId);
       const { error } = await context.supabase.from("schedule_day_slots").delete().eq("id", data.id).eq("household_id", (await context.supabase.rpc("current_household")).data);
     if (error) throw error;
     return { ok: true };
@@ -262,6 +282,8 @@ export const upsertDayStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: householdId } = await context.supabase.rpc("current_household");
     if (!householdId) throw new Error("No household");
+    const targetHouseholdId = await assertScheduleAccess(context.supabase, data.member_id, context.userId);
+    if (targetHouseholdId !== householdId) throw new Error("El miembro pertenece a otro hogar");
     const payload: any = {
       member_id: data.member_id,
       household_id: householdId,
@@ -292,6 +314,8 @@ export const copyTemplateDay = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: householdId } = await context.supabase.rpc("current_household");
     if (!householdId) throw new Error("No household");
+    const targetHouseholdId = await assertScheduleAccess(context.supabase, data.member_id, context.userId);
+    if (targetHouseholdId !== householdId) throw new Error("El miembro pertenece a otro hogar");
     const { data: source, error } = await context.supabase
       .from("schedule_template_slots")
       .select("*")
@@ -334,6 +358,8 @@ export const applyTemplateDayToRange = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: householdId } = await context.supabase.rpc("current_household");
     if (!householdId) throw new Error("No household");
+    const targetHouseholdId = await assertScheduleAccess(context.supabase, data.member_id, context.userId);
+    if (targetHouseholdId !== householdId) throw new Error("El miembro pertenece a otro hogar");
     if (data.end_date < data.start_date) throw new Error("La fecha final no puede ser anterior a la inicial");
 
     const dates = datesInRange(data.start_date, data.end_date).filter((date) =>
@@ -401,6 +427,8 @@ export const createRangeSlots = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: householdId } = await context.supabase.rpc("current_household");
     if (!householdId) throw new Error("No household");
+    const targetHouseholdId = await assertScheduleAccess(context.supabase, data.member_id, context.userId);
+    if (targetHouseholdId !== householdId) throw new Error("El miembro pertenece a otro hogar");
     if (data.end_date < data.start_date) throw new Error("La fecha final no puede ser anterior a la inicial");
     if (data.slot_kind !== "off" && data.start_time === data.end_time) throw new Error("La entrada y salida no pueden coincidir");
     if (data.selected_dates?.some((date) => date < data.start_date || date > data.end_date)) throw new Error("Hay fechas fuera del periodo");

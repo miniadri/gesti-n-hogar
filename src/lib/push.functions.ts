@@ -58,6 +58,14 @@ export const sendPushNotification = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const householdId = (await context.supabase.rpc("current_household")).data;
     if (!householdId) throw new Error("No household");
+    const { data: admin } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("household_id", householdId)
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!admin) throw new Error("Solo un administrador puede enviar notificaciones Push a otros miembros");
     const { data: recipients } = await context.supabase
       .from("household_members")
       .select("user_id")

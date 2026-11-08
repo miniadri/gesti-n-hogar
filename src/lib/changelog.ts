@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v0.96",
+    title: "Revisión profunda de seguridad",
+    date: "2026-11-08",
+    highlights: [
+      "Se eliminan las políticas de catálogo que permitían acceso demasiado amplio.",
+      "Se protegen todas las operaciones del cuadrante y la clasificación adulto/menor.",
+      "Se neutraliza también el campo de recurrencia en las exportaciones CSV de gastos.",
+    ],
+  },
+  {
     version: "v0.95",
     title: "Correcciones de seguridad 2",
     date: "2026-11-07",
