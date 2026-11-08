@@ -24,12 +24,28 @@ async function household(supabase: any) {
   return data as string;
 }
 
-export const listHouseholdNotices = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
-  const householdId = await household(context.supabase);
-  const { data, error } = await context.supabase.from("notifications").select("id,title,body,type,data,created_at,user_id").eq("household_id", householdId).eq("type", "household_notice").is("read_at", null).order("created_at", { ascending: false }).limit(30);
-  if (error) throw error;
-  return data ?? [];
-});
+export const listHouseholdNotices = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const householdId = await household(context.supabase);
+
+    const { data, error } = await context.supabase
+      .from("notifications")
+      .select("id, title, body, type, data, created_at, user_id")
+      .eq("household_id", householdId)
+      .eq("type", "household_notice")
+      .eq("user_id", context.userId)
+      .is("read_at", null)
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    if (error) throw error;
+
+    // Oculta también avisos antiguos que fueron creados para el propio remitente.
+    return (data ?? []).filter(
+      (notice: any) => notice.data?.author_id !== context.userId,
+    );
+  });
 
 export const publishHouseholdNotice = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input) => PublishInput.parse(input)).handler(async ({ data, context }) => {
   const householdId = await household(context.supabase);
