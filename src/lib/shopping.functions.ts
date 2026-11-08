@@ -432,7 +432,7 @@ export const updateShoppingItem = createServerFn({ method: "POST" })
     );
     const { data: item, error } = await context.supabase
       .from("shopping_list_items")
-      .update(payload)
+      .update(payload as any)
       .eq("id", id)
       .select("*, shopping_list:shopping_list_id(household_id)")
       .single();
