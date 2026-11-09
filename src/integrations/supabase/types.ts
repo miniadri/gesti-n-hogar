@@ -3345,10 +3345,12 @@ export type Database = {
         Args: { _member_id: string }
         Returns: boolean
       }
-      can_view_member_schedule: {
-        Args: { _is_shared: boolean; _member_id: string }
-        Returns: boolean
-      }
+      can_view_member_schedule:
+        | { Args: { _member_id: string }; Returns: boolean }
+        | {
+            Args: { _is_shared: boolean; _member_id: string }
+            Returns: boolean
+          }
       can_view_wishlist_claim: { Args: { _item_id: string }; Returns: boolean }
       cleanup_household_activity_retention: { Args: never; Returns: number }
       create_inventory_label_batch: {
@@ -3404,6 +3406,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_household_admin: {
+        Args: { _household_id: string; _user_id?: string }
         Returns: boolean
       }
       is_household_member: {
