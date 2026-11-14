@@ -6,6 +6,26 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+{
+    version: "v1.01",
+    title: "Nuevas tiendas",
+    date: "2026-11-15",
+    highlights: [
+      "Incluye la capa unificada para consultar el precio actual y el mínimo móvil de los últimos 30 días.",
+    ],
+  },{
+    version: "v1.00",
+    title: "Nuevas tiendas",
+    date: "2026-11-15",
+    highlights: [
+      "Preparación para hacer scrapping en el resto de tiendas.",
+	  "Catálogo común de Eroski y futuras tiendas.",
+	  "Historial específico de Mercadona.",
+	  "Precio actual.",
+	  "Mínimo móvil de los últimos 30 días.",
+	  "Fecha del precio mínimo.",
+    ],
+  },
   {
     version: "v0.98",
     title: "Avisos del hogar",
@@ -14,14 +34,6 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Avisos predefinidos y mensajes puntuales de hasta 140 caracteres.",
       "Los avisos se muestran arriba del Dashboard y se pueden marcar como leídos.",
       "Push y Telegram reciben únicamente un aviso fijo; el texto completo queda dentro de la app.",
-    ],
-  },
-     {
-    version: "v0.97 y v0.97b",
-    title: "Revisión profunda de seguridad (continuación)",
-    date: "2026-11-08",
-    highlights: [
-      "Se solucionan otros errores de seguridad críticos y avisos marcados por la política de Lovable.",
     ],
   },
   {
