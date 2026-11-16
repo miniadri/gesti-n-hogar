@@ -8,7 +8,7 @@ BATCH=200
 def call(base,key,table,method,payload=None,query=''):
  data=None if payload is None else json.dumps(payload,ensure_ascii=False).encode(); h={'apikey':key,'Authorization':f'Bearer {key}'}
  if payload is not None:h['Content-Type']='application/json'
- if method=='POST':h['Prefer']='return=representation'
+ if method=='POST':h['Prefer']='resolution=merge-duplicates,return=minimal'
  try:
   with urlopen(Request(f'{base}/rest/v1/{table}{query}',data=data,method=method,headers=h),timeout=90) as r:return json.loads(r.read() or b'[]')
  except HTTPError as e:raise RuntimeError(f'{table}: HTTP {e.code}: {e.read().decode(errors="replace")[:700]}')
