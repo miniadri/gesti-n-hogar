@@ -6,26 +6,23 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
-{
+  {
+    version: "v1.02",
+    title: "Importación inicial del catálogo Eroski",
+    date: "2026-11-15",
+    highlights: [
+      "Importador por lotes con modo dry-run para el catálogo compatible con Supabase.",
+      "Registra el precio inicial en el historial y permite marcar productos ausentes tras una extracción completa.",
+    ],    
+  },
+  {
     version: "v1.01",
     title: "Nuevas tiendas",
     date: "2026-11-15",
     highlights: [
       "Incluye la capa unificada para consultar el precio actual y el mínimo móvil de los últimos 30 días.",
     ],
-  },{
-    version: "v1.00",
-    title: "Nuevas tiendas",
-    date: "2026-11-15",
-    highlights: [
-      "Preparación para hacer scrapping en el resto de tiendas.",
-	  "Catálogo común de Eroski y futuras tiendas.",
-	  "Historial específico de Mercadona.",
-	  "Precio actual.",
-	  "Mínimo móvil de los últimos 30 días.",
-	  "Fecha del precio mínimo.",
-    ],
-  },
+  }, 
   {
     version: "v0.98",
     title: "Avisos del hogar",
