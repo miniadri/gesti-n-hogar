@@ -1,0 +1,360 @@
+export type ChangelogEntry = {
+  version: string;
+  title: string;
+  date?: string;
+  highlights: string[];
+};
+
+export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "v1.03 y v1.04",
+    title: "Correcciones",
+    date: "2026-11-16",
+    highlights: [
+      "Ajustes internos para importar Eroski.",
+    ],
+  },
+  {
+    version: "v1.02",
+    title: "Importación inicial del catálogo Eroski",
+    date: "2026-11-15",
+    highlights: [
+      "Preparando la tienda Eroski entre las disponibles.",
+    ],
+  },
+
+  {
+    version: "v0.98",
+    title: "Avisos del hogar",
+    date: "2026-11-08",
+    highlights: [
+      "Avisos predefinidos y mensajes puntuales de hasta 140 caracteres.",
+      "Los avisos se muestran arriba del Dashboard y se pueden marcar como leídos.",
+      "Push y Telegram reciben únicamente un aviso fijo; el texto completo queda dentro de la app.",
+    ],
+  },
+  {
+    version: "v0.96",
+    title: "Revisión profunda de seguridad",
+    date: "2026-11-08",
+    highlights: [
+      "Se eliminan las políticas de catálogo que permitían acceso demasiado amplio.",
+      "Se protegen todas las operaciones del cuadrante y la clasificación adulto/menor.",
+      "Se neutraliza también el campo de recurrencia en las exportaciones CSV de gastos.",
+    ],
+  },
+  {
+    version: "v0.95",
+    title: "Correcciones de seguridad 2",
+    date: "2026-11-07",
+    highlights: [
+      "Se impide que un miembro se eleve a adulto y se limita el cuadrante al hogar correcto.",
+      "Las restauraciones de compras y las notificaciones Push aceptan únicamente datos autorizados.",
+      "Se refuerzan las políticas de productos y las transferencias temporales de fotografías.",
+    ],
+  },
+  {
+    version: "v0.94",
+    title: "Correcciones de seguridad",
+    date: "2026-11-06",
+    highlights: [
+      "Se limita la administración al hogar objetivo y se endurecen las restauraciones de datos.",
+      "Los recordatorios SOS se reservan antes del envío para evitar carreras concurrentes.",
+    ],
+  },
+  {
+    version: "v0.93",
+    title: "Seguimiento de seguridad",
+    date: "2026-11-07",
+    highlights: [
+      "Se limita la administración al hogar objetivo y se endurecen las restauraciones de datos.",
+      "Los recordatorios SOS se reservan antes del envío para evitar carreras concurrentes.",
+    ],
+  },
+  {
+    version: "v0.90",
+    title: "Endurecimiento de seguridad",
+    date: "2026-10-04",
+    highlights: [
+      "Las invitaciones usan tokens aleatorios de un solo uso y quedan limitadas a administradores del hogar correcto.",
+      "Se endurecen SOS, OCR de tickets, OAuth de Google, exportaciones CSV, sincronización de medicaciones y fotos temporales.",
+      "Se retiran los secretos del repositorio y se añade una migración Supabase de políticas por hogar.",
+    ],
+  },
+  {
+    version: "v0.87",
+    title: "Fotos compartidas sin almacenamiento permanente",
+    highlights: [
+      "Las fotos de tarjetas se redimensionan y comprimen en el dispositivo antes de guardarse localmente.",
+      "Al compartirlas, el hogar recibe solo un aviso y una huella; cada destinatario solicita la descarga cuando la necesita.",
+      "La foto viaja cifrada a un buzón privado temporal y se elimina al confirmar la recepción o al caducar en 24 horas.",
+    ],
+  },
+  {
+    version: "v0.86",
+    title: "Fotos locales y vista completa de tarjetas",
+    highlights: [
+      "Las tarjetas de fidelización pueden guardar un anverso y reverso solo en el dispositivo, sin subir esas fotos al servidor.",
+      "El anverso local tiene prioridad sobre el color de la tarjeta y la vista de uso permite voltearla en pantalla completa sin perder el código de barras generado.",
+    ],
+  },
+  {
+    version: "v0.85",
+    title: "Próxima toma identificada y protegida",
+    highlights: [
+      "Dashboard identifica de forma explícita las tomas de Hoy y de Mañana para que una hora no se interprete como correspondiente al día actual.",
+      "Antes de la ventana de una hora, la tarjeta explica cuándo se activarán las opciones y no muestra botones que puedan modificar la toma.",
+    ],
+  },
+  {
+    version: "v0.84",
+    title: "Tomas diarias ordenadas por día",
+    highlights: [
+      "Salud muestra las tomas pendientes anteriores, las de hoy y únicamente el siguiente día, identificado como Mañana.",
+      "Las previsiones de días posteriores ya no se muestran como si fueran tomas de hoy ni repiten botones de acción.",
+      "La clasificación usa el día local para evitar confusiones por la hora UTC.",
+    ],
+  },
+  {
+    version: "v0.83",
+    title: "Categorías financieras iniciales editables",
+    highlights: [
+      "Finanzas incorpora Alquiler/Hipoteca, Electricidad, Gas, Agua y Suscripciones como categorías iniciales de cada hogar.",
+      "Todas las categorías, tanto iniciales como creadas manualmente, pueden renombrarse desde Finanzas > Categorías.",
+    ],
+  },
+  {
+    version: "v0.821",
+    title: "Entrega acumulativa de privacidad y suscripciones",
+    highlights: [
+      "Reúne en una sola entrega reparada la privacidad de historiales y la exclusión del Quiosco de Finanzas.",
+      "Incluye también las tarjetas de suscripciones con color y divisa ISO.",
+    ],
+  },
+  {
+    version: "v0.82",
+    title: "Suscripciones en tarjetas multidivisa",
+    highlights: [
+      "Finanzas organiza los gastos recurrentes en tarjetas visuales por suscripción.",
+      "Cada tarjeta permite conservar una divisa de tres letras y un color para distinguirla.",
+      "La integración con Google Assistant/Gemini queda anotada como pendiente para una futura versión.",
+    ],
+  },
+  {
+    version: "v0.81",
+    title: "Privacidad de historiales y aportes reales",
+    highlights: [
+      "El miembro técnico del Quiosco ya no aparece ni suma en los aportes de Finanzas.",
+      "Los historiales de actividad, SOS, invitaciones y tomas anteriores quedan privados para administradores por defecto.",
+      "En Ajustes > Familia, un administrador puede habilitar que esos historiales sean visibles para toda la familia. Las compras recientes siguen visibles para todos.",
+    ],
+  },
+  {
+    version: "v0.79",
+    title: "Contador de compra y próxima toma",
+    highlights: [
+      "La tarjeta Por comprar muestra el total real de productos pendientes de todas las listas, no solo los primeros cinco.",
+      "Próxima toma ignora registros pendientes vencidos y muestra la siguiente toma futura de cada miembro.",
+      "Una toma antigua pendiente ya no puede hacer que aparezcan acciones de otra toma futura antes de su ventana de una hora.",
+    ],
+  },
+  {
+    version: "v0.78",
+    title: "Corrección de Dashboard y Telegram",
+    highlights: [
+      "Dashboard vuelve a cargar correctamente al restaurar los iconos de las acciones de medicación.",
+      "Los avisos de medicación por Telegram recuperan Tomada, +10 min y Omitir.",
+      "La ventana de una hora y la confirmación siguen aplicándose únicamente en la interfaz web de Inicio y Salud.",
+    ],
+  },
+  {
+    version: "v0.77",
+    title: "Confirmación protegida de medicación",
+    highlights: [
+      "Tomada y Omitida vuelven a estar disponibles únicamente desde una hora antes de cada toma programada.",
+      "Inicio y Salud piden una confirmación explícita antes de registrar la acción; antes de la ventana no muestran esos botones.",
+      "El servidor aplica la misma regla y evita que dos pulsaciones descuenten stock dos veces.",
+    ],
+  },
+  {
+    version: "v0.76",
+    title: "Tomas protegidas y avisos de Cuadrante",
+    highlights: [
+      "Las tomas activas solo permiten posponer 10 minutos; se eliminan las acciones de confirmar u omitir en Salud, Inicio y Telegram.",
+      "Cuadrante vuelve a ejecutar su programador en el despliegue de Cloudflare y avisa al comienzo y al final del turno por Push y Telegram.",
+      "Si ningún canal acepta un aviso de Cuadrante, se libera para que el siguiente ciclo lo reintente.",
+    ],
+  },
+  {
+    version: "v0.75",
+    title: "Etiquetas disponibles siempre a mano",
+    highlights: [
+      "Las etiquetas QR sin asignar permanecen visibles al volver a Etiquetas QR y NFC.",
+      "Se pueden imprimir de nuevo cuando haga falta y se ocultan automáticamente al vincularlas a un producto.",
+    ],
+  },
+  {
+    version: "v0.74",
+    title: "Acceso funcional a la lectura de etiquetas",
+    highlights: [
+      "La ruta de lectura QR y NFC ya muestra su pantalla de escaneo, vínculo y ajuste de stock.",
+      "Los botones de Etiquetas y las URL impresas llevan ahora a esa pantalla en lugar de volver silenciosamente al listado.",
+    ],
+  },
+  {
+    version: "v0.73",
+    title: "Etiquetas QR y NFC con alternativa fiable",
+    highlights: [
+      "Además del lector en directo, Etiquetas permite hacer una foto del QR con la cámara nativa del móvil, igual que en Finanzas.",
+      "La lectura NFC muestra su estado y admite los registros URL estándar programados por HomeSync.",
+      "Una URL o código sin reserva muestra claramente qué etiqueta falta en lugar de una pantalla sin acción.",
+    ],
+  },
+  {
+    version: "v0.72",
+    title: "Lectura de etiquetas más fiable",
+    highlights: [
+      "El lector de Etiquetas QR abre la cámara directamente, igual que la prueba de cámara de Ajustes.",
+      "Si el navegador no puede abrirla, se puede reintentar desde la misma pantalla.",
+      "Etiquetas QR muestra ahora un acceso visible para leer y programar NFC.",
+    ],
+  },
+  {
+    version: "v0.71",
+    title: "Etiquetas QR y NFC utilizables",
+    highlights: [
+      "Los QR nuevos contienen una URL de HomeSync que abre directamente la acción rápida, también desde Lens.",
+      "El lector QR pide activar la cámara mediante un toque y deja de reiniciarla durante la lectura.",
+      "En Android con Chrome o la PWA se puede leer y programar una etiqueta NFC con el mismo acceso que el QR.",
+    ],
+  },
+  {
+    version: "v0.70",
+    title: "Etiquetas QR para inventario",
+    highlights: [
+      "Genera lotes imprimibles de etiquetas QR consecutivas y los reserva por hogar y serie.",
+      "Una etiqueta se vincula a un producto para consultar, consumir o reponer stock desde una única pantalla rápida.",
+      "Las series de frigorífico, congelador, armario, medicina y general organizan la impresión sin bloquear el cambio posterior de ubicación.",
+    ],
+  },
+  {
+    version: "v0.67",
+    title: "Avisos de medicación sin duplicados",
+    highlights: [
+      "Cada recordatorio se reserva en la base de datos antes de enviarse, evitando avisos simultáneos duplicados.",
+      "Las tomas futuras quedan protegidas contra duplicados generados por ejecuciones concurrentes.",
+    ],
+  },
+  {
+    version: "v0.66",
+    title: "Inventario más compacto",
+    highlights: [
+      "Frigorífico, congelador y armario se pliegan individualmente para reducir la longitud de la pantalla.",
+      "Los productos caducados o que caducan en los próximos 7 días permanecen siempre visibles en una sección prioritaria.",
+    ],
+  },
+  {
+    version: "v0.65",
+    title: "Escáner en la lista de compra",
+    highlights: [
+      "El acceso de tickets de Lista de compra pasa a escanear códigos de producto.",
+      "Tras reconocer o nombrar el producto, se añade directamente a la lista predeterminada sin duplicarlo.",
+    ],
+  },
+  {
+    version: "v0.64",
+    title: "Edicion de stock de medicacion",
+    highlights: [
+      "Se normalizan los horarios recibidos como HH:MM:SS antes de validar y guardar una medicacion.",
+      "Ya se puede modificar el stock sin que un horario existente bloquee la actualizacion.",
+    ],
+  },
+  {
+    version: "v0.63",
+    title: "Changelog integrado",
+    highlights: [
+      "La version visible en Ajustes abre un resumen de cambios de la webapp.",
+      "Se actualiza la documentacion privada de continuidad del proyecto.",
+    ],
+  },
+  {
+    version: "v0.62",
+    title: "Recordatorios de medicacion mas robustos",
+    highlights: [
+      "Las tomas omitidas o confirmadas desde la web dejan de reenviarse por Telegram o push.",
+      "Telegram reconoce botones antiguos de tomas ya registradas sin reactivar avisos.",
+    ],
+  },
+  {
+    version: "v0.61",
+    title: "Cron de medicacion y avisos SOS",
+    highlights: [
+      "Recordatorios de medicacion programados desde Supabase hacia Cloudflare.",
+      "Reavisos SOS mientras la emergencia no se confirme.",
+      "Boton SOS reforzado para Android/PWA.",
+    ],
+  },
+  {
+    version: "v0.60",
+    title: "Equivalencias entre tiendas",
+    highlights: [
+      "Al mover productos entre tiendas se buscan equivalencias aunque cambie el orden de palabras.",
+      "Si no hay coincidencia clara, se limpia el precio y enlace de la tienda anterior.",
+      "Se puede seleccionar manualmente el producto equivalente desde la tienda destino.",
+    ],
+  },
+  {
+    version: "v0.57",
+    title: "Push en Android/PWA",
+    highlights: [
+      "Mejor registro y reparacion del service worker.",
+      "Pruebas locales y remotas de notificaciones push desde Ajustes.",
+      "Compatibilidad mejorada con Chrome en Android y app instalada.",
+    ],
+  },
+  {
+    version: "v0.54",
+    title: "OCR Gemini y voz en Kiosko",
+    highlights: [
+      "El OCR de tickets puede usar Gemini fuera de Lovable Cloud.",
+      "El asistente de voz queda disponible en la cabecera del modo Kiosko.",
+      "Los miembros pueden cambiar su propio nombre visible en Familia.",
+    ],
+  },
+  {
+    version: "v0.50",
+    title: "Modo Kiosko",
+    highlights: [
+      "Pantalla simplificada para cocina con botones grandes.",
+      "Usuario virtual Kiosko cocina para registrar acciones del dispositivo fijo.",
+      "Accesos rapidos a compra, inventario, tareas, recetas, salud, calendario, escaner y SOS.",
+    ],
+  },
+  {
+    version: "v0.30",
+    title: "Lista de deseos",
+    highlights: [
+      "Lista de Deseos dentro de Tareas.",
+      "Deseos propios o sugeridos a otros miembros.",
+      "Reservas secretas para que el destinatario no vea quien prepara el regalo.",
+    ],
+  },
+  {
+    version: "v0.29",
+    title: "Google Calendar externo",
+    highlights: [
+      "OAuth propio por usuario fuera de Lovable.",
+      "Eventos privados por defecto y compartibles manualmente con el hogar.",
+      "Sincronizacion manual como base para cron posterior.",
+    ],
+  },
+  {
+    version: "v0.25",
+    title: "Cloudflare + Supabase propio",
+    highlights: [
+      "Despliegue externo en Cloudflare Pages.",
+      "Backend de pruebas en Supabase propio.",
+      "Lovable queda como editor auxiliar, no como entorno real obligatorio.",
+    ],
+  },
+];

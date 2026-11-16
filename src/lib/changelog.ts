@@ -7,11 +7,11 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "v1.03 y v1.04",
+    version: "v1.03 a v1.05",
     title: "Correcciones",
     date: "2026-11-16",
     highlights: [
-      "Ajustes internos para importar Eroski.",
+      "Cambios internos para añadir Eroski y futuras tiendas.",
     ],
   },
   {
@@ -19,7 +19,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: "Importación inicial del catálogo Eroski",
     date: "2026-11-15",
     highlights: [
-      "Preparando la tienda Eroski entre las disponibles.",
+      "Importador por lotes con modo dry-run para el catálogo compatible con Supabase.",
+      "Registra el precio inicial en el historial y permite marcar productos ausentes tras una extracción completa.",
     ],
   },
 
